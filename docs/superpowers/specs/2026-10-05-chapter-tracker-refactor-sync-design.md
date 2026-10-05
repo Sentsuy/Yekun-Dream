@@ -101,9 +101,15 @@ interface AppSettings {
   syncKey: string;           // Chave de sincronização do usuário (ex: "CT-9X2A8B")
   supabaseUrl: string;       // URL do endpoint Supabase
   supabaseKey: string;       // Anon public API Key
-  autoSyncIntervalMinutes: number; // Intervalo padrão: 15 minutos
-  floatingButtonEnabled: boolean;  // Ativar/desativar botão flutuante globalmente
-  blockedDomains: string[];        // Domínios onde o botão não deve ser injetado
+  autoSyncIntervalMinutes: number; // Intervalo de sincronização (padrão: 15 min)
+
+  // Toggles de preferências do usuário (quais partes estão ativas)
+  enableFloatingButton: boolean;      // Ativar/desativar botão flutuante nas páginas
+  enableBadgeCount: boolean;          // Exibir/ocultar contador de obras no botão flutuante
+  enableQuickIncrement: boolean;      // Exibir/ocultar botão rápido de "+1 capítulo" nos cards
+  enableAutoTitleDetection: boolean;  // Preenchimento automático do título da aba
+  enableAutoSync: boolean;            // Sincronização periódica automática em segundo plano
+  blockedDomains: string[];           // Lista de sites onde o botão flutuante fica oculto
 }
 ```
 
@@ -112,10 +118,20 @@ interface AppSettings {
 ## 5. Especificação dos Componentes
 
 ### 5.1. Ícones da Extensão (`icons/`)
-- Geração de 4 ícones PNG com fundo transparente baseados no símbolo visual da marca `◈` com cor de destaque neon `#e8ff47` sobre fundo circular escuro `#141418`.
-- Tamanhos: 16x16, 32x32, 48x48 e 128x128 pixels.
+- **Arquivo Vetorial Master (`icons/icon.svg`):** Arquivo SVG vetorial editável contendo a geometria do símbolo `◈` com propriedades CSS para alteração imediata de cores (`#e8ff47` neon) e proporções.
+- **Geração Automática de PNGs (`scripts/generate-icons.js`):** Script utilitário leve em Node.js (via canvas nativo ou SVG-to-PNG) que gera os 4 arquivos PNG compatíveis com o Chrome Manifest V3 (`16x16`, `32x32`, `48x48`, `128x128`). Dessa forma, basta alterar o SVG para redefinir as cores e tamanhos da marca.
 
-### 5.2. Camada de Persistência Local (`storage-local.js`)
+### 5.2. Painel de Configurações e Toggles do Usuário (`popup.html` / `popup.js`)
+- Botão de Configurações (`⚙`) com gaveta dedicada onde o usuário pode ligar/desligar individualmente cada recurso:
+  - Toggle: **Botão flutuante nas páginas** (liga/desliga injeção in-page).
+  - Toggle: **Contador no botão flutuante** (liga/desliga badge numérico).
+  - Toggle: **Botão rápido "+1"** nos cards da lista.
+  - Toggle: **Detecção automática de títulos** de abas.
+  - Toggle: **Sincronização automática em nuvem**.
+  - Lista de domínios bloqueados (ex: `google.com, youtube.com`).
+  - Chave de sincronização em nuvem e botões de Backup (Exportar/Importar JSON).
+
+### 5.3. Camada de Persistência Local (`storage-local.js`)
 - **API Utilizada:** `chrome.storage.local`.
 - **Chaves Utilizadas:**
   - `chapter_tracker_entries_v2`: Lista de objetos `TrackerEntry`.
@@ -128,8 +144,8 @@ interface AppSettings {
   - `exportBackup()`: Gera string JSON para download.
   - `importBackup(jsonString)`: Valida e mescla dados importados sem perda de integridade.
 
-### 5.3. Botão Flutuante In-Page (`content.js`)
-- **Verificação de Permissão de Domínio:** Antes de injetar, consulta `chapter_tracker_settings`. Se o domínio atual estiver em `blockedDomains` ou se `floatingButtonEnabled === false`, interrompe a injeção.
+### 5.4. Botão Flutuante In-Page (`content.js`)
+- **Verificação de Permissão de Domínio:** Antes de injetar, consulta `chapter_tracker_settings`. Se o domínio atual estiver em `blockedDomains` ou se `enableFloatingButton === false`, interrompe a injeção.
 - **Normalização e Detecção:**
   - Limpa sufixos do `document.title` (ex: ` - MangaDex`, ` | Ler Online`).
   - Consulta `storage-local.js` para verificar se existe entrada ativa com o mesmo nome normalizado.
@@ -141,7 +157,7 @@ interface AppSettings {
   - Se a obra **for nova**:
     - Permite editar o título, capítulo, categoria e cria novo registro.
 
-### 5.4. Interface do Popup (`popup.html`, `popup.css`, `popup.js`)
+### 5.5. Interface do Popup (`popup.html`, `popup.css`, `popup.js`)
 - **Ações Rápidas por Card:**
   - Botão de abertura de URL (`↗`).
   - Botão de avanço rápido de capítulo (`+1`) que incrementa números automaticamente sem precisar abrir formulário.
@@ -149,13 +165,9 @@ interface AppSettings {
   - Botão de remoção (`✕`).
 - **Barra de Ferramentas / Configurações:**
   - Botão de Nova Entrada (`＋`).
-  - Botão de Configurações / Nuvem (`⚙`), revelando painel retrátil com:
-    - Campo de Chave de Sincronização (Sync Key) com botão "Sincronizar Agora".
-    - Botão "Exportar Backup (.json)".
-    - Botão "Importar Backup".
-    - Toggle: "Exibir botão flutuante nas páginas".
+  - Botão de Configurações / Nuvem (`⚙`), revelando painel retrátil de configurações com todos os toggles do usuário.
 
-### 5.5. Serviço de Sincronização em Nuvem (`sync-service.js`)
+### 5.6. Serviço de Sincronização em Nuvem (`sync-service.js`)
 - **Protocolo:** Requisições HTTPS diretas para Supabase PostgREST (`/rest/v1/entries`).
 - **Fluxo Bidirecional:**
   1. **Push:** Coleta todas as entradas locais com `syncStatus === 'pending'` e envia via `POST/PATCH` (upsert com base no `id`). Ao confirmar sucesso, marca `syncStatus = 'synced'`.
@@ -164,9 +176,9 @@ interface AppSettings {
      - Se existir localmente: compara `updatedAt`. Se remoto for mais recente, atualiza localmente.
   3. **Purge:** Limpeza física local de itens marcados como `deleted` após garantia de que a deleção foi propagada para a nuvem.
 
-### 5.6. Service Worker (`background.js`)
+### 5.7. Service Worker (`background.js`)
 - Cria alarme via `chrome.alarms` para disparo a cada 15 minutos (`"chapter_tracker_sync_alarm"`).
-- Ao disparar o alarme ou ao iniciar o navegador (`chrome.runtime.onStartup`), executa a rotina `syncAll()` do `sync-service.js` em segundo plano se a chave de sincronização estiver configurada.
+- Ao disparar o alarme ou ao iniciar o navegador (`chrome.runtime.onStartup`), executa a rotina `syncAll()` do `sync-service.js` em segundo plano se a chave de sincronização e o toggle `enableAutoSync` estiverem ativos.
 
 ---
 
