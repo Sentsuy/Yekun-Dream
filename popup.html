@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chapter Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="header-brand">
+        <span class="brand-icon">◈</span>
+        <span class="brand-name">CHAPTER<br><em>TRACKER</em></span>
+      </div>
+      <div class="header-actions">
+        <button class="btn-icon" id="btnSettings" title="Configurações e Nuvem">⚙</button>
+        <button class="btn-add" id="btnShowForm" title="Nova entrada">＋</button>
+      </div>
+    </header>
+
+    <!-- Settings Panel (hidden by default) -->
+    <section class="settings-panel" id="settingsPanel">
+      <div class="settings-inner">
+        <div class="settings-header">
+          <h2 class="form-title">Configurações & Nuvem</h2>
+          <button class="btn-close-settings" id="btnCloseSettings" title="Fechar">✕</button>
+        </div>
+
+        <div class="toggle-list">
+          <label class="toggle-item">
+            <span class="toggle-label">Botão flutuante nas páginas</span>
+            <div class="switch">
+              <input type="checkbox" id="toggleFloatingButton" />
+              <span class="slider"></span>
+            </div>
+          </label>
+
+          <label class="toggle-item">
+            <span class="toggle-label">Contador no botão flutuante</span>
+            <div class="switch">
+              <input type="checkbox" id="toggleBadgeCount" />
+              <span class="slider"></span>
+            </div>
+          </label>
+
+          <label class="toggle-item">
+            <span class="toggle-label">Ação rápida (+1) nos cards</span>
+            <div class="switch">
+              <input type="checkbox" id="toggleQuickIncrement" />
+              <span class="slider"></span>
+            </div>
+          </label>
+
+          <label class="toggle-item">
+            <span class="toggle-label">Preenchimento automático do título</span>
+            <div class="switch">
+              <input type="checkbox" id="toggleAutoTitle" />
+              <span class="slider"></span>
+            </div>
+          </label>
+
+          <label class="toggle-item">
+            <span class="toggle-label">Sincronização periódica em nuvem</span>
+            <div class="switch">
+              <input type="checkbox" id="toggleAutoSync" />
+              <span class="slider"></span>
+            </div>
+          </label>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">DOMÍNIOS BLOQUEADOS (separados por vírgula)</label>
+          <input class="field-input" id="inputBlockedDomains" type="text" placeholder="ex: youtube.com, google.com" />
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">CHAVE DE SINCRONIZAÇÃO (SYNC KEY)</label>
+          <div class="url-row">
+            <input class="field-input" id="inputSyncKey" type="text" placeholder="ex: CT-USER-KEY" />
+            <button class="btn-sync" id="btnSyncNow" title="Sincronizar agora">⟳</button>
+          </div>
+        </div>
+
+        <div class="backup-actions">
+          <button class="btn-backup" id="btnExportBackup">Exportar Backup (.json)</button>
+          <button class="btn-backup" id="btnImportBackup">Importar Backup</button>
+          <input type="file" id="fileImportBackup" accept=".json" style="display: none;" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Form Panel (hidden by default) -->
+    <section class="form-panel" id="formPanel">
+      <div class="form-panel-inner">
+        <h2 class="form-title" id="formTitle">Nova Entrada</h2>
+
+        <input type="hidden" id="editId" />
+
+        <div class="field-group">
+          <label class="field-label">TÍTULO / NOME</label>
+          <input class="field-input" id="inputTitle" type="text" placeholder="ex: One Piece, Breaking Bad…" autocomplete="off" />
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">CAPÍTULO / EPISÓDIO</label>
+          <input class="field-input" id="inputChapter" type="text" placeholder="ex: Cap. 1102 / Ep. 14 T2" autocomplete="off" />
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">URL DO SITE</label>
+          <div class="url-row">
+            <input class="field-input" id="inputUrl" type="url" placeholder="https://…" autocomplete="off" />
+            <button class="btn-capture" id="btnCapture" title="Capturar URL atual">⌖</button>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">CATEGORIA</label>
+          <div class="tag-picker" id="tagPicker">
+            <button class="tag-btn active" data-tag="manga">Mangá</button>
+            <button class="tag-btn" data-tag="anime">Anime</button>
+            <button class="tag-btn" data-tag="serie">Série</button>
+            <button class="tag-btn" data-tag="livro">Livro</button>
+            <button class="tag-btn" data-tag="outro">Outro</button>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn-cancel" id="btnCancel">Cancelar</button>
+          <button class="btn-save" id="btnSave">Salvar</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Search -->
+    <div class="search-bar" id="searchBar">
+      <span class="search-icon">⌕</span>
+      <input class="search-input" id="searchInput" type="text" placeholder="Filtrar entradas…" />
+      <span class="entry-count" id="entryCount">0</span>
+    </div>
+
+    <!-- Entries List -->
+    <main class="entries-list" id="entriesList">
+      <div class="empty-state" id="emptyState">
+        <span class="empty-icon">◇</span>
+        <p>Nenhuma entrada ainda.<br>Clique em <strong>＋</strong> para começar.</p>
+      </div>
+    </main>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <script src="storage-local.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
