@@ -1,0 +1,9 @@
+{
+  "name": "chapter-tracker",
+  "version": "1.2.0",
+  "description": "Salve e acompanhe seu progresso em mangás, séries e animes — com botão flutuante e sincronização.",
+  "scripts": {
+    "test": "node tests/run-all-tests.js",
+    "generate-icons": "node scripts/generate-icons.js"
+  }
+}
