@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, '..');
 const testSuites = [
   { name: 'Icon verification', cmd: 'node tests/verify-icons.js' },
   { name: 'Storage Local unit tests', cmd: 'node tests/storage-local.test.js' },
+  { name: 'Storage v3 multi-source tests', cmd: 'node tests/test-storage-v3.js' },
   { name: 'Content Script verification', cmd: 'node tests/verify-content.js' },
   { name: 'Popup features & settings verification', cmd: 'node tests/verify-popup-features.js' },
   { name: 'Cloud Sync & background verification', cmd: 'node tests/verify-sync.js' },
