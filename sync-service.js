@@ -1,8 +1,10 @@
 /* ════════════════════════════════════════════════════════
    Chapter Tracker — sync-service.js
    Sincronização bidirecional em nuvem via Supabase REST
-   com resolução Last-Write-Wins (LWW) e soft-deletes.
+   com resolução Last-Write-Wins (LWW) e soft-deletes (v3: Works & Sources).
    ════════════════════════════════════════════════════════ */
+
+const STORAGE_KEY_ENTRIES_V3 = 'chapter_tracker_entries_v3';
 
 const SyncService = {
   async getClientConfig() {
@@ -20,24 +22,29 @@ const SyncService = {
       return { pushed: 0, reason: 'offline_mode' };
     }
 
-    const allEntries = await StorageLocal.getAllRawEntries();
-    const pending = allEntries.filter(e => e.syncStatus === 'pending');
+    const allWorks = await StorageLocal.getAllRawWorks();
+    const pending = allWorks.filter(w => w.syncStatus === 'pending');
 
     if (pending.length === 0) {
       return { pushed: 0 };
     }
 
-    const payload = pending.map(e => ({
-      id: e.id,
-      sync_key: config.syncKey,
-      name: e.name,
-      chapter: e.chapter,
-      url: e.url || '',
-      tag: e.tag || 'manga',
-      created_at: e.createdAt,
-      updated_at: e.updatedAt,
-      deleted: !!e.deleted
-    }));
+    const payload = pending.map(w => {
+      const activeSrc = (w.sources || []).find(s => s.id === w.lastReadSourceId) || (w.sources && w.sources[0]) || {};
+      return {
+        id: w.id,
+        sync_key: config.syncKey,
+        name: w.name,
+        chapter: w.mainChapter || activeSrc.chapter || 'Cap. 1',
+        url: activeSrc.url || '',
+        tag: w.tag || 'manga',
+        created_at: w.createdAt,
+        updated_at: w.updatedAt,
+        deleted: !!w.deleted,
+        sources: JSON.stringify(w.sources || []),
+        history: JSON.stringify(w.history || [])
+      };
+    });
 
     const url = `${config.supabaseUrl}/rest/v1/entries?on_conflict=id`;
     const response = await fetch(url, {
@@ -56,15 +63,15 @@ const SyncService = {
       throw new Error(`Falha no envio de dados: ${response.status} - ${errText}`);
     }
 
-    // Mark as synced locally
+    // Marca como synced localmente
     const pendingIds = new Set(pending.map(p => p.id));
-    allEntries.forEach(e => {
-      if (pendingIds.has(e.id)) {
-        e.syncStatus = 'synced';
+    allWorks.forEach(w => {
+      if (pendingIds.has(w.id)) {
+        w.syncStatus = 'synced';
       }
     });
 
-    await new Promise(resolve => chrome.storage.local.set({ ['chapter_tracker_entries_v2']: allEntries }, resolve));
+    await new Promise(resolve => chrome.storage.local.set({ [STORAGE_KEY_ENTRIES_V3]: allWorks }, resolve));
     return { pushed: pending.length };
   },
 
@@ -93,8 +100,8 @@ const SyncService = {
       return { pulled: 0 };
     }
 
-    const localList = await StorageLocal.getAllRawEntries();
-    const map = new Map(localList.map(e => [e.id, e]));
+    const localList = await StorageLocal.getAllRawWorks();
+    const map = new Map(localList.map(w => [w.id, w]));
 
     let updatedCount = 0;
     for (const rem of remoteEntries) {
@@ -103,23 +110,58 @@ const SyncService = {
 
       // Se não existe ou remoto é mais recente
       if (!local || remoteUpdatedAt > (local.updatedAt || 0)) {
+        let sources = [];
+        let history = [];
+
+        try {
+          if (rem.sources) {
+            sources = typeof rem.sources === 'string' ? JSON.parse(rem.sources) : rem.sources;
+          }
+        } catch (e) {
+          sources = [];
+        }
+
+        try {
+          if (rem.history) {
+            history = typeof rem.history === 'string' ? JSON.parse(rem.history) : rem.history;
+          }
+        } catch (e) {
+          history = [];
+        }
+
+        if (!Array.isArray(sources) || sources.length === 0) {
+          const domain = StorageLocal.extractDomain(rem.url);
+          const siteName = StorageLocal.formatSiteName(domain);
+          const srcId = 'src_' + rem.id;
+          sources = [{
+            id: srcId,
+            siteName,
+            domain,
+            url: rem.url || '',
+            chapter: rem.chapter || 'Cap. 1',
+            updatedAt: remoteUpdatedAt
+          }];
+        }
+
         map.set(rem.id, {
           id: rem.id,
           name: rem.name,
-          chapter: rem.chapter,
-          url: rem.url || '',
+          mainChapter: rem.chapter || (sources[0] && sources[0].chapter) || 'Cap. 1',
           tag: rem.tag || 'manga',
+          lastReadSourceId: sources[0] ? sources[0].id : '',
           createdAt: Number(rem.created_at) || remoteUpdatedAt,
           updatedAt: remoteUpdatedAt,
           deleted: !!rem.deleted,
-          syncStatus: 'synced'
+          syncStatus: 'synced',
+          sources,
+          history
         });
         updatedCount++;
       }
     }
 
     const merged = Array.from(map.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-    await new Promise(resolve => chrome.storage.local.set({ ['chapter_tracker_entries_v2']: merged }, resolve));
+    await new Promise(resolve => chrome.storage.local.set({ [STORAGE_KEY_ENTRIES_V3]: merged }, resolve));
 
     return { pulled: updatedCount };
   },
