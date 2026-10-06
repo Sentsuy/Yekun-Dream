@@ -1,7 +1,7 @@
 /* ════════════════════════════════════════════════════════
    Chapter Tracker — content.js
    Botão flutuante + mini-form inline (Shadow DOM isolado).
-   Persistência direta via storage-local.js (chrome.storage.local).
+   Persistência direta via storage-local.js (v3: multi-fontes e obras).
    ════════════════════════════════════════════════════════ */
 
 (async function () {
@@ -14,9 +14,9 @@
 
   if (!settings.enableFloatingButton) return;
 
-  const currentHost = window.location.hostname.toLowerCase();
+  const currentHost = window.location.hostname.toLowerCase().replace(/^www\./, '');
   const isBlocked = (settings.blockedDomains || []).some(d => {
-    const domain = d.trim().toLowerCase();
+    const domain = d.trim().toLowerCase().replace(/^www\./, '');
     return domain && (currentHost === domain || currentHost.endsWith('.' + domain));
   });
 
@@ -98,52 +98,54 @@
       font-weight: 700;
       min-width: 16px; height: 16px;
       border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
       padding: 0 4px;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity var(--ease);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #0d0d0f;
     }
-    #ct-badge.visible { opacity: 1; }
+    #ct-badge.visible { display: flex; }
 
-    /* ── Painel flutuante ── */
+    /* ── Painel retrátil ── */
     #ct-panel {
       position: absolute;
       bottom: 58px; right: 0;
-      width: 310px;
-      background: #0d0d0f;
+      width: 290px;
+      background: #141418;
       border: 1px solid #2a2a32;
       border-radius: 12px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.04);
+      display: none;
+      flex-direction: column;
       overflow: hidden;
-      box-shadow: 0 16px 48px rgba(0,0,0,.8), 0 2px 8px rgba(0,0,0,.6);
-      transform-origin: bottom right;
-      transform: scale(.85) translateY(10px);
-      opacity: 0;
-      pointer-events: none;
-      transition: transform 200ms cubic-bezier(.34,1.56,.64,1), opacity 180ms ease;
+      z-index: 1;
+      animation: ctSlideUp 160ms cubic-bezier(.4,0,.2,1);
     }
-    #ct-panel.open {
-      transform: scale(1) translateY(0);
-      opacity: 1;
-      pointer-events: all;
+    #ct-panel.open { display: flex; }
+
+    @keyframes ctSlideUp {
+      from { opacity: 0; transform: translateY(10px) scale(.97); }
+      to   { opacity: 1; transform: translateY(0)    scale(1);   }
     }
 
-    /* ── Panel header ── */
+    /* ── Header do painel ── */
     .ct-pheader {
-      background: #141418;
-      border-bottom: 1px solid #2a2a32;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       padding: 10px 14px;
-      display: flex; align-items: center; gap: 8px;
+      background: #0d0d0f;
+      border-bottom: 1px solid #2a2a32;
     }
-    .ct-picon { color: #e8ff47; font-size: 16px; }
+    .ct-brand {
+      display: flex; align-items: center; gap: 7px;
+    }
+    .ct-picon { color: #e8ff47; font-size: 14px; }
     .ct-ptitle {
       font-family: 'Syne', sans-serif;
-      font-weight: 800;
-      font-size: 10px;
-      letter-spacing: .14em;
-      text-transform: uppercase;
+      font-size: 11px; font-weight: 800;
+      letter-spacing: .08em;
       color: #e8e8ec;
-      flex: 1;
     }
     .ct-ptitle em { font-style: normal; color: #e8ff47; }
 
@@ -162,6 +164,27 @@
     #ct-status span { color: #e8e8ec; }
     #ct-status.known { color: #606070; }
     #ct-status.known span { color: #e8ff47; font-weight: 700; }
+    #ct-status.new-source span { color: #34d399; font-weight: 700; }
+
+    /* ── Faixa do Site / Fonte ── */
+    .ct-source-info {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: #111115;
+      border-bottom: 1px solid #22222a;
+      font-family: 'Space Mono', monospace;
+      font-size: 9px;
+      color: #a78bfa;
+    }
+    .ct-source-dot { font-size: 10px; }
+    #ct-source-text {
+      color: #c4b5fd;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
     /* ── Form ── */
     .ct-form { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
@@ -281,11 +304,17 @@
 
     <div id="ct-panel">
       <div class="ct-pheader">
-        <span class="ct-picon">◈</span>
-        <span class="ct-ptitle">CHAPTER <em>TRACKER</em></span>
+        <div class="ct-brand">
+          <span class="ct-picon">◈</span>
+          <span class="ct-ptitle">CHAPTER <em>TRACKER</em></span>
+        </div>
       </div>
 
       <div id="ct-status">Carregando…</div>
+      <div class="ct-source-info" id="ct-source-info">
+        <span class="ct-source-dot">🌐</span>
+        <span id="ct-source-text">Identificando site…</span>
+      </div>
 
       <div class="ct-form">
         <input type="hidden" id="ct-edit-id" />
@@ -326,26 +355,28 @@
   shadow.appendChild(wrap);
 
   // ── Refs ─────────────────────────────────────────────────
-  const fab       = shadow.getElementById('ct-fab');
-  const fabIcon   = shadow.getElementById('ct-fab-icon');
-  const badge     = shadow.getElementById('ct-badge');
-  const panel     = shadow.getElementById('ct-panel');
-  const statusEl  = shadow.getElementById('ct-status');
-  const editIdInp = shadow.getElementById('ct-edit-id');
-  const nameInp   = shadow.getElementById('ct-name');
-  const nameLabel = shadow.getElementById('ct-name-label');
-  const chapterInp= shadow.getElementById('ct-chapter');
-  const incBtn    = shadow.getElementById('ct-inc');
-  const tagsWrap  = shadow.getElementById('ct-tags');
-  const btnCancel = shadow.getElementById('ct-cancel');
-  const btnSave   = shadow.getElementById('ct-save');
-  const toastEl   = shadow.getElementById('ct-toast');
+  const fab          = shadow.getElementById('ct-fab');
+  const fabIcon      = shadow.getElementById('ct-fab-icon');
+  const badge        = shadow.getElementById('ct-badge');
+  const panel        = shadow.getElementById('ct-panel');
+  const statusEl     = shadow.getElementById('ct-status');
+  const sourceTextEl = shadow.getElementById('ct-source-text');
+  const editIdInp    = shadow.getElementById('ct-edit-id');
+  const nameInp      = shadow.getElementById('ct-name');
+  const nameLabel    = shadow.getElementById('ct-name-label');
+  const chapterInp   = shadow.getElementById('ct-chapter');
+  const incBtn       = shadow.getElementById('ct-inc');
+  const tagsWrap     = shadow.getElementById('ct-tags');
+  const btnCancel    = shadow.getElementById('ct-cancel');
+  const btnSave      = shadow.getElementById('ct-save');
+  const toastEl      = shadow.getElementById('ct-toast');
 
-  let selectedTag   = 'manga';
-  let toastTimer    = null;
-  let currentTitle  = '';
-  let currentUrl    = '';
-  let existingEntry = null;
+  let selectedTag     = 'manga';
+  let toastTimer      = null;
+  let currentTitle    = '';
+  let currentUrl      = '';
+  let existingEntry   = null; // Representa a obra existente (WorkEntry)
+  let matchedSource   = null;
 
   // ── Toast ────────────────────────────────────────────────
   function toast(msg, duration = 2200) {
@@ -379,18 +410,18 @@
     return (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
   }
 
-  function findExisting(entries, name) {
+  function findExistingWork(works, name) {
     const n = normalize(name);
-    return entries.find(e => !e.deleted && normalize(e.name) === n) || null;
+    return works.find(w => !w.deleted && normalize(w.name) === n) || null;
   }
 
-  // ── Atualiza badge com total de entradas ─────────────────
-  function updateBadge(entries) {
+  // ── Atualiza badge com total de obras ────────────────────
+  function updateBadge(works) {
     if (!settings.enableBadgeCount) {
       badge.classList.remove('visible');
       return;
     }
-    const count = entries.filter(e => !e.deleted).length;
+    const count = (works || []).filter(w => !w.deleted).length;
     if (count > 0) {
       badge.textContent = count > 99 ? '99+' : count;
       badge.classList.add('visible');
@@ -404,33 +435,51 @@
     currentTitle = getPageTitle();
     currentUrl   = window.location.href;
 
-    const entries = await StorageLocal.getEntries();
-    updateBadge(entries);
+    const siteDomain = StorageLocal.extractDomain(currentUrl) || currentHost;
+    const siteLabel  = StorageLocal.formatSiteName(siteDomain);
 
-    existingEntry = findExisting(entries, currentTitle);
+    const works = await StorageLocal.getWorks();
+    updateBadge(works);
+
+    existingEntry = findExistingWork(works, currentTitle);
 
     if (existingEntry) {
-      statusEl.className = 'known';
-      statusEl.innerHTML = `Continuando: <span>${esc(existingEntry.name)}</span>`;
       editIdInp.value    = existingEntry.id;
       nameInp.value      = existingEntry.name;
       nameInp.readOnly   = true;
       nameInp.style.opacity = '.6';
-      nameLabel.innerHTML = 'TÍTULO <em>(já salvo)</em>';
-      chapterInp.value   = existingEntry.chapter || '';
+      nameLabel.innerHTML = 'OBRA <em>(já cadastrada)</em>';
       setTag(existingEntry.tag || 'manga');
-      btnSave.textContent = 'Atualizar';
+
+      matchedSource = (existingEntry.sources || []).find(s => {
+        return (s.domain && s.domain === siteDomain) || (s.siteName && s.siteName.toLowerCase() === siteLabel.toLowerCase());
+      });
+
+      if (matchedSource) {
+        statusEl.className = 'known';
+        statusEl.innerHTML = `Continuando: <span>${esc(existingEntry.name)}</span>`;
+        sourceTextEl.textContent = `Fonte: ${matchedSource.siteName} (Último: ${matchedSource.chapter})`;
+        chapterInp.value = matchedSource.chapter || '';
+        btnSave.textContent = 'Atualizar Progresso';
+      } else {
+        statusEl.className = 'known new-source';
+        statusEl.innerHTML = `<span>＋ Nova fonte</span> para: <span>${esc(existingEntry.name)}</span>`;
+        sourceTextEl.textContent = `Novo site detectado: ${siteLabel} (${siteDomain})`;
+        chapterInp.value = existingEntry.mainChapter || '';
+        btnSave.textContent = 'Vincular Novo Site';
+      }
     } else {
       statusEl.className = '';
-      statusEl.innerHTML = `Página: <span>${esc(currentTitle.slice(0, 38))}${currentTitle.length > 38 ? '…' : ''}</span>`;
+      statusEl.innerHTML = `Página: <span>${esc(currentTitle.slice(0, 36))}${currentTitle.length > 36 ? '…' : ''}</span>`;
+      sourceTextEl.textContent = `Site: ${siteLabel} (${siteDomain})`;
       editIdInp.value    = '';
       nameInp.value      = currentTitle;
       nameInp.readOnly   = false;
       nameInp.style.opacity = '1';
-      nameLabel.innerHTML = 'TÍTULO';
+      nameLabel.innerHTML = 'TÍTULO DA OBRA';
       chapterInp.value   = '';
       setTag('manga');
-      btnSave.textContent = 'Salvar';
+      btnSave.textContent = 'Salvar Obra';
     }
 
     setTimeout(() => chapterInp.focus(), 80);
@@ -438,7 +487,7 @@
 
   // ── Botão +1 Rápido no Form ──────────────────────────────
   incBtn.addEventListener('click', () => {
-    const currentVal = chapterInp.value.trim() || (existingEntry ? existingEntry.chapter : 'Cap. 0');
+    const currentVal = chapterInp.value.trim() || (existingEntry ? existingEntry.mainChapter : 'Cap. 0');
     chapterInp.value = StorageLocal.parseChapterIncrement(currentVal);
     chapterInp.focus();
   });
@@ -476,20 +525,33 @@
       return;
     }
 
+    const siteDomain = StorageLocal.extractDomain(currentUrl) || currentHost;
+    const siteLabel  = StorageLocal.formatSiteName(siteDomain);
+
     const payload = {
-      id: existingEntry ? existingEntry.id : undefined,
-      name: name || currentTitle,
+      workId:   existingEntry ? existingEntry.id : undefined,
+      workName: name || currentTitle,
       chapter,
-      url: currentUrl,
-      tag: selectedTag
+      url:      currentUrl,
+      domain:   siteDomain,
+      siteName: siteLabel,
+      tag:      selectedTag
     };
 
-    await StorageLocal.saveEntry(payload);
-    const updatedEntries = await StorageLocal.getEntries();
-    updateBadge(updatedEntries);
+    const savedWork = await StorageLocal.saveWorkReading(payload);
+    const updatedWorks = await StorageLocal.getWorks();
+    updateBadge(updatedWorks);
 
     const isUpdate = !!existingEntry;
-    toast(isUpdate ? `✓ Progresso atualizado — ${chapter}` : '✓ Entrada salva!');
+    const isNewSource = isUpdate && !matchedSource;
+
+    if (isNewSource) {
+      toast(`✓ Novo site vinculado à ${savedWork.name}!`);
+    } else if (isUpdate) {
+      toast(`✓ Progresso atualizado — ${chapter}`);
+    } else {
+      toast(`✓ Obra salva com sucesso!`);
+    }
 
     setTimeout(() => {
       panel.classList.remove('open');
@@ -514,7 +576,7 @@
 
   // ── Init: atualiza badge ─────────────────────────────────
   if (typeof StorageLocal !== 'undefined') {
-    StorageLocal.getEntries().then(updateBadge);
+    StorageLocal.getWorks().then(updateBadge);
   }
 
   function esc(s) {
