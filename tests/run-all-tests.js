@@ -10,6 +10,7 @@ const testSuites = [
   { name: 'Content Script verification', cmd: 'node tests/verify-content.js' },
   { name: 'Content Script v3 multi-source tests', cmd: 'node tests/test-content-v3.js' },
   { name: 'Popup features & settings verification', cmd: 'node tests/verify-popup-features.js' },
+  { name: 'Popup v3 multi-source tests', cmd: 'node tests/test-popup-v3.js' },
   { name: 'Cloud Sync & background verification', cmd: 'node tests/verify-sync.js' },
   { name: 'Syntax check: storage-local.js', cmd: 'node -c storage-local.js' },
   { name: 'Syntax check: sync-service.js', cmd: 'node -c sync-service.js' },
