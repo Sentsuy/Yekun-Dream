@@ -14,6 +14,7 @@ const formTitle          = document.getElementById('formTitle');
 const editIdField        = document.getElementById('editId');
 const editSourceIdField  = document.getElementById('editSourceId');
 const inputTitle         = document.getElementById('inputTitle');
+const inputAliases       = document.getElementById('inputAliases');
 const inputSiteName      = document.getElementById('inputSiteName');
 const inputChapter       = document.getElementById('inputChapter');
 const inputUrl           = document.getElementById('inputUrl');
@@ -21,11 +22,55 @@ const btnCapture         = document.getElementById('btnCapture');
 const btnCancel          = document.getElementById('btnCancel');
 const btnSave            = document.getElementById('btnSave');
 const tagPicker          = document.getElementById('tagPicker');
+const searchBar          = document.getElementById('searchBar');
 const searchInput        = document.getElementById('searchInput');
+const categoryFilter     = document.getElementById('categoryFilter');
+const statusFilter       = document.getElementById('statusFilter');
+const sortFilter         = document.getElementById('sortFilter');
+const btnClearSearch     = document.getElementById('btnClearSearch');
 const entriesList        = document.getElementById('entriesList');
 const emptyState         = document.getElementById('emptyState');
 const entryCount         = document.getElementById('entryCount');
 const toast              = document.getElementById('toast');
+const confirmDeleteModal = document.getElementById('confirmDeleteModal');
+const confirmDeleteText  = document.getElementById('confirmDeleteText');
+const btnCancelDelete    = document.getElementById('btnCancelDelete');
+const btnConfirmDelete   = document.getElementById('btnConfirmDelete');
+
+// Notifications & Bell DOM refs
+const btnNotifications      = document.getElementById('btnNotifications');
+const notifUnreadDot        = document.getElementById('notifUnreadDot');
+const notificationsPanel    = document.getElementById('notificationsPanel');
+const notificationsList     = document.getElementById('notificationsList');
+const notificationsEmpty    = document.getElementById('notificationsEmpty');
+const btnClearNotifs        = document.getElementById('btnClearNotifs');
+const btnCloseNotifs        = document.getElementById('btnCloseNotifs');
+
+// Weekday Picker DOM ref
+const weekdayPicker         = document.getElementById('weekdayPicker');
+
+let pendingDeleteWorkId  = null;
+
+// Confirm Action Modal (Increment & Safe Checks)
+const confirmActionModal = document.getElementById('confirmActionModal');
+const confirmActionTitle = document.getElementById('confirmActionTitle');
+const confirmActionText  = document.getElementById('confirmActionText');
+const btnCancelAction    = document.getElementById('btnCancelAction');
+const btnConfirmAction   = document.getElementById('btnConfirmAction');
+let pendingActionCallback = null;
+
+function showConfirmActionModal({ title, message, confirmText = 'Avançar', onConfirm }) {
+  pendingActionCallback = onConfirm;
+  if (confirmActionTitle) confirmActionTitle.textContent = title || 'Confirmar';
+  if (confirmActionText) confirmActionText.textContent = message || '';
+  if (btnConfirmAction) btnConfirmAction.textContent = confirmText;
+  if (confirmActionModal) confirmActionModal.classList.add('open');
+}
+
+function closeConfirmActionModal() {
+  pendingActionCallback = null;
+  if (confirmActionModal) confirmActionModal.classList.remove('open');
+}
 
 // Settings DOM refs
 const toggleFloatingButton = document.getElementById('toggleFloatingButton');
@@ -33,17 +78,67 @@ const toggleBadgeCount     = document.getElementById('toggleBadgeCount');
 const toggleQuickIncrement = document.getElementById('toggleQuickIncrement');
 const toggleAutoTitle      = document.getElementById('toggleAutoTitle');
 const toggleAutoSync       = document.getElementById('toggleAutoSync');
+const toggleReleaseNotifications = document.getElementById('toggleReleaseNotifications');
+const toggleMorningNotification   = document.getElementById('toggleMorningNotification');
+const toggleEveningNotification   = document.getElementById('toggleEveningNotification');
+const toggleAutoTrackAnime       = document.getElementById('toggleAutoTrackAnime');
 const inputBlockedDomains  = document.getElementById('inputBlockedDomains');
+const inputAllowedDomains  = document.getElementById('inputAllowedDomains');
+const allowedChipsList     = document.getElementById('allowedChipsList');
+const blockedChipsList     = document.getElementById('blockedChipsList');
+const toggleCurrentSite    = document.getElementById('toggleCurrentSite');
+const currentSiteDomain    = document.getElementById('currentSiteDomain');
+const sitePermissionBar    = document.getElementById('sitePermissionBar');
 const inputSyncKey         = document.getElementById('inputSyncKey');
 const btnSyncNow           = document.getElementById('btnSyncNow');
 const btnExportBackup      = document.getElementById('btnExportBackup');
 const btnImportBackup      = document.getElementById('btnImportBackup');
 const fileImportBackup     = document.getElementById('fileImportBackup');
 
-let selectedTag   = 'manga';
-let allWorks      = [];
-let appSettings   = {};
-let toastTimer    = null;
+// About & Pix DOM refs
+const btnAbout             = document.getElementById('btnAbout');
+const aboutPanel           = document.getElementById('aboutPanel');
+const btnCloseAbout        = document.getElementById('btnCloseAbout');
+const linkOfficialSite     = document.getElementById('linkOfficialSite');
+const btnCopyPix           = document.getElementById('btnCopyPix');
+const pixTestKey           = document.getElementById('pixTestKey');
+
+// Form Status Pickers
+const readingStatusPicker  = document.getElementById('readingStatusPicker');
+const pubStatusPicker      = document.getElementById('pubStatusPicker');
+
+// Bottom Nav & Sites View DOM refs
+const bottomNavBar        = document.getElementById('bottomNavBar');
+const navBtnWorks          = document.getElementById('navBtnWorks');
+const navBtnSites          = document.getElementById('navBtnSites');
+const navBadgeWorks        = document.getElementById('navBadgeWorks');
+const navBadgeSites        = document.getElementById('navBadgeSites');
+const sitesListView        = document.getElementById('sitesListView');
+const emptySitesState      = document.getElementById('emptySitesState');
+const sitesCardsContainer  = document.getElementById('sitesCardsContainer');
+
+let currentActiveView      = 'works';
+let selectedTag            = 'manga';
+let selectedReadingStatus  = 'lendo';
+let selectedPubStatus      = 'lancamento';
+let allWorks               = [];
+let appSettings            = {};
+let toastTimer             = null;
+let currentActiveDomain    = '';
+
+// ── Vector SVG Icons ──────────────────────────────────────
+const ICONS = {
+  globe: `<svg class="svg-icon svg-xs" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
+  slashCircle: `<svg class="svg-icon svg-xs" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>`,
+  external: `<svg class="svg-icon svg-xs" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`,
+  edit: `<svg class="svg-icon svg-xs" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+  del: `<svg class="svg-icon svg-xs" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+  book: `<svg class="svg-icon svg-xs" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`,
+  chevronDown: `<svg class="svg-icon svg-xs" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>`,
+  plus: `<svg class="svg-icon svg-xs" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+  calendar: `<svg class="svg-icon svg-xs" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+  bell: `<svg class="svg-icon svg-xs" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`
+};
 
 // ── Toast ────────────────────────────────────────────────
 function showToast(msg) {
@@ -69,18 +164,138 @@ function setActiveTag(tag) {
   selectedTag = tag || 'manga';
 }
 
+// ── Status Pickers (Leitura e Obra) ──────────────────────
+if (readingStatusPicker) {
+  readingStatusPicker.querySelectorAll('.tag-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      readingStatusPicker.querySelectorAll('.tag-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedReadingStatus = btn.dataset.status;
+    });
+  });
+}
+
+function setActiveReadingStatus(status) {
+  if (!readingStatusPicker) return;
+  readingStatusPicker.querySelectorAll('.tag-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.status === status);
+  });
+  selectedReadingStatus = status || 'lendo';
+}
+
+if (pubStatusPicker) {
+  pubStatusPicker.querySelectorAll('.tag-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      pubStatusPicker.querySelectorAll('.tag-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedPubStatus = btn.dataset.pub;
+    });
+  });
+}
+
+function setActivePubStatus(pub) {
+  if (!pubStatusPicker) return;
+  pubStatusPicker.querySelectorAll('.tag-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.pub === pub);
+  });
+  selectedPubStatus = pub || 'lancamento';
+}
+
+// ── Weekday Picker (Dias de Lançamento) ────────────────────
+let selectedReleaseDays = [];
+
+function setSelectedReleaseDays(days = []) {
+  selectedReleaseDays = Array.isArray(days) ? days.map(Number) : [];
+  if (weekdayPicker) {
+    weekdayPicker.querySelectorAll('.weekday-btn').forEach(btn => {
+      const d = Number(btn.dataset.day);
+      btn.classList.toggle('active', selectedReleaseDays.includes(d));
+    });
+  }
+}
+
+function getSelectedReleaseDays() {
+  return [...selectedReleaseDays];
+}
+
+if (weekdayPicker) {
+  weekdayPicker.querySelectorAll('.weekday-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const d = Number(btn.dataset.day);
+      if (selectedReleaseDays.includes(d)) {
+        selectedReleaseDays = selectedReleaseDays.filter(day => day !== d);
+        btn.classList.remove('active');
+      } else {
+        selectedReleaseDays.push(d);
+        btn.classList.add('active');
+      }
+    });
+  });
+}
+
+function isElOpen(el) {
+  if (!el || !el.classList) return false;
+  if (typeof el.classList.contains === 'function') {
+    return el.classList.contains('open');
+  }
+  return false;
+}
+
+function syncBottomNavVisibility() {
+  const isDrawerOpen = isElOpen(settingsPanel) ||
+                       isElOpen(aboutPanel) ||
+                       isElOpen(formPanel) ||
+                       isElOpen(notificationsPanel);
+
+  if (bottomNavBar) {
+    bottomNavBar.style.display = isDrawerOpen ? 'none' : 'flex';
+  }
+  if (sitePermissionBar) {
+    sitePermissionBar.style.display = isDrawerOpen ? 'none' : '';
+  }
+  if (searchBar) {
+    searchBar.style.display = isDrawerOpen ? 'none' : '';
+  }
+
+  if (isDrawerOpen) {
+    if (entriesList) entriesList.style.display = 'none';
+    if (sitesListView) sitesListView.style.display = 'none';
+  } else {
+    if (currentActiveView === 'sites') {
+      if (entriesList) entriesList.style.display = 'none';
+      if (sitesListView) sitesListView.style.display = 'flex';
+    } else {
+      if (entriesList) entriesList.style.display = '';
+      if (sitesListView) sitesListView.style.display = 'none';
+    }
+  }
+}
+
 // ── Drawer Controls ──────────────────────────────────────
 function openForm(mode = 'new', work = null, source = null) {
+  if (aboutPanel) {
+    aboutPanel.classList.remove('open');
+    if (btnAbout) btnAbout.classList.remove('active');
+  }
+  if (notificationsPanel) {
+    notificationsPanel.classList.remove('open');
+    if (btnNotifications) btnNotifications.classList.remove('active');
+  }
   settingsPanel.classList.remove('open');
   btnSettings.classList.remove('active');
   formPanel.classList.add('open');
+  syncBottomNavVisibility();
 
   if (mode === 'edit' && work) {
     formTitle.textContent = 'Editar Obra';
     editIdField.value     = work.id;
     inputTitle.value      = work.name;
     inputTitle.readOnly   = false;
+    if (inputAliases) inputAliases.value = Array.isArray(work.aliases) ? work.aliases.join(', ') : '';
     setActiveTag(work.tag || 'outro');
+    setActiveReadingStatus(work.readingStatus || 'lendo');
+    setActivePubStatus(work.publicationStatus || 'lancamento');
+    setSelectedReleaseDays(work.releaseDays || []);
 
     const activeSrc = source || (work.sources || []).find(s => s.id === work.lastReadSourceId) || (work.sources && work.sources[0]) || {};
     editSourceIdField.value = activeSrc.id || '';
@@ -94,39 +309,60 @@ function openForm(mode = 'new', work = null, source = null) {
     editSourceIdField.value = '';
     inputTitle.value      = work.name;
     inputTitle.readOnly   = true;
+    if (inputAliases) inputAliases.value = Array.isArray(work.aliases) ? work.aliases.join(', ') : '';
     setActiveTag(work.tag || 'manga');
+    setActiveReadingStatus(work.readingStatus || 'lendo');
+    setActivePubStatus(work.publicationStatus || 'lancamento');
+    setSelectedReleaseDays(work.releaseDays || []);
     inputSiteName.value   = '';
     inputChapter.value    = work.mainChapter || '';
     inputUrl.value        = '';
     btnSave.textContent   = 'Adicionar Fonte';
 
-    if (appSettings.enableAutoTitleDetection) {
+    if (appSettings.enableAutoTitleDetection !== false) {
       captureCurrentTab(true);
     }
   } else {
-    formTitle.textContent = 'Nova Obra';
-    editIdField.value     = '';
-    editSourceIdField.value = '';
-    inputTitle.value      = '';
-    inputTitle.readOnly   = false;
-    inputSiteName.value   = '';
-    inputChapter.value    = '';
-    inputUrl.value        = '';
-    setActiveTag('manga');
-    btnSave.textContent   = 'Salvar Obra';
-
-    if (appSettings.enableAutoTitleDetection) {
+    resetPopupForm();
+    if (appSettings.enableAutoTitleDetection !== false) {
       captureCurrentTab(false);
     }
   }
   setTimeout(() => (inputTitle.readOnly ? inputChapter : inputTitle).focus(), 60);
 }
 
+function resetPopupForm() {
+  formTitle.textContent = 'Nova Obra';
+  editIdField.value     = '';
+  editSourceIdField.value = '';
+  inputTitle.value      = '';
+  inputTitle.readOnly   = false;
+  if (inputAliases) inputAliases.value = '';
+  inputSiteName.value   = '';
+  inputChapter.value    = '';
+  inputUrl.value        = '';
+  setActiveTag('manga');
+  setActiveReadingStatus('lendo');
+  setActivePubStatus('lancamento');
+  setSelectedReleaseDays([]);
+  btnSave.textContent   = 'Salvar Obra';
+}
+
 function closeForm() {
   formPanel.classList.remove('open');
+  resetPopupForm();
+  syncBottomNavVisibility();
 }
 
 btnShowForm.addEventListener('click', () => {
+  if (aboutPanel) {
+    aboutPanel.classList.remove('open');
+    if (btnAbout) btnAbout.classList.remove('active');
+  }
+  if (notificationsPanel) {
+    notificationsPanel.classList.remove('open');
+    if (btnNotifications) btnNotifications.classList.remove('active');
+  }
   if (formPanel.classList.contains('open')) {
     closeForm();
   } else {
@@ -136,73 +372,962 @@ btnShowForm.addEventListener('click', () => {
 
 btnCancel.addEventListener('click', closeForm);
 
+// ── Notifications Drawer & History Handlers ───────────────
+async function updateNotificationUnreadDot() {
+  if (!notifUnreadDot || typeof StorageLocal === 'undefined' || typeof StorageLocal.getNotificationsHistory !== 'function') return;
+  try {
+    const history = await StorageLocal.getNotificationsHistory();
+    const hasUnread = Array.isArray(history) && history.some(n => !n.read);
+    notifUnreadDot.style.display = hasUnread ? 'block' : 'none';
+  } catch (_) {}
+}
+
+async function renderNotificationsList() {
+  if (!notificationsList || typeof StorageLocal === 'undefined' || typeof StorageLocal.getNotificationsHistory !== 'function') return;
+  try {
+    const history = await StorageLocal.getNotificationsHistory();
+    notificationsList.innerHTML = '';
+
+    if (!Array.isArray(history) || history.length === 0) {
+      if (notificationsEmpty) notificationsEmpty.style.display = 'flex';
+      return;
+    }
+    if (notificationsEmpty) notificationsEmpty.style.display = 'none';
+
+    history.forEach(notif => {
+      const card = document.createElement('div');
+      card.className = `notif-card ${notif.read ? 'read' : 'unread'}`;
+      const periodLabel = notif.period === 'morning' ? 'Manhã (08:00)' : (notif.period === 'evening' ? 'Tarde (17:00)' : 'Lançamento');
+      const timeStr = formatDate(notif.timestamp) + ' ' + formatTime(notif.timestamp);
+
+      card.innerHTML = `
+        <div class="notif-card-info">
+          <div class="notif-card-title" title="${esc(notif.workName || '')}">${esc(notif.workName || 'Obra')}</div>
+          <div class="notif-card-sub">
+            <span>${esc(periodLabel)}</span> • <span>${esc(timeStr)}</span>
+          </div>
+        </div>
+        ${notif.url ? `<button type="button" class="notif-card-btn" data-url="${esc(notif.url)}">Abrir</button>` : ''}
+      `;
+
+      if (notif.url) {
+        card.style.cursor = 'pointer';
+        card.addEventListener('click', () => {
+          if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+            chrome.tabs.create({ url: notif.url });
+          } else {
+            window.open(notif.url, '_blank');
+          }
+        });
+      }
+
+      notificationsList.appendChild(card);
+    });
+  } catch (_) {}
+}
+
+async function toggleNotificationsDrawer() {
+  if (aboutPanel) {
+    aboutPanel.classList.remove('open');
+    if (btnAbout) btnAbout.classList.remove('active');
+  }
+  if (settingsPanel) {
+    settingsPanel.classList.remove('open');
+    if (btnSettings) btnSettings.classList.remove('active');
+  }
+  if (formPanel) formPanel.classList.remove('open');
+
+  const isOpen = notificationsPanel ? notificationsPanel.classList.toggle('open') : false;
+  if (btnNotifications) btnNotifications.classList.toggle('active', isOpen);
+  syncBottomNavVisibility();
+
+  if (isOpen) {
+    await renderNotificationsList();
+    if (typeof StorageLocal !== 'undefined' && typeof StorageLocal.markNotificationsRead === 'function') {
+      await StorageLocal.markNotificationsRead();
+    }
+    if (notifUnreadDot) notifUnreadDot.style.display = 'none';
+  }
+}
+
+if (btnNotifications) {
+  btnNotifications.addEventListener('click', toggleNotificationsDrawer);
+}
+
+if (btnCloseNotifs) {
+  btnCloseNotifs.addEventListener('click', () => {
+    if (notificationsPanel) notificationsPanel.classList.remove('open');
+    if (btnNotifications) btnNotifications.classList.remove('active');
+    syncBottomNavVisibility();
+  });
+}
+
+if (btnClearNotifs) {
+  btnClearNotifs.addEventListener('click', async () => {
+    if (typeof StorageLocal !== 'undefined' && typeof StorageLocal.clearNotificationsHistory === 'function') {
+      await StorageLocal.clearNotificationsHistory();
+    }
+    await renderNotificationsList();
+    if (notifUnreadDot) notifUnreadDot.style.display = 'none';
+    showToast('✓ Histórico de notificações limpo');
+  });
+}
+
 // ── Settings Drawer ──────────────────────────────────────
 function toggleSettingsDrawer() {
   formPanel.classList.remove('open');
+  if (aboutPanel) {
+    aboutPanel.classList.remove('open');
+    if (btnAbout) btnAbout.classList.remove('active');
+  }
+  if (notificationsPanel) {
+    notificationsPanel.classList.remove('open');
+    if (btnNotifications) btnNotifications.classList.remove('active');
+  }
   const isOpen = settingsPanel.classList.toggle('open');
   btnSettings.classList.toggle('active', isOpen);
+  syncBottomNavVisibility();
+  if (isOpen) {
+    updateStorageStatsUI();
+    updateCurrentSiteToggleUI();
+  }
 }
 
 btnSettings.addEventListener('click', toggleSettingsDrawer);
 if (btnCloseSettings) btnCloseSettings.addEventListener('click', () => {
   settingsPanel.classList.remove('open');
   btnSettings.classList.remove('active');
+  syncBottomNavVisibility();
 });
+
+// ── About Drawer & Pix Handlers ──────────────────────────
+function toggleAboutDrawer() {
+  formPanel.classList.remove('open');
+  settingsPanel.classList.remove('open');
+  btnSettings.classList.remove('active');
+  if (notificationsPanel) {
+    notificationsPanel.classList.remove('open');
+    if (btnNotifications) btnNotifications.classList.remove('active');
+  }
+  const isOpen = aboutPanel ? aboutPanel.classList.toggle('open') : false;
+  if (btnAbout) btnAbout.classList.toggle('active', isOpen);
+  syncBottomNavVisibility();
+}
+
+if (btnAbout) btnAbout.addEventListener('click', toggleAboutDrawer);
+if (btnCloseAbout) btnCloseAbout.addEventListener('click', () => {
+  if (aboutPanel) aboutPanel.classList.remove('open');
+  if (btnAbout) btnAbout.classList.remove('active');
+  syncBottomNavVisibility();
+});
+
+if (linkOfficialSite) {
+  linkOfficialSite.addEventListener('click', (e) => {
+    e.preventDefault();
+    const url = 'https://sentsuy.ddns.net/';
+    if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+      chrome.tabs.create({ url });
+    } else {
+      window.open(url, '_blank');
+    }
+  });
+}
+
+if (btnCopyPix) {
+  btnCopyPix.addEventListener('click', () => {
+    const key = (pixTestKey ? pixTestKey.value : 'pix-teste@sentsuy.ddns.net').trim();
+    if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(key).then(() => {
+        showToast('✓ Chave Pix copiada (Modo Teste)');
+      }).catch(() => {
+        showToast('✓ Chave Pix: ' + key);
+      });
+    } else {
+      showToast('✓ Chave Pix: ' + key);
+    }
+  });
+}
+
+function updateToggleStatus(isEnabled) {
+  const statusEl = document.getElementById('floatingButtonStatus');
+  if (statusEl) {
+    statusEl.textContent = isEnabled ? 'Ativado' : 'Desativado';
+    statusEl.classList.toggle('disabled', !isEnabled);
+  }
+}
+
+function broadcastSettingsToTabs(settings) {
+  try {
+    if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
+      chrome.tabs.query({}, tabs => {
+        (tabs || []).forEach(t => {
+          if (!t.id || !t.url || (!t.url.startsWith('http://') && !t.url.startsWith('https://'))) return;
+          chrome.tabs.sendMessage(t.id, { action: 'settingsUpdated', settings }, (res) => {
+            if (chrome.runtime.lastError || !res) {
+              if (settings && settings.enableFloatingButton && chrome.scripting && chrome.scripting.executeScript) {
+                chrome.scripting.executeScript({
+                  target: { tabId: t.id },
+                  files: ['canonical-resolver.js', 'alias-crowd-service.js', 'storage-local.js', 'content.js']
+                }).catch(() => {});
+              }
+            }
+          });
+        });
+      });
+    }
+  } catch (e) {}
+}
+
+async function ensureActiveTabContentScript(settings, providedTab = null) {
+  try {
+    let tab = providedTab;
+    if (!tab && typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
+      const [t] = await chrome.tabs.query({ active: true, currentWindow: true });
+      tab = t;
+    }
+    if (tab && tab.id && tab.url && (tab.url.startsWith('http://') || tab.url.startsWith('https://'))) {
+      chrome.tabs.sendMessage(tab.id, { action: 'settingsUpdated', settings }, (response) => {
+        if (chrome.runtime.lastError || !response) {
+          if (chrome.scripting && chrome.scripting.executeScript) {
+            chrome.scripting.executeScript({
+              target: { tabId: tab.id },
+              files: ['canonical-resolver.js', 'alias-crowd-service.js', 'storage-local.js', 'content.js']
+            }).catch(() => {});
+          }
+        }
+      });
+    }
+  } catch (e) {}
+}
+
+function updateDiagnosticUI(domain, isAllowed, isWebPage) {
+  const diagTitle = document.getElementById('diagnosticDomainTitle');
+  const diagStatus = document.getElementById('diagnosticStatusText');
+  const diagIndicator = document.getElementById('diagnosticIndicator');
+  if (!diagTitle || !diagStatus || !diagIndicator) return;
+
+  if (!isWebPage || !domain) {
+    diagTitle.textContent = 'Página Interna do Navegador';
+    diagStatus.textContent = 'Injeção e botão flutuante desativados nesta aba';
+    diagIndicator.className = 'diagnostic-indicator state-disabled';
+    return;
+  }
+
+  diagTitle.textContent = domain;
+  if (isAllowed) {
+    diagStatus.textContent = 'Captura ativa • Botão flutuante liberado';
+    diagIndicator.className = 'diagnostic-indicator state-active';
+  } else {
+    diagStatus.textContent = 'Captura em espera • Botão desativado para este site';
+    diagIndicator.className = 'diagnostic-indicator state-inactive';
+  }
+}
+
+async function updateCurrentSiteToggleUI(providedTab = null) {
+  if (!currentSiteDomain || !toggleCurrentSite) return;
+
+  try {
+    let tab = providedTab;
+    if (!tab && typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
+      const [t] = await chrome.tabs.query({ active: true, currentWindow: true });
+      tab = t;
+    }
+    if (tab && tab.url && (tab.url.startsWith('http://') || tab.url.startsWith('https://'))) {
+      currentActiveDomain = (typeof StorageLocal !== 'undefined' && StorageLocal.extractDomain)
+        ? StorageLocal.extractDomain(tab.url)
+        : '';
+      if (!currentActiveDomain) {
+        try {
+          currentActiveDomain = new URL(tab.url).hostname.replace(/^www\./, '');
+        } catch (_) {}
+      }
+
+      if (currentActiveDomain) {
+        currentSiteDomain.textContent = currentActiveDomain;
+        const isAllowed = (typeof StorageLocal !== 'undefined' && typeof StorageLocal.isDomainAllowed === 'function')
+          ? StorageLocal.isDomainAllowed(currentActiveDomain, appSettings)
+          : (appSettings.allowedDomains || []).includes(currentActiveDomain);
+
+        toggleCurrentSite.disabled = false;
+        toggleCurrentSite.checked = isAllowed;
+        currentSiteDomain.classList.toggle('disabled-domain', !isAllowed);
+        if (sitePermissionBar) {
+          sitePermissionBar.style.display = 'flex';
+          sitePermissionBar.title = `Botão flutuante para este site (${currentActiveDomain})`;
+        }
+        updateDiagnosticUI(currentActiveDomain, isAllowed, true);
+        return;
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // Not a web page (e.g. chrome://, chrome-extension://, blank)
+  if (currentSiteDomain) currentSiteDomain.textContent = 'página do navegador';
+  if (toggleCurrentSite) {
+    toggleCurrentSite.checked = false;
+    toggleCurrentSite.disabled = true;
+  }
+  if (currentSiteDomain) currentSiteDomain.classList.add('disabled-domain');
+  if (sitePermissionBar) {
+    sitePermissionBar.title = 'Botão flutuante não disponível nesta página';
+  }
+  updateDiagnosticUI(null, false, false);
+}
+
+// ── Theme Management (Dark, Light, Pink) ──────────────────
+function updateActionIcon(themeName = 'dark') {
+  const valid = ['dark', 'light', 'pink'].includes(themeName) ? themeName : 'dark';
+  try {
+    if (typeof chrome !== 'undefined' && chrome.action && chrome.action.setIcon) {
+      chrome.action.setIcon({
+        path: {
+          16: `icons/icon-${valid}-16.png`,
+          32: `icons/icon-${valid}-32.png`,
+          48: `icons/icon-${valid}-48.png`,
+          128: `icons/icon-${valid}-128.png`
+        }
+      }, () => {
+        if (chrome.runtime && chrome.runtime.lastError) { /* ignore */ }
+      });
+    }
+  } catch (e) {}
+}
+
+function applyTheme(themeName = 'dark') {
+  const valid = ['dark', 'light', 'pink'].includes(themeName) ? themeName : 'dark';
+  if (typeof document !== 'undefined' && document.documentElement && document.documentElement.setAttribute) {
+    document.documentElement.setAttribute('data-theme', valid);
+  }
+  if (typeof document !== 'undefined' && document.body && document.body.setAttribute) {
+    document.body.setAttribute('data-theme', valid);
+  }
+  appSettings.theme = valid;
+
+  const themeBtns = document.querySelectorAll('.theme-btn');
+  themeBtns.forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.theme === valid);
+  });
+
+  updateActionIcon(valid);
+}
+
+function initThemeSwitcher() {
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const theme = btn.dataset.theme;
+      applyTheme(theme);
+      appSettings.theme = theme;
+      await StorageLocal.saveSettings(appSettings);
+      broadcastSettingsToTabs(appSettings);
+      showToast(
+        theme === 'light' ? 'Tema Claro ativado' :
+        theme === 'pink'  ? 'Tema Rosa ativado' :
+                           'Tema Escuro ativado'
+      );
+    });
+  });
+}
+
+function cleanDomainInput(raw) {
+  if (!raw || typeof raw !== 'string') return '';
+  let str = raw.trim().toLowerCase();
+  str = str.replace(/^[a-z]+:\/\//i, '');
+  str = str.split('/')[0].split('?')[0].split('#')[0];
+  str = str.split(':')[0];
+  str = str.replace(/^www\./i, '');
+  return str.trim();
+}
+
+function renderDomainChips() {
+  if (allowedChipsList) {
+    allowedChipsList.innerHTML = '';
+    const allowed = (appSettings.allowedDomains || []).map(d => (d || '').trim().toLowerCase().replace(/^www\./, '')).filter(Boolean);
+    if (allowed.length === 0) {
+      const emptyEl = document.createElement('span');
+      emptyEl.className = 'domain-chips-empty';
+      emptyEl.textContent = 'Nenhum site configurado (botão desativado por padrão)';
+      allowedChipsList.appendChild(emptyEl);
+    } else {
+      allowed.forEach(domain => {
+        const chip = document.createElement('div');
+        chip.className = 'domain-chip';
+        chip.innerHTML = `
+          <span class="domain-chip-icon">${ICONS.globe}</span>
+          <span class="domain-chip-name" title="${esc(domain)}">${esc(domain)}</span>
+          <button type="button" class="domain-chip-remove" title="Remover ${esc(domain)}" data-domain="${esc(domain)}" data-type="allowed">${ICONS.del}</button>
+        `;
+        allowedChipsList.appendChild(chip);
+      });
+    }
+  }
+
+  if (blockedChipsList) {
+    blockedChipsList.innerHTML = '';
+    const blocked = (appSettings.blockedDomains || []).map(d => (d || '').trim().toLowerCase().replace(/^www\./, '')).filter(Boolean);
+    if (blocked.length === 0) {
+      const emptyEl = document.createElement('span');
+      emptyEl.className = 'domain-chips-empty';
+      emptyEl.textContent = 'Nenhum site bloqueado';
+      blockedChipsList.appendChild(emptyEl);
+    } else {
+      blocked.forEach(domain => {
+        const chip = document.createElement('div');
+        chip.className = 'domain-chip';
+        chip.innerHTML = `
+          <span class="domain-chip-icon">${ICONS.slashCircle}</span>
+          <span class="domain-chip-name" title="${esc(domain)}">${esc(domain)}</span>
+          <button type="button" class="domain-chip-remove" title="Remover ${esc(domain)}" data-domain="${esc(domain)}" data-type="blocked">${ICONS.del}</button>
+        `;
+        blockedChipsList.appendChild(chip);
+      });
+    }
+  }
+}
+
+function updateStorageStatsUI() {
+  const statWorksEl = document.getElementById('storageStatWorks');
+  const statSourcesEl = document.getElementById('storageStatSources');
+  const statSizeEl = document.getElementById('storageStatsSize');
+  if (!statWorksEl && !statSourcesEl && !statSizeEl) return;
+
+  const works = Array.isArray(allWorks) ? allWorks : [];
+  const worksCount = works.length;
+  let sourcesCount = 0;
+  works.forEach(w => {
+    if (Array.isArray(w.sources)) {
+      sourcesCount += w.sources.length;
+    } else {
+      sourcesCount += 1;
+    }
+  });
+
+  if (statWorksEl) statWorksEl.textContent = String(worksCount);
+  if (statSourcesEl) statSourcesEl.textContent = String(sourcesCount);
+
+  if (statSizeEl) {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local && typeof chrome.storage.local.getBytesInUse === 'function') {
+        chrome.storage.local.getBytesInUse(null, (bytes) => {
+          if (chrome.runtime && chrome.runtime.lastError) {
+            fallbackStorageSizeCalc(works, statSizeEl);
+          } else {
+            const kb = (bytes / 1024).toFixed(1);
+            statSizeEl.textContent = `${kb} KB`;
+          }
+        });
+      } else {
+        fallbackStorageSizeCalc(works, statSizeEl);
+      }
+    } catch (_) {
+      fallbackStorageSizeCalc(works, statSizeEl);
+    }
+  }
+}
+
+function fallbackStorageSizeCalc(works, statSizeEl) {
+  try {
+    const raw = JSON.stringify(works || []) + JSON.stringify(appSettings || {});
+    const kb = (raw.length / 1024).toFixed(1);
+    statSizeEl.textContent = `~${kb} KB`;
+  } catch (_) {
+    statSizeEl.textContent = '< 50 KB';
+  }
+}
 
 async function loadSettingsToUI() {
   appSettings = await StorageLocal.getSettings();
+  applyTheme(appSettings.theme || 'dark');
   toggleFloatingButton.checked = !!appSettings.enableFloatingButton;
+  updateToggleStatus(toggleFloatingButton.checked);
   toggleBadgeCount.checked     = !!appSettings.enableBadgeCount;
   toggleQuickIncrement.checked = !!appSettings.enableQuickIncrement;
   toggleAutoTitle.checked      = !!appSettings.enableAutoTitleDetection;
   toggleAutoSync.checked       = !!appSettings.enableAutoSync;
-  inputBlockedDomains.value    = (appSettings.blockedDomains || []).join(', ');
+  if (toggleReleaseNotifications) toggleReleaseNotifications.checked = appSettings.enableReleaseNotifications !== false;
+  if (toggleMorningNotification)   toggleMorningNotification.checked   = appSettings.enableMorningNotification !== false;
+  if (toggleEveningNotification)   toggleEveningNotification.checked   = appSettings.enableEveningNotification !== false;
+  if (toggleAutoTrackAnime)        toggleAutoTrackAnime.checked        = appSettings.autoTrackAnime !== false;
+  if (inputAllowedDomains) inputAllowedDomains.value = '';
+  if (inputBlockedDomains) inputBlockedDomains.value = '';
   inputSyncKey.value           = appSettings.syncKey || '';
+  renderDomainChips();
+  await updateCurrentSiteToggleUI();
+  updateStorageStatsUI();
 }
 
-async function persistSettings() {
-  const domains = inputBlockedDomains.value
-    .split(',')
-    .map(d => d.trim().toLowerCase())
-    .filter(Boolean);
+async function persistSettings(options = {}) {
+  const previousQuickIncrement = appSettings.enableQuickIncrement;
+  updateToggleStatus(toggleFloatingButton.checked);
 
   appSettings = {
     ...appSettings,
+    theme: appSettings.theme || 'dark',
     enableFloatingButton: toggleFloatingButton.checked,
     enableBadgeCount: toggleBadgeCount.checked,
     enableQuickIncrement: toggleQuickIncrement.checked,
     enableAutoTitleDetection: toggleAutoTitle.checked,
     enableAutoSync: toggleAutoSync.checked,
-    blockedDomains: domains,
+    enableReleaseNotifications: toggleReleaseNotifications ? toggleReleaseNotifications.checked : true,
+    enableMorningNotification: toggleMorningNotification ? toggleMorningNotification.checked : true,
+    enableEveningNotification: toggleEveningNotification ? toggleEveningNotification.checked : true,
+    autoTrackAnime: toggleAutoTrackAnime ? toggleAutoTrackAnime.checked : true,
+    allowedDomains: appSettings.allowedDomains || [],
+    blockedDomains: appSettings.blockedDomains || [],
     syncKey: inputSyncKey.value.trim()
   };
 
   await StorageLocal.saveSettings(appSettings);
-  renderList(searchInput.value.trim());
+  broadcastSettingsToTabs(appSettings);
+
+  let activeTab = null;
+  try {
+    if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
+      const [t] = await chrome.tabs.query({ active: true, currentWindow: true });
+      activeTab = t;
+    }
+  } catch (_) {}
+
+  ensureActiveTabContentScript(appSettings, activeTab);
+  await updateCurrentSiteToggleUI(activeTab);
+  renderDomainChips();
+  updateStorageStatsUI();
+
+  if (options.redrawList || previousQuickIncrement !== appSettings.enableQuickIncrement) {
+    renderList();
+  }
 }
 
-[toggleFloatingButton, toggleBadgeCount, toggleQuickIncrement, toggleAutoTitle, toggleAutoSync].forEach(el => {
+[
+  toggleFloatingButton,
+  toggleBadgeCount,
+  toggleQuickIncrement,
+  toggleAutoTitle,
+  toggleAutoSync,
+  toggleReleaseNotifications,
+  toggleMorningNotification,
+  toggleEveningNotification,
+  toggleAutoTrackAnime
+].filter(Boolean).forEach(el => {
   el.addEventListener('change', async () => {
     await persistSettings();
     showToast('Configurações salvas');
   });
 });
 
-inputBlockedDomains.addEventListener('change', persistSettings);
+if (toggleCurrentSite) {
+  toggleCurrentSite.addEventListener('change', async () => {
+    if (!currentActiveDomain) return;
+    const enable = toggleCurrentSite.checked;
+
+    if (enable) {
+      appSettings.enableFloatingButton = true;
+      if (toggleFloatingButton) toggleFloatingButton.checked = true;
+      updateToggleStatus(true);
+
+      if (typeof StorageLocal !== 'undefined' && typeof StorageLocal.setDomainAllowed === 'function') {
+        appSettings = await StorageLocal.setDomainAllowed(currentActiveDomain, true);
+      } else {
+        const set = new Set((appSettings.allowedDomains || []).map(d => d.toLowerCase()));
+        set.add(currentActiveDomain.toLowerCase());
+        appSettings.allowedDomains = Array.from(set);
+        if (Array.isArray(appSettings.blockedDomains)) {
+          appSettings.blockedDomains = appSettings.blockedDomains.filter(d => d.toLowerCase() !== currentActiveDomain.toLowerCase());
+        }
+        await StorageLocal.saveSettings(appSettings);
+      }
+    } else {
+      if (typeof StorageLocal !== 'undefined' && typeof StorageLocal.setDomainAllowed === 'function') {
+        appSettings = await StorageLocal.setDomainAllowed(currentActiveDomain, false);
+      } else {
+        const set = new Set((appSettings.allowedDomains || []).map(d => d.toLowerCase()));
+        set.delete(currentActiveDomain.toLowerCase());
+        appSettings.allowedDomains = Array.from(set);
+        await StorageLocal.saveSettings(appSettings);
+      }
+    }
+
+    renderDomainChips();
+    currentSiteDomain.classList.toggle('disabled-domain', !enable);
+    broadcastSettingsToTabs(appSettings);
+    ensureActiveTabContentScript(appSettings);
+    showToast(enable ? '✓ Botão ativado neste site' : '✗ Botão desativado neste site');
+  });
+}
+
+// ── Eventos de Chips (Enter para adicionar, clique no X para remover) ──
+if (allowedChipsList) {
+  allowedChipsList.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.domain-chip-remove');
+    if (!btn) return;
+    const domain = btn.getAttribute('data-domain');
+    if (!domain) return;
+    appSettings.allowedDomains = (appSettings.allowedDomains || []).filter(d => d.toLowerCase() !== domain.toLowerCase());
+    await StorageLocal.saveSettings(appSettings);
+    renderDomainChips();
+    await updateCurrentSiteToggleUI();
+    broadcastSettingsToTabs(appSettings);
+    ensureActiveTabContentScript(appSettings);
+    showToast(`✓ Domínio ${domain} removido`);
+  });
+}
+
+if (blockedChipsList) {
+  blockedChipsList.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.domain-chip-remove');
+    if (!btn) return;
+    const domain = btn.getAttribute('data-domain');
+    if (!domain) return;
+    appSettings.blockedDomains = (appSettings.blockedDomains || []).filter(d => d.toLowerCase() !== domain.toLowerCase());
+    await StorageLocal.saveSettings(appSettings);
+    renderDomainChips();
+    await updateCurrentSiteToggleUI();
+    broadcastSettingsToTabs(appSettings);
+    ensureActiveTabContentScript(appSettings);
+    showToast(`✓ Domínio ${domain} desbloqueado`);
+  });
+}
+
+if (inputAllowedDomains) {
+  inputAllowedDomains.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const raw = inputAllowedDomains.value;
+      if (!raw || !raw.trim()) return;
+
+      const rawTokens = raw.split(/[\s,;]+/).map(t => t.trim()).filter(Boolean);
+      if (rawTokens.length === 0) return;
+
+      if (rawTokens.length === 1) {
+        const clean = cleanDomainInput(rawTokens[0]);
+        if (!clean) return;
+        if (!clean.includes('.') && clean !== 'localhost') {
+          showToast('⚠ Digite um domínio válido (ex: mangadex.org)');
+          return;
+        }
+        const current = (appSettings.allowedDomains || []).map(d => d.toLowerCase());
+        if (current.includes(clean)) {
+          showToast(`ℹ ${clean} já está na lista`);
+          inputAllowedDomains.value = '';
+          return;
+        }
+        appSettings.allowedDomains = [...(appSettings.allowedDomains || []), clean];
+        appSettings.enableFloatingButton = true;
+        if (toggleFloatingButton) toggleFloatingButton.checked = true;
+        updateToggleStatus(true);
+        if (Array.isArray(appSettings.blockedDomains)) {
+          appSettings.blockedDomains = appSettings.blockedDomains.filter(d => d.toLowerCase() !== clean);
+        }
+        await StorageLocal.saveSettings(appSettings);
+        inputAllowedDomains.value = '';
+        renderDomainChips();
+        await updateCurrentSiteToggleUI();
+        broadcastSettingsToTabs(appSettings);
+        ensureActiveTabContentScript(appSettings);
+        showToast(`✓ ${clean} adicionado aos permitidos`);
+      } else {
+        const currentSet = new Set((appSettings.allowedDomains || []).map(d => d.toLowerCase()));
+        let addedCount = 0;
+        const newDomains = [];
+        for (const token of rawTokens) {
+          const clean = cleanDomainInput(token);
+          if (clean && (clean.includes('.') || clean === 'localhost') && !currentSet.has(clean)) {
+            currentSet.add(clean);
+            newDomains.push(clean);
+            addedCount++;
+          }
+        }
+        if (addedCount > 0) {
+          appSettings.allowedDomains = [...(appSettings.allowedDomains || []), ...newDomains];
+          appSettings.enableFloatingButton = true;
+          if (toggleFloatingButton) toggleFloatingButton.checked = true;
+          updateToggleStatus(true);
+          if (Array.isArray(appSettings.blockedDomains)) {
+            const addedSet = new Set(newDomains);
+            appSettings.blockedDomains = appSettings.blockedDomains.filter(d => !addedSet.has(d.toLowerCase()));
+          }
+          await StorageLocal.saveSettings(appSettings);
+          inputAllowedDomains.value = '';
+          renderDomainChips();
+          await updateCurrentSiteToggleUI();
+          broadcastSettingsToTabs(appSettings);
+          ensureActiveTabContentScript(appSettings);
+          showToast(`✓ ${addedCount} domínios adicionados aos permitidos`);
+        } else {
+          showToast('ℹ Nenhum novo domínio válido para adicionar');
+          inputAllowedDomains.value = '';
+        }
+      }
+    }
+  });
+}
+
+if (inputBlockedDomains) {
+  inputBlockedDomains.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const raw = inputBlockedDomains.value;
+      if (!raw || !raw.trim()) return;
+
+      const rawTokens = raw.split(/[\s,;]+/).map(t => t.trim()).filter(Boolean);
+      if (rawTokens.length === 0) return;
+
+      if (rawTokens.length === 1) {
+        const clean = cleanDomainInput(rawTokens[0]);
+        if (!clean) return;
+        if (!clean.includes('.') && clean !== 'localhost') {
+          showToast('⚠ Digite um domínio válido (ex: youtube.com)');
+          return;
+        }
+        const current = (appSettings.blockedDomains || []).map(d => d.toLowerCase());
+        if (current.includes(clean)) {
+          showToast(`ℹ ${clean} já está bloqueado`);
+          inputBlockedDomains.value = '';
+          return;
+        }
+        appSettings.blockedDomains = [...(appSettings.blockedDomains || []), clean];
+        await StorageLocal.saveSettings(appSettings);
+        inputBlockedDomains.value = '';
+        renderDomainChips();
+        await updateCurrentSiteToggleUI();
+        broadcastSettingsToTabs(appSettings);
+        ensureActiveTabContentScript(appSettings);
+        showToast(`✓ ${clean} adicionado aos bloqueados`);
+      } else {
+        const currentSet = new Set((appSettings.blockedDomains || []).map(d => d.toLowerCase()));
+        let addedCount = 0;
+        const newDomains = [];
+        for (const token of rawTokens) {
+          const clean = cleanDomainInput(token);
+          if (clean && (clean.includes('.') || clean === 'localhost') && !currentSet.has(clean)) {
+            currentSet.add(clean);
+            newDomains.push(clean);
+            addedCount++;
+          }
+        }
+        if (addedCount > 0) {
+          appSettings.blockedDomains = [...(appSettings.blockedDomains || []), ...newDomains];
+          await StorageLocal.saveSettings(appSettings);
+          inputBlockedDomains.value = '';
+          renderDomainChips();
+          await updateCurrentSiteToggleUI();
+          broadcastSettingsToTabs(appSettings);
+          ensureActiveTabContentScript(appSettings);
+          showToast(`✓ ${addedCount} domínios adicionados aos bloqueados`);
+        } else {
+          showToast('ℹ Nenhum novo domínio válido para bloquear');
+          inputBlockedDomains.value = '';
+        }
+      }
+    }
+  });
+}
+
 inputSyncKey.addEventListener('change', persistSettings);
 
 // ── Captura da aba atual ─────────────────────────────────
 async function captureCurrentTab(onlySource = false) {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab && tab.url) {
-      inputUrl.value = tab.url;
-      const domain = StorageLocal.extractDomain(tab.url);
-      if (!inputSiteName.value) {
-        inputSiteName.value = StorageLocal.formatSiteName(domain);
+    if (!tab || !tab.url || !tab.url.startsWith('http')) return;
+
+    inputUrl.value = tab.url;
+    const domain = StorageLocal.extractDomain(tab.url);
+    if (!inputSiteName.value) {
+      inputSiteName.value = StorageLocal.formatSiteName(domain);
+    }
+    const siteName = StorageLocal.formatSiteName(domain).toLowerCase();
+
+    let detectedChapter = typeof StorageLocal.extractChapter === 'function'
+      ? StorageLocal.extractChapter(tab.url, tab.title || '')
+      : '';
+
+    let detectedName = '';
+    let detectedAliases = [];
+    if (!onlySource && tab.title) {
+      const cleanTitle = typeof StorageLocal.cleanWorkTitle === 'function'
+        ? StorageLocal.cleanWorkTitle(tab.title)
+        : '';
+      if (cleanTitle && typeof StorageLocal !== 'undefined' && StorageLocal.extractDualTitles) {
+        const dual = StorageLocal.extractDualTitles(cleanTitle);
+        detectedName = dual.primary || cleanTitle;
+        if (dual.aliases && dual.aliases.length > 0) detectedAliases.push(...dual.aliases);
+      } else {
+        detectedName = cleanTitle || tab.title.replace(/\s*[-–|·•]\s*.{0,40}$/, '').trim();
       }
-      if (!onlySource && !inputTitle.value && tab.title) {
-        inputTitle.value = tab.title.replace(/\s*[-–|·•]\s*.{0,40}$/, '').trim();
+    }
+
+    // Preenchimento imediato inicial a partir dos dados da aba ativa (0ms de latência)
+    if (!onlySource && detectedName && detectedName.toLowerCase() !== siteName && !inputTitle.value) {
+      inputTitle.value = detectedName;
+      if (inputAliases && detectedAliases.length > 0 && !inputAliases.value) {
+        inputAliases.value = detectedAliases.join(', ');
+      }
+    }
+    if (!inputChapter.value) {
+      inputChapter.value = detectedChapter || 'Cap. 1';
+    }
+
+    // 1. Consulta o content script da aba ativa (que analisa o DOM completo da página em tempo real)
+    try {
+      let pageDetails = await new Promise(resolve => {
+        chrome.tabs.sendMessage(tab.id, { action: 'getPageDetails' }, res => {
+          if (chrome.runtime.lastError || !res || !res.ok) {
+            resolve(null);
+          } else {
+            resolve(res);
+          }
+        });
+      });
+
+      // Se o content script não respondeu (ex: aba aberta antes da extensão carregar), injeta dinamicamente
+      if (!pageDetails && chrome.scripting && chrome.scripting.executeScript) {
+        const isAlreadyInjected = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => typeof window.StorageLocal !== 'undefined'
+        }).then(res => res && res[0] && res[0].result).catch(() => false);
+
+        if (!isAlreadyInjected) {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ['canonical-resolver.js', 'alias-crowd-service.js', 'storage-local.js', 'content.js']
+          }).catch(() => {});
+        }
+
+        pageDetails = await new Promise(resolve => {
+          try {
+            chrome.tabs.sendMessage(tab.id, { action: 'getPageDetails' }, res => {
+              if (chrome.runtime?.lastError || !res || !res.ok) {
+                resolve(null);
+              } else {
+                resolve(res);
+              }
+            });
+          } catch (_) {
+            resolve(null);
+          }
+        });
+
+        // Se ainda não tiver resposta, extrai diretamente via script injetado no DOM
+        if (!pageDetails) {
+          const [execRes] = await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            func: () => {
+              const backBtn = document.querySelector('button[title^="Voltar para "], a[title^="Voltar para "], [title^="Voltar para "]');
+              let domTitle = '';
+              if (backBtn) {
+                domTitle = backBtn.getAttribute('title').replace(/^Voltar\s+para\s+/i, '').trim();
+              }
+              if (!domTitle) {
+                const mangaLink = document.querySelector('a[href*="/manga/"]');
+                if (mangaLink && mangaLink.getAttribute('title')) {
+                  domTitle = mangaLink.getAttribute('title').replace(/^Voltar\s+para\s+/i, '').trim();
+                }
+              }
+              if (!domTitle) {
+                const h1WithTitle = document.querySelector('h1[title]:not(.site-title):not(.logo):not([class*="site"]):not([class*="logo"])');
+                if (h1WithTitle && !/verificacao\s+de\s+seguranca|security/i.test(h1WithTitle.getAttribute('title') || '')) {
+                  domTitle = (h1WithTitle.getAttribute('title') || h1WithTitle.textContent || '').trim();
+                }
+              }
+              if (!domTitle) {
+                const domTitleEl = document.querySelector([
+                  '.manga-title a', '.series-title a', '.chapter-title-bar .manga-title a',
+                  'h1.manga-title', 'h1.entry-title', 'h1.series-title', 'h1.post-title',
+                  '.manga-title', '.series-title', '.novel-title', '[itemprop="name"]'
+                ].join(', '));
+                if (domTitleEl) domTitle = domTitleEl.textContent.trim();
+              }
+              const ogTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content') || '';
+              const chapterEl = document.querySelector([
+                'select[name*="chapter"] option:checked', '#chapter-select option:checked',
+                '.current-chapter', '.chapter-title', 'h1.chapter-title', '[class*="chapter-title"]'
+              ].join(', '));
+              let chapterText = chapterEl ? chapterEl.textContent.trim() : '';
+              if (!chapterText) {
+                const chSpan = Array.from(document.querySelectorAll('span, h2, div')).find(el => {
+                  const txt = (el.textContent || '').trim();
+                  return /^(?:cap[íi]tulo|cap\.?|ch\.?)\s*\d+/i.test(txt) && txt.length < 25;
+                });
+                if (chSpan) chapterText = chSpan.textContent.trim();
+              }
+              return {
+                title: domTitle || (ogTitle.trim() || ''),
+                chapterText
+              };
+            }
+          }).catch(() => []);
+
+          if (execRes && execRes.result) {
+            pageDetails = {
+              title: execRes.result.title,
+              chapter: execRes.result.chapterText ? (typeof StorageLocal !== 'undefined' && StorageLocal.extractChapter ? StorageLocal.extractChapter(tab.url, tab.title || '', execRes.result.chapterText) : execRes.result.chapterText) : ''
+            };
+          }
+        }
+      }
+
+      if (pageDetails) {
+        if (pageDetails.title && pageDetails.title.toLowerCase() !== siteName && pageDetails.title !== 'Obra Desconhecida') {
+          const cleanDomTitle = typeof StorageLocal.cleanWorkTitle === 'function' ? StorageLocal.cleanWorkTitle(pageDetails.title) : pageDetails.title;
+          if (cleanDomTitle) detectedName = cleanDomTitle;
+        }
+        if (pageDetails.chapter) {
+          detectedChapter = pageDetails.chapter;
+        }
+        if (Array.isArray(pageDetails.aliases) && pageDetails.aliases.length > 0) {
+          detectedAliases = Array.from(new Set([...detectedAliases, ...pageDetails.aliases]));
+        }
+      }
+    } catch (_) {}
+
+    // 2. Se o nome ainda for genérico ou igual ao próprio site, consulta o resolvedor assíncrono para SPAs
+    if (!detectedName || detectedName.toLowerCase() === siteName || /^(?:nexus|nexustoons|vegitoons|mang[aá]stop|mangadex|leitor|reader)$/i.test(detectedName)) {
+      if (typeof StorageLocal.resolvePageWorkDetails === 'function') {
+        const details = await StorageLocal.resolvePageWorkDetails(tab.url);
+        if (details) {
+          if (details.workName) detectedName = details.workName;
+          if (details.chapter && !detectedChapter) detectedChapter = details.chapter;
+        }
+      }
+    }
+
+    // Extrai títulos alternativos se houver formato duplo no título detectado (ex: "Nome Principal (Nome Alternativo)" ou "Nome 1 / Nome 2")
+    if (detectedName && typeof StorageLocal.extractDualTitles === 'function') {
+      const dual = StorageLocal.extractDualTitles(detectedName);
+      if (dual.primary) {
+        detectedName = dual.primary;
+      }
+      if (Array.isArray(dual.aliases) && dual.aliases.length > 0) {
+        detectedAliases = Array.from(new Set([...detectedAliases, ...dual.aliases]));
+      }
+    }
+
+    if (detectedChapter) {
+      inputChapter.value = detectedChapter;
+    } else if (!inputChapter.value) {
+      inputChapter.value = 'Cap. 1';
+    }
+
+    if (!onlySource && detectedName && detectedName.toLowerCase() !== siteName) {
+      inputTitle.value = detectedName;
+      if (inputAliases && detectedAliases.length > 0 && !inputAliases.value) {
+        inputAliases.value = detectedAliases.join(', ');
+      }
+
+      // Se estiver em modo nova obra, confere se já existe match nas obras salvas
+      if (!editIdField.value && typeof StorageLocal.findMatchingWork === 'function') {
+        const match = StorageLocal.findMatchingWork(detectedName, allWorks);
+        if (match.exactMatch) {
+          editIdField.value = match.exactMatch.id;
+          inputTitle.value = match.exactMatch.name;
+          inputTitle.readOnly = true;
+          setActiveTag(match.exactMatch.tag || 'manga');
+          formTitle.textContent = `Atualizar: ${match.exactMatch.name}`;
+          btnSave.textContent = 'Atualizar Obra';
+          showToast(`✓ Obra reconhecida: ${match.exactMatch.name}`);
+        }
       }
     }
   } catch (e) {
@@ -217,11 +1342,13 @@ btnCapture.addEventListener('click', async () => {
 
 // ── Salvar / Atualizar Obra e Fonte ──────────────────────
 btnSave.addEventListener('click', async () => {
-  const workName = inputTitle.value.trim();
-  const chapter  = inputChapter.value.trim();
-  const url      = inputUrl.value.trim();
-  const siteName = inputSiteName.value.trim();
-  const workId   = editIdField.value;
+  const workName   = inputTitle.value.trim();
+  const rawAliases = inputAliases ? inputAliases.value.trim() : '';
+  const aliases    = rawAliases ? rawAliases.split(',').map(s => s.trim()).filter(Boolean) : [];
+  const chapter    = inputChapter.value.trim();
+  const url        = inputUrl.value.trim();
+  const siteName   = inputSiteName.value.trim();
+  const workId     = editIdField.value;
 
   if (!workName) { flash(inputTitle);   return; }
   if (!chapter)  { flash(inputChapter); return; }
@@ -229,16 +1356,20 @@ btnSave.addEventListener('click', async () => {
   await StorageLocal.saveWorkReading({
     workId: workId || undefined,
     workName,
+    aliases,
     chapter,
     url,
     siteName,
-    tag: selectedTag
+    tag: selectedTag,
+    readingStatus: selectedReadingStatus,
+    publicationStatus: selectedPubStatus,
+    releaseDays: getSelectedReleaseDays()
   });
 
   allWorks = await StorageLocal.getWorks();
   showToast(workId ? '✓ Obra atualizada' : '✓ Obra salva com sucesso');
   closeForm();
-  renderList(searchInput.value.trim());
+  renderCurrentView();
 });
 
 function flash(input) {
@@ -247,29 +1378,293 @@ function flash(input) {
   setTimeout(() => input.style.borderColor = '', 800);
 }
 
-// ── Delete Obra ──────────────────────────────────────────
+// ── Separação Automática de Títulos Duplos no Input ───────
+inputTitle.addEventListener('blur', () => {
+  if (inputTitle.readOnly) return;
+  const val = inputTitle.value.trim();
+  if (val && typeof StorageLocal !== 'undefined' && StorageLocal.extractDualTitles) {
+    const dual = StorageLocal.extractDualTitles(val);
+    if (dual.aliases && dual.aliases.length > 0) {
+      inputTitle.value = dual.primary;
+      if (inputAliases) {
+        const currentAliases = inputAliases.value ? inputAliases.value.split(',').map(s => s.trim()).filter(Boolean) : [];
+        const merged = Array.from(new Set([...currentAliases, ...dual.aliases]));
+        inputAliases.value = merged.join(', ');
+      }
+    }
+  }
+});
+
+// ── Delete Obra com Confirmação Segura ───────────────────
 async function deleteWork(id) {
   await StorageLocal.deleteWork(id);
   allWorks = await StorageLocal.getWorks();
-  renderList(searchInput.value.trim());
-  showToast('Obra removida');
+  renderCurrentView();
+  showToast('✓ Obra removida');
+}
+
+function promptDeleteWork(work) {
+  if (!work) return;
+  pendingDeleteWorkId = work.id;
+  if (confirmDeleteText) {
+    confirmDeleteText.textContent = `Você tem certeza que deseja excluir "${work.name}" e todo seu histórico de leitura?`;
+  }
+  if (confirmDeleteModal) {
+    confirmDeleteModal.classList.add('open');
+  }
+}
+
+function closeDeleteModal() {
+  pendingDeleteWorkId = null;
+  if (confirmDeleteModal) {
+    confirmDeleteModal.classList.remove('open');
+  }
+}
+
+if (btnCancelDelete) {
+  btnCancelDelete.addEventListener('click', closeDeleteModal);
+}
+
+if (confirmDeleteModal) {
+  confirmDeleteModal.addEventListener('click', e => {
+    if (e.target === confirmDeleteModal) closeDeleteModal();
+  });
+}
+
+if (btnConfirmDelete) {
+  btnConfirmDelete.addEventListener('click', async () => {
+    if (pendingDeleteWorkId) {
+      const id = pendingDeleteWorkId;
+      closeDeleteModal();
+      await deleteWork(id);
+    }
+  });
+}
+
+if (confirmActionModal) {
+  confirmActionModal.addEventListener('click', e => {
+    if (e.target === confirmActionModal) closeConfirmActionModal();
+  });
+}
+
+if (btnCancelAction) {
+  btnCancelAction.addEventListener('click', closeConfirmActionModal);
+}
+
+if (btnConfirmAction) {
+  btnConfirmAction.addEventListener('click', async () => {
+    const cb = pendingActionCallback;
+    closeConfirmActionModal();
+    if (typeof cb === 'function') await cb();
+  });
 }
 
 // ── Delete Fonte Individual ──────────────────────────────
 async function deleteSource(workId, sourceId) {
   await StorageLocal.deleteSource(workId, sourceId);
   allWorks = await StorageLocal.getWorks();
-  renderList(searchInput.value.trim());
+  renderCurrentView();
   showToast('Fonte removida');
 }
 
-// ── Quick Increment (+1) ─────────────────────────────────
+// ── Helper: Verifica se a aba ativa corresponde à obra ─────────────
+function isTabForWork(tab, work, pageDetails) {
+  if (!tab || !tab.url || !work) return false;
+  const tabUrl = tab.url.toLowerCase();
+  const tabDomain = (typeof StorageLocal !== 'undefined' && StorageLocal.extractDomain ? StorageLocal.extractDomain(tab.url) : '').toLowerCase();
+
+  const sources = Array.isArray(work.sources) ? work.sources : [];
+  const domainMatches = sources.some(s => s.domain && s.domain.toLowerCase() === tabDomain);
+
+  let tabTitle = (pageDetails && pageDetails.title) ? pageDetails.title : '';
+  if (!tabTitle && tab.title) {
+    tabTitle = (typeof StorageLocal !== 'undefined' && StorageLocal.cleanWorkTitle) ? StorageLocal.cleanWorkTitle(tab.title) : tab.title;
+  }
+  tabTitle = (tabTitle || '').trim();
+
+  const normTabTitle = (typeof StorageLocal !== 'undefined' && StorageLocal.normalizeTitle) ? StorageLocal.normalizeTitle(tabTitle) : tabTitle.toLowerCase();
+  const normWorkName = (typeof StorageLocal !== 'undefined' && StorageLocal.normalizeTitle) ? StorageLocal.normalizeTitle(work.name) : work.name.toLowerCase();
+
+  const aliases = Array.isArray(work.aliases) ? work.aliases : [];
+  const titleMatches = (normTabTitle && normWorkName && (
+    normTabTitle === normWorkName ||
+    normTabTitle.includes(normWorkName) ||
+    normWorkName.includes(normTabTitle) ||
+    (typeof StorageLocal !== 'undefined' && StorageLocal.calculateSimilarity && StorageLocal.calculateSimilarity(normTabTitle, normWorkName) >= 0.70)
+  )) || aliases.some(a => {
+    const na = (typeof StorageLocal !== 'undefined' && StorageLocal.normalizeTitle) ? StorageLocal.normalizeTitle(a) : a.toLowerCase();
+    return normTabTitle === na || normTabTitle.includes(na) || na.includes(normTabTitle);
+  });
+
+  const slugMatches = sources.some(s => {
+    if (!s.url) return false;
+    try {
+      const u = new URL(s.url);
+      const parts = u.pathname.split('/').filter(p => p.length > 3 && !/^(?:watch|series|episodio|capitulo|manga|anime)$/i.test(p));
+      return parts.some(p => tabUrl.includes(p.toLowerCase()));
+    } catch (_) {
+      return false;
+    }
+  });
+
+  if (domainMatches && (titleMatches || slugMatches || sources.length === 1)) {
+    return true;
+  }
+
+  return titleMatches;
+}
+
+// ── Quick Increment (+1) com Verificação de Link e Capítulo ─────────
+let isIncrementingWork = false;
+
 async function handleQuickIncrement(workId) {
-  const updated = await StorageLocal.quickIncrementWork(workId);
-  if (updated) {
-    allWorks = await StorageLocal.getWorks();
-    renderList(searchInput.value.trim());
-    showToast(`✓ ${updated.mainChapter}`);
+  if (isIncrementingWork) return;
+  isIncrementingWork = true;
+
+  try {
+    const work = (allWorks || []).find(w => w.id === workId);
+    if (!work) return;
+
+    const sources = Array.isArray(work.sources) ? work.sources : [];
+    const activeSrc = sources.find(s => s.id === work.lastReadSourceId) || sources[0] || {};
+    const savedChapter = activeSrc.chapter || work.mainChapter || 'Cap. 0';
+    const nextCalculatedChapter = StorageLocal.parseChapterIncrement(savedChapter);
+
+    // Consulta aba ativa do navegador
+    let activeTab = null;
+    let pageDetails = null;
+
+    if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
+      try {
+        const [t] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (t && t.url && (t.url.startsWith('http://') || t.url.startsWith('https://'))) {
+          activeTab = t;
+        }
+      } catch (_) {}
+    }
+
+    // Se houver aba ativa, obtém detalhes da página
+    if (activeTab) {
+      try {
+        pageDetails = await new Promise(resolve => {
+          chrome.tabs.sendMessage(activeTab.id, { action: 'getPageDetails' }, res => {
+            if (chrome.runtime.lastError || !res || !res.ok) resolve(null);
+            else resolve(res);
+          });
+        });
+      } catch (_) {}
+    }
+
+    const matchesWork = activeTab ? isTabForWork(activeTab, work, pageDetails) : false;
+
+    if (matchesWork && activeTab) {
+      let tabChapter = (pageDetails && pageDetails.chapter) ? pageDetails.chapter.trim() : '';
+      if (!tabChapter && typeof StorageLocal.extractChapter === 'function') {
+        tabChapter = StorageLocal.extractChapter(activeTab.url, activeTab.title || '');
+      }
+
+      if (tabChapter) {
+        const diff = (typeof StorageLocal.compareChapters === 'function')
+          ? StorageLocal.compareChapters(tabChapter, savedChapter)
+          : 0;
+
+        // Caso 1: O link e capítulo atual da página é MAIOR que o antigo
+        if (diff > 0) {
+          const tabDomain = StorageLocal.extractDomain(activeTab.url);
+          const tabSiteName = StorageLocal.formatSiteName(tabDomain);
+          const updated = await StorageLocal.quickIncrementWork(work.id, {
+            chapter: tabChapter,
+            url: activeTab.url,
+            domain: tabDomain,
+            siteName: tabSiteName
+          });
+          if (updated) {
+            allWorks = await StorageLocal.getWorks();
+            renderCurrentView();
+            showToast(`✓ Atualizado: ${tabChapter}`);
+          }
+          return;
+        }
+
+        // Caso 2: O capítulo atual da página é IGUAL ao antigo já salvo
+        if (diff === 0) {
+          showConfirmActionModal({
+            title: 'Capítulo Atual Igual',
+            message: `A página atual da aba (${tabChapter}) não é maior que o capítulo já salvo (${savedChapter}). Deseja somar +1 para ${nextCalculatedChapter} mesmo assim?`,
+            confirmText: 'Sim, somar +1',
+            onConfirm: async () => {
+              const updated = await StorageLocal.quickIncrementWork(work.id);
+              if (updated) {
+                allWorks = await StorageLocal.getWorks();
+                renderCurrentView();
+                showToast(`✓ ${updated.mainChapter}`);
+              }
+            }
+          });
+          return;
+        }
+
+        // Caso 3: O capítulo atual da página é MENOR que o antigo salvo
+        if (diff < 0) {
+          showConfirmActionModal({
+            title: 'Capítulo Atual Menor',
+            message: `Aviso: A página atual da aba (${tabChapter}) é menor que o capítulo salvo (${savedChapter}). Deseja avançar para ${nextCalculatedChapter} mesmo assim?`,
+            confirmText: 'Sim, avançar',
+            onConfirm: async () => {
+              const updated = await StorageLocal.quickIncrementWork(work.id);
+              if (updated) {
+                allWorks = await StorageLocal.getWorks();
+                renderCurrentView();
+                showToast(`✓ ${updated.mainChapter}`);
+              }
+            }
+          });
+          return;
+        }
+      } else {
+        // Aba é da obra mas não detectou capítulo específico (ex: página inicial/índice)
+        showConfirmActionModal({
+          title: 'Página de Capítulos',
+          message: `Você está na página de "${work.name}". Deseja somar +1 (${savedChapter} ➔ ${nextCalculatedChapter})?`,
+          confirmText: 'Somar +1',
+          onConfirm: async () => {
+            const updated = await StorageLocal.quickIncrementWork(work.id);
+            if (updated) {
+              allWorks = await StorageLocal.getWorks();
+              renderCurrentView();
+              showToast(`✓ ${updated.mainChapter}`);
+            }
+          }
+        });
+        return;
+      }
+    } else if (activeTab) {
+      // Aba ativa não corresponde à obra selecionada
+      showConfirmActionModal({
+        title: 'Aba Diferente da Obra',
+        message: `A aba atual não corresponde a "${work.name}". Deseja somar +1 (${savedChapter} ➔ ${nextCalculatedChapter}) mesmo assim?`,
+        confirmText: 'Somar +1',
+        onConfirm: async () => {
+          const updated = await StorageLocal.quickIncrementWork(work.id);
+          if (updated) {
+            allWorks = await StorageLocal.getWorks();
+            renderCurrentView();
+            showToast(`✓ ${updated.mainChapter}`);
+          }
+        }
+      });
+      return;
+    }
+
+    // Se não há aba ativa no navegador, incrementa diretamente
+    const updated = await StorageLocal.quickIncrementWork(work.id);
+    if (updated) {
+      allWorks = await StorageLocal.getWorks();
+      renderCurrentView();
+      showToast(`✓ ${updated.mainChapter}`);
+    }
+  } finally {
+    isIncrementingWork = false;
   }
 }
 const quickIncrementChapter = handleQuickIncrement;
@@ -307,7 +1702,7 @@ fileImportBackup.addEventListener('change', async (e) => {
       const count = await StorageLocal.importBackup(evt.target.result);
       allWorks = await StorageLocal.getWorks();
       await loadSettingsToUI();
-      renderList();
+      renderCurrentView();
       showToast(`✓ ${count} obras importadas com sucesso!`);
     } catch (err) {
       showToast('Arquivo de backup inválido');
@@ -328,7 +1723,7 @@ btnSyncNow.addEventListener('click', async () => {
           showToast('✓ Sincronizado com sucesso!');
           StorageLocal.getWorks().then(works => {
             allWorks = works;
-            renderList(searchInput.value.trim());
+            renderCurrentView();
           });
         } else {
           showToast(response && response.error ? response.error : 'Sincronização concluída');
@@ -340,39 +1735,59 @@ btnSyncNow.addEventListener('click', async () => {
   }
 });
 
-// ── Render ───────────────────────────────────────────────
-function filterWorks(works, query) {
-  const q = query.toLowerCase().trim();
-  if (!q) return works;
-  return works.filter(w => {
-    if (w.name.toLowerCase().includes(q)) return true;
-    if ((w.mainChapter || '').toLowerCase().includes(q)) return true;
-    if ((w.tag || '').toLowerCase().includes(q)) return true;
-    const hasSource = (w.sources || []).some(s =>
-      (s.siteName || '').toLowerCase().includes(q) ||
-      (s.domain || '').toLowerCase().includes(q) ||
-      (s.chapter || '').toLowerCase().includes(q) ||
-      (s.url || '').toLowerCase().includes(q)
-    );
-    return hasSource;
-  });
+// ── Helpers de Formatação e UI ────────────────────────────
+function getWorkInitials(name) {
+  if (!name || typeof name !== 'string') return '?';
+  const clean = name.trim().replace(/[^\p{L}\p{N}\s]/gu, '');
+  const parts = clean.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
-function renderList(filter = '') {
-  const list = filterWorks(allWorks, filter);
-  entryCount.textContent = allWorks.length;
+function formatRelativeTime(epoch, nowEpoch = Date.now()) {
+  if (!epoch) return '';
+  const diffMs = nowEpoch - Number(epoch);
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHours = Math.floor(diffMin / 60);
+  const diffDays = Math.floor(diffHours / 24);
 
-  entriesList.querySelectorAll('.entry-card').forEach(c => c.remove());
-
-  if (list.length === 0) {
-    emptyState.style.display = 'flex';
-    return;
+  if (diffHours < 24 && new Date(epoch).getDate() === new Date(nowEpoch).getDate()) {
+    return 'Lido hoje';
   }
-  emptyState.style.display = 'none';
+  if (diffDays <= 1 || diffHours < 48) {
+    return 'Lido ontem';
+  }
+  if (diffDays < 7) {
+    return `Há ${diffDays} dias`;
+  }
+  if (diffDays < 30) {
+    const weeks = Math.floor(diffDays / 7);
+    return `Há ${weeks} ${weeks === 1 ? 'semana' : 'semanas'}`;
+  }
+  return new Date(epoch).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+}
 
-  list.forEach(work => {
-    const card = buildWorkCard(work);
-    entriesList.appendChild(card);
+function sortWorks(works, sortBy = 'recent') {
+  const list = [...(works || [])];
+  if (sortBy === 'alpha') {
+    return list.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }));
+  }
+  if (sortBy === 'chapters') {
+    const parseNum = (str) => {
+      const match = String(str || '').match(/(\d+(?:\.\d+)?)/);
+      return match ? parseFloat(match[1]) : 0;
+    };
+    return list.sort((a, b) => parseNum(b.mainChapter) - parseNum(a.mainChapter));
+  }
+  // Default: recent
+  return list.sort((a, b) => {
+    const timeA = a.updatedAt || a.createdAt || 0;
+    const timeB = b.updatedAt || b.createdAt || 0;
+    return timeB - timeA;
   });
 }
 
@@ -388,24 +1803,157 @@ function formatTime(epoch) {
   return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
+// ── Render ───────────────────────────────────────────────
+function filterWorks(
+  works,
+  query,
+  category = 'all',
+  sortBy = (sortFilter ? sortFilter.value : 'recent'),
+  status = (statusFilter ? statusFilter.value : 'all')
+) {
+  let list = works || [];
+  if (category && category !== 'all') {
+    list = list.filter(w => (w.tag || 'outro').toLowerCase() === category.toLowerCase());
+  }
+
+  if (status && status !== 'all') {
+    list = list.filter(w => (w.readingStatus || 'lendo').toLowerCase() === status.toLowerCase());
+  }
+
+  const q = (query || '').toLowerCase().trim();
+  if (q) {
+    const normQ = typeof StorageLocal !== 'undefined' && StorageLocal.normalizeTitle
+      ? StorageLocal.normalizeTitle(q)
+      : q.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+    list = list.filter(w => {
+      const normName = typeof StorageLocal !== 'undefined' && StorageLocal.normalizeTitle
+        ? StorageLocal.normalizeTitle(w.name)
+        : (w.name || '').toLowerCase();
+      if (w.name.toLowerCase().includes(q) || (normQ && normName.includes(normQ))) return true;
+
+      if (Array.isArray(w.aliases)) {
+        for (const a of w.aliases) {
+          if (!a) continue;
+          if (a.toLowerCase().includes(q)) return true;
+          if (normQ) {
+            const normA = typeof StorageLocal !== 'undefined' && StorageLocal.normalizeTitle
+              ? StorageLocal.normalizeTitle(a)
+              : a.toLowerCase();
+            if (normA.includes(normQ)) return true;
+          }
+        }
+      }
+
+      if ((w.mainChapter || '').toLowerCase().includes(q)) return true;
+      if ((w.tag || '').toLowerCase().includes(q)) return true;
+      if ((w.readingStatus || '').toLowerCase().includes(q)) return true;
+      if ((w.publicationStatus || '').toLowerCase().includes(q)) return true;
+      const hasSource = (w.sources || []).some(s =>
+        (s.siteName || '').toLowerCase().includes(q) ||
+        (s.domain || '').toLowerCase().includes(q) ||
+        (s.chapter || '').toLowerCase().includes(q) ||
+        (s.url || '').toLowerCase().includes(q)
+      );
+      return hasSource;
+    });
+  }
+
+  return sortWorks(list, sortBy);
+}
+
+function renderList(
+  filter = (searchInput ? searchInput.value.trim() : ''),
+  category = (categoryFilter ? categoryFilter.value : 'all'),
+  sortBy = (sortFilter ? sortFilter.value : 'recent'),
+  status = (statusFilter ? statusFilter.value : 'all')
+) {
+  updateNavBadges();
+  const list = filterWorks(allWorks, filter, category, sortBy, status);
+  if (entryCount) entryCount.textContent = list.length;
+
+  entriesList.querySelectorAll('.entry-card').forEach(c => c.remove());
+
+  if (list.length === 0) {
+    emptyState.style.display = 'flex';
+    return;
+  }
+  emptyState.style.display = 'none';
+
+  if (typeof document.createDocumentFragment === 'function') {
+    const fragment = document.createDocumentFragment();
+    list.forEach(work => {
+      const card = buildWorkCard(work);
+      fragment.appendChild(card);
+    });
+    entriesList.appendChild(fragment);
+  } else {
+    list.forEach(work => {
+      const card = buildWorkCard(work);
+      entriesList.appendChild(card);
+    });
+  }
+}
+
 function buildWorkCard(work) {
   const card = document.createElement('div');
   card.className = 'entry-card';
   card.dataset.id = work.id;
 
-  const tag      = work.tag || 'outro';
-  const dateStr  = formatDate(work.updatedAt || work.createdAt);
-  const sources  = work.sources || [];
+  const tag       = work.tag || 'outro';
+  const sources   = work.sources || [];
   const activeSrc = sources.find(s => s.id === work.lastReadSourceId) || sources[0] || {};
   const showIncBtn = appSettings.enableQuickIncrement !== false;
+  const initials  = getWorkInitials(work.name);
+  const relTime   = formatRelativeTime(work.updatedAt || work.createdAt);
+
+  const readingStatus = work.readingStatus || 'lendo';
+  const pubStatus = work.publicationStatus || 'lancamento';
+
+  const statusLabels = {
+    lendo: 'Lendo',
+    concluido: 'Concluído',
+    pausado: 'Pausado',
+    dropado: 'Dropado',
+    planejo: 'Planejo'
+  };
+
+  const pubLabels = {
+    hiato: 'Hiato',
+    cancelado: 'Cancelada',
+    concluido: 'Fim'
+  };
+
+  const statusBadgeHtml = `<button type="button" class="entry-status-badge status-${readingStatus} btn-status-cycle" title="Alterar status de leitura (${statusLabels[readingStatus] || readingStatus})">${statusLabels[readingStatus] || readingStatus}</button>`;
+  const pubBadgeHtml = pubLabels[pubStatus] ? `<button type="button" class="entry-pub-badge pub-${pubStatus} btn-pub-cycle" title="Status da obra: ${pubLabels[pubStatus]} (clique para alternar)">${pubLabels[pubStatus]}</button>` : '';
+
+  const DAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  const releaseDaysBadge = (Array.isArray(work.releaseDays) && work.releaseDays.length > 0)
+    ? `<span class="entry-days-badge" title="Dias de lançamento: ${work.releaseDays.map(d => DAY_NAMES[d]).join(', ')}">${ICONS.calendar} ${work.releaseDays.map(d => DAY_NAMES[d]).join(', ')}</span>`
+    : '';
+
+  // Ordenar fontes para chips: a última fonte lida primeiro, depois as mais recentes
+  const sortedSources = [...sources].sort((a, b) => {
+    if (a.id === work.lastReadSourceId) return -1;
+    if (b.id === work.lastReadSourceId) return 1;
+    return (b.updatedAt || 0) - (a.updatedAt || 0);
+  });
+
+  const MAX_VISIBLE_CHIPS = 2;
+  const visibleSources = sortedSources.slice(0, MAX_VISIBLE_CHIPS);
+  const hiddenCount = sortedSources.length - MAX_VISIBLE_CHIPS;
 
   // Chips HTML
-  const chipsHtml = sources.map(s => {
+  let chipsHtml = visibleSources.map(s => {
     const href = s.url || '#';
     return `<a class="source-chip" href="${esc(href)}" title="${esc(s.url || s.siteName)}" target="_blank" data-srcid="${s.id}">
-      🌐 ${esc(s.siteName)}: <span class="chip-ch">${esc(s.chapter)}</span> <span class="chip-ext">↗</span>
+      ${ICONS.globe} ${esc(s.siteName)}: <span class="chip-ch">${esc(s.chapter)}</span> <span class="chip-ext">${ICONS.external}</span>
     </a>`;
   }).join('');
+
+  if (hiddenCount > 0) {
+    chipsHtml += `<button type="button" class="source-chip-more" title="Ver todos os ${sources.length} sites">+${hiddenCount} sites</button>`;
+  }
 
   // Sources list inside accordion
   const sourcesRowsHtml = sources.map(s => {
@@ -415,9 +1963,9 @@ function buildWorkCard(work) {
         <span class="source-item-ch">${esc(s.chapter)} • ${formatDate(s.updatedAt)}</span>
       </div>
       <div class="source-item-actions">
-        ${s.url ? `<button class="action-btn open btn-src-open" title="Abrir URL">↗</button>` : ''}
-        <button class="action-btn edit btn-src-edit" title="Editar fonte">✎</button>
-        <button class="action-btn del btn-src-del" title="Remover fonte">✕</button>
+        ${s.url ? `<button class="action-btn open btn-src-open" title="Abrir URL">${ICONS.external}</button>` : ''}
+        <button class="action-btn edit btn-src-edit" title="Editar fonte">${ICONS.edit}</button>
+        <button class="action-btn del btn-src-del" title="Remover fonte">${ICONS.del}</button>
       </div>
     </div>`;
   }).join('');
@@ -435,25 +1983,29 @@ function buildWorkCard(work) {
   }).join('') || '<div style="color:var(--muted); font-size:9px; font-family:var(--font-mono);">Nenhum histórico registrado ainda.</div>';
 
   card.innerHTML = `
-    <div class="entry-tag-dot dot-${tag}"></div>
     <div class="entry-body">
       <div class="entry-top">
-        <span class="entry-name" title="${esc(work.name)}">${esc(work.name)}</span>
-        <span class="entry-cat">${tag}</span>
+        <div class="entry-title-wrap">
+          <span class="entry-name" title="${esc(work.name)}">${esc(work.name)}</span>
+          <span class="entry-tooltip">${esc(work.name)}</span>
+        </div>
       </div>
-      <div class="entry-chapter">${esc(work.mainChapter || 'Sem capítulo')}</div>
+
+      <div class="entry-meta-row">
+        ${activeSrc.url ? `<button class="btn-continue btn-main-open" title="Continuar lendo em ${esc(activeSrc.siteName || 'site')}">Continuar ${ICONS.external}</button>` : ''}
+        <span class="entry-cat-badge cat-${tag}">${tag}</span>
+        ${statusBadgeHtml}
+        ${pubBadgeHtml}
+        ${releaseDaysBadge}
+      </div>
 
       <!-- Chips de Sites / Fontes -->
       <div class="entry-sources">
-        ${chipsHtml || '<span style="font-size:9px; color:var(--muted); font-family:var(--font-mono);">Nenhuma fonte</span>'}
+        ${chipsHtml || '<span style="font-size:10px; color:var(--muted); font-family:var(--font-readable);">Nenhuma fonte cadastrada</span>'}
+        <button class="accordion-toggle" title="Fontes e Histórico" aria-label="Fontes e Histórico">
+          <span class="toggle-arrow">${ICONS.chevronDown}</span>
+        </button>
       </div>
-
-      <div class="entry-date">${dateStr}</div>
-
-      <!-- Accordion Toggle -->
-      <button class="accordion-toggle">
-        <span class="toggle-arrow">▼</span> Fontes & Histórico (${sources.length} ${sources.length === 1 ? 'site' : 'sites'})
-      </button>
 
       <!-- Accordion Panel -->
       <div class="accordion-panel">
@@ -463,8 +2015,9 @@ function buildWorkCard(work) {
         </div>
 
         <div class="tab-content active tab-sources">
+          ${(Array.isArray(work.aliases) && work.aliases.length > 0) ? `<div style="font-size:9px; color:var(--muted); font-family:var(--font-mono); margin-bottom:8px; padding:4px 6px; background:rgba(255,255,255,0.03); border-radius:4px; border-left:2px solid var(--accent);"><strong style="color:var(--accent);">Nomes alternativos:</strong> ${esc(work.aliases.join(', '))}</div>` : ''}
           <div class="sources-list">${sourcesRowsHtml}</div>
-          <button class="btn-add-source">＋ Adicionar Outro Site</button>
+          <button class="btn-add-source">${ICONS.plus} Adicionar Outro Site</button>
         </div>
 
         <div class="tab-content tab-history">
@@ -473,17 +2026,19 @@ function buildWorkCard(work) {
       </div>
     </div>
 
-    <!-- Actions no Card -->
-    <div class="entry-actions">
-      ${showIncBtn ? `<button class="action-btn inc" title="Avançar +1 capítulo na fonte ativa">+1</button>` : ''}
-      ${activeSrc.url ? `<button class="action-btn open btn-main-open" title="Abrir link do site ativo">↗</button>` : ''}
-      <button class="action-btn edit btn-main-edit" title="Editar Obra">✎</button>
-      <button class="action-btn del btn-main-del"   title="Remover Obra">✕</button>
+    <!-- Contêiner de Ações e Informação Secundária Reestruturado -->
+    <div class="entry-card-right">
+      <div class="entry-actions">
+        ${showIncBtn ? `<button class="action-btn inc btn-main-inc" title="Avançar +1 capítulo (+)">${ICONS.plus}</button>` : ''}
+        <button class="action-btn edit btn-main-edit" title="Editar Obra">${ICONS.edit}</button>
+        <button class="action-btn del btn-main-del"   title="Remover Obra">${ICONS.del}</button>
+      </div>
+      <span class="entry-relative-time">${esc(relTime)}</span>
     </div>
   `;
 
   // Quick increment
-  const incBtn = card.querySelector('.action-btn.inc');
+  const incBtn = card.querySelector('.btn-main-inc') || card.querySelector('.action-btn.inc');
   if (incBtn) {
     incBtn.addEventListener('click', e => {
       e.stopPropagation();
@@ -491,12 +2046,78 @@ function buildWorkCard(work) {
     });
   }
 
-  // Open active source URL
-  const mainOpenBtn = card.querySelector('.btn-main-open');
-  if (mainOpenBtn) {
-    mainOpenBtn.addEventListener('click', e => {
+  // Open active source URL via continue button or open button
+  card.querySelectorAll('.btn-main-open').forEach(btn => {
+    btn.addEventListener('click', e => {
       e.stopPropagation();
-      if (activeSrc.url) chrome.tabs.create({ url: activeSrc.url });
+      if (activeSrc.url && typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+        chrome.tabs.create({ url: activeSrc.url });
+      }
+    });
+  });
+
+  // Quick cycle reading status on badge click
+  const statusCycleBtn = card.querySelector('.btn-status-cycle');
+  if (statusCycleBtn) {
+    statusCycleBtn.addEventListener('click', async e => {
+      e.stopPropagation();
+      e.preventDefault();
+
+      const NEXT_STATUS = {
+        'lendo': 'concluido',
+        'concluido': 'pausado',
+        'pausado': 'dropado',
+        'dropado': 'planejo',
+        'planejo': 'lendo'
+      };
+
+      const current = work.readingStatus || 'lendo';
+      const next = NEXT_STATUS[current] || 'lendo';
+
+      const updated = await StorageLocal.updateWorkStatus(work.id, { readingStatus: next });
+      if (updated) {
+        allWorks = await StorageLocal.getWorks();
+        renderCurrentView();
+        showToast(`✓ Status: ${statusLabels[next] || next}`);
+      }
+    });
+  }
+
+  // Quick cycle publication status on badge click
+  const pubCycleBtn = card.querySelector('.btn-pub-cycle');
+  if (pubCycleBtn) {
+    pubCycleBtn.addEventListener('click', async e => {
+      e.stopPropagation();
+      e.preventDefault();
+
+      const NEXT_PUB = {
+        'hiato': 'concluido',
+        'concluido': 'cancelado',
+        'cancelado': 'lancamento',
+        'lancamento': 'hiato'
+      };
+
+      const current = work.publicationStatus || 'lancamento';
+      const next = NEXT_PUB[current] || 'lancamento';
+
+      const updated = await StorageLocal.updateWorkStatus(work.id, { publicationStatus: next });
+      if (updated) {
+        allWorks = await StorageLocal.getWorks();
+        renderCurrentView();
+        showToast(`✓ Obra: ${pubLabels[next] || 'Em Lançamento'}`);
+      }
+    });
+  }
+
+  // Avatar click also opens if URL exists
+  const avatarEl = card.querySelector('.entry-avatar');
+  if (avatarEl && activeSrc.url) {
+    avatarEl.style.cursor = 'pointer';
+    avatarEl.addEventListener('click', e => {
+      e.stopPropagation();
+      if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+        chrome.tabs.create({ url: activeSrc.url });
+      }
     });
   }
 
@@ -509,23 +2130,25 @@ function buildWorkCard(work) {
     });
   }
 
-  // Delete work
+  // Delete work via safe confirmation modal
   const mainDelBtn = card.querySelector('.btn-main-del');
   if (mainDelBtn) {
     mainDelBtn.addEventListener('click', e => {
       e.stopPropagation();
-      deleteWork(work.id);
+      promptDeleteWork(work);
     });
   }
 
   // Accordion toggle
   const accToggle = card.querySelector('.accordion-toggle');
   const accPanel  = card.querySelector('.accordion-panel');
-  accToggle.addEventListener('click', e => {
-    e.stopPropagation();
-    const isOpen = accPanel.classList.toggle('open');
-    accToggle.classList.toggle('open', isOpen);
-  });
+  if (accToggle && accPanel) {
+    accToggle.addEventListener('click', e => {
+      e.stopPropagation();
+      const isOpen = accPanel.classList.toggle('open');
+      accToggle.classList.toggle('open', isOpen);
+    });
+  }
 
   // Accordion tabs
   const tabBtns = card.querySelectorAll('.panel-tab');
@@ -547,6 +2170,22 @@ function buildWorkCard(work) {
       }
     });
   });
+
+  // Botão "+N sites" abre accordion na aba Fontes
+  const moreBtn = card.querySelector('.source-chip-more');
+  if (moreBtn) {
+    moreBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      e.preventDefault();
+      accPanel.classList.add('open');
+      accToggle.classList.add('open');
+      tabBtns.forEach(b => b.classList.remove('active'));
+      const tabSrcBtn = card.querySelector('.panel-tab[data-tab="sources"]');
+      if (tabSrcBtn) tabSrcBtn.classList.add('active');
+      tabSources.classList.add('active');
+      tabHistory.classList.remove('active');
+    });
+  }
 
   // Add source button in accordion
   const btnAddSrc = card.querySelector('.btn-add-source');
@@ -588,10 +2227,17 @@ function buildWorkCard(work) {
     }
   });
 
-  // Prevent link click from collapsing card
+  // Prevent link click from collapsing card & reliably open tabs
   card.querySelectorAll('.source-chip').forEach(chip => {
     chip.addEventListener('click', e => {
+      e.preventDefault();
       e.stopPropagation();
+      const srcId = chip.dataset.srcid;
+      const src = sources.find(s => s.id === srcId);
+      const targetUrl = src ? src.url : chip.getAttribute('href');
+      if (targetUrl && targetUrl !== '#' && typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+        chrome.tabs.create({ url: targetUrl });
+      }
     });
   });
 
@@ -606,14 +2252,353 @@ function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
-// ── Search Listener ───────────────────────────────────────
-searchInput.addEventListener('input', () => {
-  renderList(searchInput.value.trim());
-});
+// ── Central Consolidada de Sites (Sem Duplicações) ──────
+function getConsolidatedSites(works) {
+  const sitesMap = new Map();
+  (works || []).forEach(work => {
+    (work.sources || []).forEach(source => {
+      let domain = (source.domain || '').trim().toLowerCase();
+      if (!domain && source.url) {
+        try {
+          const u = new URL(source.url);
+          domain = u.hostname.replace(/^www\./, '').toLowerCase();
+        } catch (_) {}
+      }
+      const rawName = (source.siteName || domain || 'Site').trim();
+      const siteKey = domain || rawName.toLowerCase();
+      if (!siteKey) return;
+
+      if (!sitesMap.has(siteKey)) {
+        let mainUrl = '';
+        if (source.url) {
+          try {
+            const parsed = new URL(source.url);
+            mainUrl = `${parsed.protocol}//${parsed.hostname}`;
+          } catch (_) {
+            mainUrl = source.url;
+          }
+        }
+        sitesMap.set(siteKey, {
+          key: siteKey,
+          siteName: rawName,
+          domain: domain || rawName.toLowerCase(),
+          mainUrl: mainUrl,
+          works: []
+        });
+      }
+
+      const siteEntry = sitesMap.get(siteKey);
+      if (source.siteName && (!siteEntry.siteName || siteEntry.siteName.toLowerCase() === siteEntry.domain)) {
+        siteEntry.siteName = source.siteName;
+      }
+      if (!siteEntry.mainUrl && source.url) {
+        try {
+          const parsed = new URL(source.url);
+          siteEntry.mainUrl = `${parsed.protocol}//${parsed.hostname}`;
+        } catch (_) {
+          siteEntry.mainUrl = source.url;
+        }
+      }
+
+      const existingIdx = siteEntry.works.findIndex(w => w.workId === work.id);
+      const workItem = {
+        workId: work.id,
+        workName: work.name,
+        tag: work.tag || 'outro',
+        chapter: source.chapter || work.mainChapter || '',
+        url: source.url || '',
+        updatedAt: source.updatedAt || work.updatedAt || 0
+      };
+
+      if (existingIdx === -1) {
+        siteEntry.works.push(workItem);
+      } else {
+        if ((workItem.updatedAt || 0) > (siteEntry.works[existingIdx].updatedAt || 0)) {
+          siteEntry.works[existingIdx] = workItem;
+        }
+      }
+    });
+  });
+
+  const list = Array.from(sitesMap.values());
+  list.forEach(site => {
+    site.works.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  });
+
+  return list.sort((a, b) => {
+    if (b.works.length !== a.works.length) {
+      return b.works.length - a.works.length;
+    }
+    return (a.siteName || '').localeCompare(b.siteName || '', 'pt-BR');
+  });
+}
+
+function updateNavBadges() {
+  if (navBadgeWorks) navBadgeWorks.textContent = allWorks.length;
+  if (navBadgeSites) {
+    const allSites = getConsolidatedSites(allWorks);
+    navBadgeSites.textContent = allSites.length;
+  }
+}
+
+function renderSitesView(query = (searchInput ? searchInput.value.trim() : '')) {
+  if (!sitesCardsContainer) return;
+  updateNavBadges();
+
+  let sites = getConsolidatedSites(allWorks);
+  const q = (query || '').toLowerCase().trim();
+
+  if (q) {
+    sites = sites.filter(site => {
+      if (site.siteName.toLowerCase().includes(q)) return true;
+      if (site.domain.toLowerCase().includes(q)) return true;
+      return site.works.some(w =>
+        w.workName.toLowerCase().includes(q) ||
+        (w.chapter || '').toLowerCase().includes(q) ||
+        (w.tag || '').toLowerCase().includes(q)
+      );
+    });
+  }
+
+  sitesCardsContainer.innerHTML = '';
+
+  if (sites.length === 0) {
+    if (emptySitesState) {
+      emptySitesState.style.display = 'flex';
+      const msg = emptySitesState.querySelector('p');
+      if (msg) {
+        msg.innerHTML = q
+          ? `Nenhum site encontrado para "<strong>${esc(q)}</strong>".`
+          : 'Nenhum site cadastrado ainda.<br>Adicione obras ou fontes para consultar os sites aqui.';
+      }
+    }
+    return;
+  }
+
+  if (emptySitesState) emptySitesState.style.display = 'none';
+
+  const useFragment = typeof document.createDocumentFragment === 'function';
+  const fragment = useFragment ? document.createDocumentFragment() : null;
+
+  sites.forEach(site => {
+    const card = document.createElement('div');
+    card.className = 'site-card';
+    card.dataset.domain = site.domain;
+
+    const visitUrl = site.mainUrl || (site.domain.startsWith('http') ? site.domain : `https://${site.domain}`);
+    const worksCountLabel = site.works.length === 1 ? '1 obra' : `${site.works.length} obras`;
+
+    const worksListHtml = site.works.map(w => {
+      return `<a class="site-work-item" href="${esc(w.url || '#')}" data-workid="${esc(w.workId)}" title="Abrir ${esc(w.workName)}">
+        <span class="site-work-title">${esc(w.workName)}</span>
+        <span class="site-work-ch">${esc(w.chapter)}</span>
+      </a>`;
+    }).join('');
+
+    card.innerHTML = `
+      <div class="site-card-header">
+        <div class="site-card-left">
+          <div class="site-card-icon">${ICONS.globe}</div>
+          <div class="site-card-info">
+            <span class="site-card-name" title="${esc(site.siteName)}">${esc(site.siteName)}</span>
+            <span class="site-card-domain" title="${esc(site.domain)}">${esc(site.domain)}</span>
+          </div>
+        </div>
+        <div class="site-card-right">
+          <span class="site-works-count">${worksCountLabel}</span>
+          <button type="button" class="btn-visit-site" title="Visitar ${esc(site.siteName)}">
+            <span>Visitar</span> ${ICONS.external}
+          </button>
+          <span class="site-toggle-icon">${ICONS.chevronDown}</span>
+        </div>
+      </div>
+      <div class="site-works-list">
+        ${worksListHtml}
+      </div>
+    `;
+
+    // Botão Visitar abre o site sem expandir/recolher o card
+    const btnVisit = card.querySelector('.btn-visit-site');
+    if (btnVisit) {
+      btnVisit.addEventListener('click', e => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+          chrome.tabs.create({ url: visitUrl });
+        }
+      });
+    }
+
+    // Clique no cabeçalho expande/recolhe a lista de obras
+    const header = card.querySelector('.site-card-header');
+    if (header) {
+      header.addEventListener('click', e => {
+        if (e.target.closest('.btn-visit-site')) return;
+        card.classList.toggle('expanded');
+      });
+    }
+
+    // Clique na obra abre a URL correspondente
+    card.querySelectorAll('.site-work-item').forEach(item => {
+      item.addEventListener('click', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        const url = item.getAttribute('href');
+        if (url && url !== '#' && typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+          chrome.tabs.create({ url });
+        }
+      });
+    });
+
+    if (fragment) {
+      fragment.appendChild(card);
+    } else {
+      sitesCardsContainer.appendChild(card);
+    }
+  });
+
+  if (fragment) {
+    sitesCardsContainer.appendChild(fragment);
+  }
+}
+
+function renderCurrentView(query = (searchInput && searchInput.value ? searchInput.value.trim() : '')) {
+  if (currentActiveView === 'sites') {
+    renderSitesView(query);
+  } else {
+    renderList(query);
+  }
+}
+
+function switchView(viewName) {
+  currentActiveView = viewName;
+  if (viewName === 'works') {
+    if (navBtnWorks) navBtnWorks.classList.add('active');
+    if (navBtnSites) navBtnSites.classList.remove('active');
+    if (entriesList) entriesList.style.display = '';
+    if (sitesListView) sitesListView.style.display = 'none';
+    if (categoryFilter) categoryFilter.style.display = '';
+    if (statusFilter) statusFilter.style.display = '';
+    if (sortFilter) sortFilter.style.display = '';
+    if (searchInput) searchInput.placeholder = 'Buscar por título, tag, site...';
+    renderList();
+  } else if (viewName === 'sites') {
+    if (navBtnWorks) navBtnWorks.classList.remove('active');
+    if (navBtnSites) navBtnSites.classList.add('active');
+    if (entriesList) entriesList.style.display = 'none';
+    if (sitesListView) sitesListView.style.display = 'flex';
+    if (categoryFilter) categoryFilter.style.display = 'none';
+    if (statusFilter) statusFilter.style.display = 'none';
+    if (sortFilter) sortFilter.style.display = 'none';
+    if (searchInput) searchInput.placeholder = 'Buscar site ou obra...';
+    renderSitesView();
+  }
+}
+
+if (navBtnWorks) {
+  navBtnWorks.addEventListener('click', () => switchView('works'));
+}
+if (navBtnSites) {
+  navBtnSites.addEventListener('click', () => switchView('sites'));
+}
+
+// ── Search & Filter Listeners ─────────────────────────────
+let searchDebounceTimer = null;
+
+if (searchInput) {
+  searchInput.addEventListener('input', () => {
+    if (btnClearSearch) {
+      btnClearSearch.style.display = searchInput.value ? 'flex' : 'none';
+    }
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+      renderCurrentView();
+    }, 120);
+  });
+}
+
+if (btnClearSearch) {
+  btnClearSearch.addEventListener('click', () => {
+    clearTimeout(searchDebounceTimer);
+    if (searchInput) {
+      searchInput.value = '';
+      searchInput.focus();
+    }
+    btnClearSearch.style.display = 'none';
+    renderCurrentView();
+  });
+}
+
+if (categoryFilter) {
+  categoryFilter.addEventListener('change', () => {
+    renderList();
+  });
+}
+
+if (statusFilter) {
+  statusFilter.addEventListener('change', () => {
+    renderList();
+  });
+}
+
+if (sortFilter) {
+  sortFilter.addEventListener('change', () => {
+    renderList();
+  });
+}
+
+// ── Live Storage and Message Listeners ─────────────────────
+if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+  chrome.storage.onChanged.addListener(async (changes, area) => {
+    if (area === 'local' && (changes.chapter_tracker_entries_v3 || changes.chapter_tracker_entries_v2)) {
+      allWorks = await StorageLocal.getWorks();
+      renderCurrentView();
+    }
+    if (area === 'local' && changes.chapter_tracker_notifications_v1) {
+      await updateNotificationUnreadDot();
+      if (notificationsPanel && notificationsPanel.classList.contains('open')) {
+        await renderNotificationsList();
+      }
+    }
+  });
+}
+
+if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+  chrome.runtime.onMessage.addListener(async (msg) => {
+    if (msg.action === 'workSaved') {
+      allWorks = await StorageLocal.getWorks();
+      renderCurrentView();
+    }
+    if (msg.action === 'notificationAdded') {
+      await updateNotificationUnreadDot();
+      if (notificationsPanel && notificationsPanel.classList.contains('open')) {
+        await renderNotificationsList();
+      }
+    }
+  });
+}
 
 // ── Init ──────────────────────────────────────────────────
 (async function init() {
+  initThemeSwitcher();
   await loadSettingsToUI();
+  await updateNotificationUnreadDot();
   allWorks = await StorageLocal.getWorks();
-  renderList();
+  renderCurrentView();
+  updateStorageStatsUI();
+  syncBottomNavVisibility();
 })();
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    getConsolidatedSites,
+    filterWorks,
+    sortWorks,
+    getWorkInitials,
+    formatRelativeTime,
+    isTabForWork,
+    handleQuickIncrement,
+    setSelectedReleaseDays,
+    getSelectedReleaseDays
+  };
+}

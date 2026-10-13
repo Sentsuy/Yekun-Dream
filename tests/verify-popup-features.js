@@ -34,5 +34,30 @@ if (!css.includes('.switch')) {
   process.exit(1);
 }
 
+if (!html.includes('settingsDiagnosticCard') || !html.includes('storageStatsCard')) {
+  console.error('FAIL: popup.html missing settingsDiagnosticCard or storageStatsCard');
+  process.exit(1);
+}
+
+if (!js.includes('updateDiagnosticUI') || !js.includes('updateStorageStatsUI')) {
+  console.error('FAIL: popup.js missing updateDiagnosticUI or updateStorageStatsUI');
+  process.exit(1);
+}
+
+if (!css.includes('.settings-diagnostic-card') || !css.includes('.storage-stats-card')) {
+  console.error('FAIL: popup.css missing .settings-diagnostic-card or .storage-stats-card styling');
+  process.exit(1);
+}
+
+if (!html.includes('toggleAutoTrackAnime')) {
+  console.error('FAIL: popup.html missing toggleAutoTrackAnime');
+  process.exit(1);
+}
+
+if (!js.includes('toggleAutoTrackAnime')) {
+  console.error('FAIL: popup.js missing toggleAutoTrackAnime handling');
+  process.exit(1);
+}
+
 console.log('Popup features verification passed.');
 process.exit(0);

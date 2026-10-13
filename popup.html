@@ -6,7 +6,7 @@
   <title>Chapter Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
@@ -15,82 +15,369 @@
     <!-- Header -->
     <header class="header">
       <div class="header-brand">
-        <span class="brand-icon">◈</span>
-        <span class="brand-name">CHAPTER<br><em>TRACKER</em></span>
+        <svg class="svg-icon brand-icon" viewBox="0 0 24 24">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          <line x1="9" y1="7" x2="15" y2="7"></line>
+          <line x1="9" y1="11" x2="13" y2="11"></line>
+        </svg>
+        <span class="brand-name">YEKUN<br><em>DREAM</em></span>
       </div>
+
       <div class="header-actions">
-        <button class="btn-icon" id="btnSettings" title="Configurações e Nuvem">⚙</button>
-        <button class="btn-add" id="btnShowForm" title="Nova entrada">＋</button>
+        <!-- Botão de Notificações / Sininho -->
+        <button class="btn-icon" id="btnNotifications" title="Lançamentos & Notificações">
+          <svg class="svg-icon" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+          <span class="notif-unread-dot" id="notifUnreadDot" style="display: none;"></span>
+        </button>
+
+        <button class="btn-icon" id="btnSettings" title="Configurações e Nuvem">
+          <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        </button>
+
+        <button class="btn-add" id="btnShowForm" title="Nova entrada">
+          <svg class="svg-icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        </button>
       </div>
     </header>
+
+    <!-- Active Site Permission Bar -->
+    <div class="site-permission-bar" id="sitePermissionBar" title="Ativar ou desativar botão flutuante neste site">
+      <div class="site-permission-info">
+        <svg class="svg-icon site-permission-icon" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="2" y1="12" x2="22" y2="12"></line>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+        </svg>
+        <span class="site-permission-label">Botão neste site</span>
+        <span class="site-permission-domain" id="currentSiteDomain" title="Domínio atual"></span>
+      </div>
+      <label class="switch switch-sm" title="Ativar ou desativar botão flutuante neste site">
+        <input type="checkbox" id="toggleCurrentSite" />
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <!-- About & Info Panel (hidden by default) -->
+    <section class="about-panel" id="aboutPanel">
+      <div class="about-inner">
+        <div class="about-header">
+          <h2 class="form-title">Sobre o Yekun Dream</h2>
+          <button class="btn-close-about" id="btnCloseAbout" title="Fechar">
+            <svg class="svg-icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+
+        <!-- Card de Identidade e Desenvolvedor -->
+        <div class="about-card">
+          <div class="about-brand-row">
+            <div class="about-title-wrap">
+              <span class="about-app-name">Yekun Dream</span>
+              <span class="about-version-tag">v1.2.0</span>
+            </div>
+            <span class="about-author-badge">por <strong>Sentsuy</strong> (Sentsuy Corp)</span>
+          </div>
+          <p class="about-description">
+            Gerenciador inteligente, livre e unificado para salvar e acompanhar seu progresso em animes, mangás, manhwas e webtoons.
+          </p>
+          <div class="about-links-row">
+            <a class="about-link" id="linkOfficialSite" href="https://sentsuy.ddns.net/" target="_blank" title="Visitar site oficial">
+              <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+              <span>sentsuy.ddns.net</span>
+              <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+            </a>
+          </div>
+        </div>
+
+        <!-- Card de Software Livre & Manifesto de Privacidade -->
+        <div class="about-card about-privacy-card">
+          <div class="about-card-title">
+            <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            <span>Software Livre & Privacidade Total</span>
+          </div>
+          <ul class="about-bullet-list">
+            <li><strong>Zero Coleta de Dados Pessoais:</strong> O Yekun Dream nunca coleta seus dados pessoais, e-mail, senhas, IP ou histórico pessoal.</li>
+            <li><strong>Seus Dados Pertencem a Você:</strong> Todas as obras e capítulos ficam salvos estritamente no seu navegador e na sua nuvem pessoal criptografada com Chave de Sincronização.</li>
+            <li><strong>100% Gratuito & Aberto:</strong> Sem anúncios, sem mensalidades e sem recursos pagos bloqueados.</li>
+          </ul>
+        </div>
+
+        <!-- Card de Apoio e Doação Voluntária (Pix) -->
+        <div class="about-card about-pix-card">
+          <div class="about-card-title">
+            <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+            <span>Apoiar o Projeto (Pix Opcional)</span>
+          </div>
+          <p class="about-pix-notice">
+            O projeto é 100% gratuito e livre! Caso queira ajudar nos custos de infraestrutura e hospedagem, doações voluntárias são muito bem-vindas.
+          </p>
+
+          <!-- Mockup / Container do QR Code de Teste -->
+          <div class="pix-qr-container">
+            <div class="pix-qr-box" id="pixQrBox" title="QR Code Pix de Teste">
+              <svg class="svg-icon pix-qr-svg" viewBox="0 0 24 24">
+                <rect x="2" y="2" width="8" height="8" rx="1"></rect>
+                <rect x="14" y="2" width="8" height="8" rx="1"></rect>
+                <rect x="2" y="14" width="8" height="8" rx="1"></rect>
+                <rect x="5" y="5" width="2" height="2"></rect>
+                <rect x="17" y="5" width="2" height="2"></rect>
+                <rect x="5" y="17" width="2" height="2"></rect>
+                <line x1="14" y1="14" x2="14" y2="17"></line>
+                <line x1="17" y1="14" x2="22" y2="14"></line>
+                <line x1="17" y1="17" x2="17.01" y2="17"></line>
+                <line x1="20" y1="17" x2="20" y2="22"></line>
+                <line x1="14" y1="20" x2="17" y2="20"></line>
+              </svg>
+              <div class="pix-qr-overlay">[QR CODE DE TESTE]</div>
+            </div>
+            <span class="pix-qr-caption">QR Code oficial para escanear no app do banco (Em breve)</span>
+          </div>
+
+          <!-- Chave Pix de Teste Copiável -->
+          <div class="pix-key-wrap">
+            <label class="field-label">CHAVE PIX (MODO TESTE)</label>
+            <div class="pix-input-row">
+              <input class="field-input pix-key-input" id="pixTestKey" type="text" value="pix-teste@sentsuy.ddns.net" readonly />
+              <button class="btn-copy-pix" id="btnCopyPix" type="button" title="Copiar Chave Pix de Teste">
+                <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <span>Copiar (Teste)</span>
+              </button>
+            </div>
+            <span class="pix-disclaimer">* Esta é uma chave ilustrativa de teste. A conta definitiva será cadastrada no futuro.</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Notifications Panel (hidden by default) -->
+    <section class="notifications-panel" id="notificationsPanel">
+      <div class="notifications-inner">
+        <div class="notifications-header">
+          <div class="notifications-title-wrap">
+            <svg class="svg-icon svg-sm" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+            <h2 class="form-title">Lançamentos Recentes</h2>
+          </div>
+          <div class="notifications-actions-top">
+            <button class="btn-clear-notifs" id="btnClearNotifs" title="Limpar histórico">Limpar</button>
+            <button class="btn-close-notifs" id="btnCloseNotifs" title="Fechar">
+              <svg class="svg-icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
+        </div>
+        <div class="notifications-list" id="notificationsList"></div>
+        <div class="notifications-empty" id="notificationsEmpty" style="display: none;">
+          <svg class="svg-icon notif-empty-icon" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+          <p>Nenhuma notificação recente.</p>
+          <small>Lembretes matinais (08:00) e vespertinos (17:00) aparecem aqui (máx. 20).</small>
+        </div>
+      </div>
+    </section>
 
     <!-- Settings Panel (hidden by default) -->
     <section class="settings-panel" id="settingsPanel">
       <div class="settings-inner">
         <div class="settings-header">
           <h2 class="form-title">Configurações & Nuvem</h2>
-          <button class="btn-close-settings" id="btnCloseSettings" title="Fechar">✕</button>
+          <button class="btn-close-settings" id="btnCloseSettings" title="Fechar">
+            <svg class="svg-icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
         </div>
 
-        <div class="toggle-list">
-          <label class="toggle-item">
-            <span class="toggle-label">Botão flutuante nas páginas</span>
-            <div class="switch">
-              <input type="checkbox" id="toggleFloatingButton" />
-              <span class="slider"></span>
+        <!-- Seção 1: Diagnóstico da Aba Ativa -->
+        <div class="settings-section">
+          <div class="settings-section-title">Status da Aba Atual</div>
+          <div class="settings-diagnostic-card" id="settingsDiagnosticCard">
+            <div class="diagnostic-row">
+              <div class="diagnostic-indicator" id="diagnosticIndicator"></div>
+              <div class="diagnostic-info">
+                <span class="diagnostic-title" id="diagnosticDomainTitle">Verificando aba atual...</span>
+                <span class="diagnostic-subtitle" id="diagnosticStatusText">Status do leitor e botão flutuante</span>
+              </div>
             </div>
-          </label>
-
-          <label class="toggle-item">
-            <span class="toggle-label">Contador no botão flutuante</span>
-            <div class="switch">
-              <input type="checkbox" id="toggleBadgeCount" />
-              <span class="slider"></span>
-            </div>
-          </label>
-
-          <label class="toggle-item">
-            <span class="toggle-label">Ação rápida (+1) nos cards</span>
-            <div class="switch">
-              <input type="checkbox" id="toggleQuickIncrement" />
-              <span class="slider"></span>
-            </div>
-          </label>
-
-          <label class="toggle-item">
-            <span class="toggle-label">Preenchimento automático do título</span>
-            <div class="switch">
-              <input type="checkbox" id="toggleAutoTitle" />
-              <span class="slider"></span>
-            </div>
-          </label>
-
-          <label class="toggle-item">
-            <span class="toggle-label">Sincronização periódica em nuvem</span>
-            <div class="switch">
-              <input type="checkbox" id="toggleAutoSync" />
-              <span class="slider"></span>
-            </div>
-          </label>
-        </div>
-
-        <div class="field-group">
-          <label class="field-label">DOMÍNIOS BLOQUEADOS (separados por vírgula)</label>
-          <input class="field-input" id="inputBlockedDomains" type="text" placeholder="ex: youtube.com, google.com" />
-        </div>
-
-        <div class="field-group">
-          <label class="field-label">CHAVE DE SINCRONIZAÇÃO (SYNC KEY)</label>
-          <div class="url-row">
-            <input class="field-input" id="inputSyncKey" type="text" placeholder="ex: CT-USER-KEY" />
-            <button class="btn-sync" id="btnSyncNow" title="Sincronizar agora">⟳</button>
           </div>
         </div>
 
-        <div class="backup-actions">
-          <button class="btn-backup" id="btnExportBackup">Exportar Backup (.json)</button>
-          <button class="btn-backup" id="btnImportBackup">Importar Backup</button>
-          <input type="file" id="fileImportBackup" accept=".json" style="display: none;" />
+        <!-- Seção 2: Tema Visual -->
+        <div class="settings-section">
+          <div class="settings-section-title">Aparência & Cores</div>
+          <div class="theme-switcher theme-switcher-settings" id="themeSwitcher" title="Escolher Tema">
+            <button class="theme-btn active" data-theme="dark" title="Tema Escuro (Azul)">
+              <svg class="svg-icon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+              <span>Escuro</span>
+            </button>
+            <button class="theme-btn" data-theme="light" title="Tema Claro (Branco & Azul)">
+              <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+              <span>Claro</span>
+            </button>
+            <button class="theme-btn" data-theme="pink" title="Tema Rosa (Rosa & Branco)">
+              <svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg>
+              <span>Rosa</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Seção 3: Leitor & Botão Flutuante -->
+        <div class="settings-section">
+          <div class="settings-section-title">Leitor & Botão Flutuante</div>
+          <div class="toggle-list">
+            <label class="toggle-item">
+              <div class="toggle-label-wrap">
+                <span class="toggle-label">Botão flutuante nas páginas</span>
+                <span class="toggle-status" id="floatingButtonStatus">Ativado</span>
+              </div>
+              <div class="switch">
+                <input type="checkbox" id="toggleFloatingButton" />
+                <span class="slider"></span>
+              </div>
+            </label>
+
+            <label class="toggle-item">
+              <span class="toggle-label">Contador no botão flutuante</span>
+              <div class="switch">
+                <input type="checkbox" id="toggleBadgeCount" />
+                <span class="slider"></span>
+              </div>
+            </label>
+
+            <label class="toggle-item">
+              <span class="toggle-label">Ação rápida (+1) nos cards</span>
+              <div class="switch">
+                <input type="checkbox" id="toggleQuickIncrement" />
+                <span class="slider"></span>
+              </div>
+            </label>
+
+            <label class="toggle-item">
+              <span class="toggle-label">Preenchimento automático do título</span>
+              <div class="switch">
+                <input type="checkbox" id="toggleAutoTitle" />
+                <span class="slider"></span>
+              </div>
+            </label>
+
+            <label class="toggle-item">
+              <span class="toggle-label">Auto-marcar animes ao assistir 70%</span>
+              <div class="switch">
+                <input type="checkbox" id="toggleAutoTrackAnime" />
+                <span class="slider"></span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Seção 4: Permissões de Sites -->
+        <div class="settings-section">
+          <div class="settings-section-title">Controle de Sites</div>
+          <div class="field-group">
+            <label class="field-label">DOMÍNIOS PERMITIDOS (ATIVAR BOTÃO)</label>
+            <div class="domain-input-wrap">
+              <input class="field-input input-add-chip" id="inputAllowedDomains" type="text" placeholder="Adicionar domínio e teclar Enter..." autocomplete="off" />
+              <span class="domain-enter-badge" title="Pressione Enter para adicionar">↵</span>
+            </div>
+            <div class="domain-chips-cloud" id="allowedChipsList"></div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">DOMÍNIOS BLOQUEADOS</label>
+            <div class="domain-input-wrap">
+              <input class="field-input input-add-chip" id="inputBlockedDomains" type="text" placeholder="Adicionar domínio e teclar Enter..." autocomplete="off" />
+              <span class="domain-enter-badge" title="Pressione Enter para adicionar">↵</span>
+            </div>
+            <div class="domain-chips-cloud" id="blockedChipsList"></div>
+          </div>
+        </div>
+
+        <!-- Seção 5: Notificações & Lembretes -->
+        <div class="settings-section">
+          <div class="settings-section-title">Notificações & Lembretes</div>
+          <div class="toggle-list">
+            <label class="toggle-item">
+              <span class="toggle-label">Alertas de lançamento nos dias da obra</span>
+              <div class="switch">
+                <input type="checkbox" id="toggleReleaseNotifications" />
+                <span class="slider"></span>
+              </div>
+            </label>
+
+            <label class="toggle-item">
+              <span class="toggle-label">Alerta matinal (08:00)</span>
+              <div class="switch">
+                <input type="checkbox" id="toggleMorningNotification" />
+                <span class="slider"></span>
+              </div>
+            </label>
+
+            <label class="toggle-item">
+              <span class="toggle-label">Alerta vespertino (17:00)</span>
+              <div class="switch">
+                <input type="checkbox" id="toggleEveningNotification" />
+                <span class="slider"></span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Seção 6: Sincronização & Nuvem -->
+        <div class="settings-section">
+          <div class="settings-section-title">Sincronização & Nuvem</div>
+          <div class="toggle-list">
+            <label class="toggle-item">
+              <span class="toggle-label">Sincronização periódica em nuvem</span>
+              <div class="switch">
+                <input type="checkbox" id="toggleAutoSync" />
+                <span class="slider"></span>
+              </div>
+            </label>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">CHAVE DE SINCRONIZAÇÃO (SYNC KEY)</label>
+            <div class="url-row">
+              <input class="field-input" id="inputSyncKey" type="text" placeholder="ex: CT-USER-KEY" />
+              <button class="btn-sync" id="btnSyncNow" title="Sincronizar agora">
+                <svg class="svg-icon" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seção 7: Dados & Backup -->
+        <div class="settings-section">
+          <div class="settings-section-title">Dados Locais & Backup</div>
+          <div class="storage-stats-card" id="storageStatsCard">
+            <div class="storage-stats-header">
+              <span class="storage-stats-title">Armazenamento Local</span>
+              <span class="storage-stats-badge" id="storageStatsSize">0 KB</span>
+            </div>
+            <div class="storage-stats-grid">
+              <div class="storage-stat-item">
+                <span class="storage-stat-val" id="storageStatWorks">0</span>
+                <span class="storage-stat-lbl">Obras cadastradas</span>
+              </div>
+              <div class="storage-stat-item">
+                <span class="storage-stat-val" id="storageStatSources">0</span>
+                <span class="storage-stat-lbl">Fontes rastreadas</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="backup-actions">
+            <button class="btn-backup" id="btnExportBackup">Exportar Backup (.json)</button>
+            <button class="btn-backup" id="btnImportBackup">Importar Backup</button>
+            <input type="file" id="fileImportBackup" accept=".json" style="display: none;" />
+          </div>
+        </div>
+
+        <!-- Seção 8: Sobre & Informações -->
+        <div class="settings-section">
+          <div class="settings-section-title">Sobre o Aplicativo</div>
+          <div class="settings-about-row">
+            <button class="btn-settings-about" id="btnAbout" title="Sobre o Yekun Dream & Apoiar">
+              <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+              <span>Sobre o Yekun Dream, Privacidade & Apoiar (Pix)</span>
+            </button>
+          </div>
         </div>
       </div>
     </section>
@@ -98,7 +385,15 @@
     <!-- Form Panel (hidden by default) -->
     <section class="form-panel" id="formPanel">
       <div class="form-panel-inner">
-        <h2 class="form-title" id="formTitle">Nova Entrada</h2>
+        <div class="form-header">
+          <h2 class="form-title" id="formTitle">Nova Obra</h2>
+          <div class="form-header-actions">
+            <button class="btn-save" id="btnSave" title="Salvar Obra">Salvar</button>
+            <button type="button" class="btn-cancel btn-cancel-x" id="btnCancel" title="Cancelar e fechar">
+              <svg class="svg-icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
+        </div>
 
         <input type="hidden" id="editId" />
         <input type="hidden" id="editSourceId" />
@@ -106,6 +401,11 @@
         <div class="field-group">
           <label class="field-label">TÍTULO / NOME DA OBRA</label>
           <input class="field-input" id="inputTitle" type="text" placeholder="ex: Martial Peak, Solo Leveling…" autocomplete="off" />
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">NOMES ALTERNATIVOS / ALIASES (SEPARADOS POR VÍRGULA)</label>
+          <input class="field-input" id="inputAliases" type="text" placeholder="ex: O Começo Depois do Fim, TBATE…" autocomplete="off" />
         </div>
 
         <div class="field-group">
@@ -122,7 +422,9 @@
           <label class="field-label">URL DO SITE</label>
           <div class="url-row">
             <input class="field-input" id="inputUrl" type="url" placeholder="https://…" autocomplete="off" />
-            <button class="btn-capture" id="btnCapture" title="Capturar URL atual">⌖</button>
+            <button class="btn-capture" id="btnCapture" title="Capturar URL atual">
+              <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="22" y1="12" x2="18" y2="12"></line><line x1="6" y1="12" x2="2" y2="12"></line><line x1="12" y1="6" x2="12" y2="2"></line><line x1="12" y1="22" x2="12" y2="18"></line></svg>
+            </button>
           </div>
         </div>
 
@@ -130,39 +432,161 @@
           <label class="field-label">CATEGORIA</label>
           <div class="tag-picker" id="tagPicker">
             <button class="tag-btn active" data-tag="manga">Mangá</button>
+            <button class="tag-btn" data-tag="manhwa">Manhwa</button>
+            <button class="tag-btn" data-tag="manhua">Manhua</button>
             <button class="tag-btn" data-tag="anime">Anime</button>
+            <button class="tag-btn" data-tag="webtoon">Webtoon</button>
             <button class="tag-btn" data-tag="serie">Série</button>
+            <button class="tag-btn" data-tag="filme">Filme</button>
             <button class="tag-btn" data-tag="livro">Livro</button>
             <button class="tag-btn" data-tag="outro">Outro</button>
           </div>
         </div>
 
-        <div class="form-actions">
-          <button class="btn-cancel" id="btnCancel">Cancelar</button>
-          <button class="btn-save" id="btnSave">Salvar</button>
+        <div class="field-group">
+          <label class="field-label">STATUS DE LEITURA</label>
+          <div class="tag-picker status-picker" id="readingStatusPicker">
+            <button type="button" class="tag-btn active" data-status="lendo">Lendo</button>
+            <button type="button" class="tag-btn" data-status="concluido">Concluído</button>
+            <button type="button" class="tag-btn" data-status="pausado">Pausado</button>
+            <button type="button" class="tag-btn" data-status="dropado">Dropado</button>
+            <button type="button" class="tag-btn" data-status="planejo">Planejo</button>
+          </div>
         </div>
+
+        <div class="field-group">
+          <label class="field-label">STATUS DA OBRA (PUBLICAÇÃO)</label>
+          <div class="tag-picker pub-status-picker" id="pubStatusPicker">
+            <button type="button" class="tag-btn active" data-pub="lancamento">Em Lançamento</button>
+            <button type="button" class="tag-btn" data-pub="concluido">Finalizada</button>
+            <button type="button" class="tag-btn" data-pub="hiato">Em Hiato</button>
+            <button type="button" class="tag-btn" data-pub="cancelado">Cancelada</button>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">DIAS DE LANÇAMENTO (SEMANAL)</label>
+          <div class="weekday-picker" id="weekdayPicker">
+            <button type="button" class="weekday-btn" data-day="0" title="Domingo">Dom</button>
+            <button type="button" class="weekday-btn" data-day="1" title="Segunda-feira">Seg</button>
+            <button type="button" class="weekday-btn" data-day="2" title="Terça-feira">Ter</button>
+            <button type="button" class="weekday-btn" data-day="3" title="Quarta-feira">Qua</button>
+            <button type="button" class="weekday-btn" data-day="4" title="Quinta-feira">Qui</button>
+            <button type="button" class="weekday-btn" data-day="5" title="Sexta-feira">Sex</button>
+            <button type="button" class="weekday-btn" data-day="6" title="Sábado">Sáb</button>
+          </div>
+        </div>
+
       </div>
     </section>
 
-    <!-- Search -->
+    <!-- Search & Filter (Busca por Nome + Categoria + Status) -->
     <div class="search-bar" id="searchBar">
-      <span class="search-icon">⌕</span>
-      <input class="search-input" id="searchInput" type="text" placeholder="Filtrar entradas…" />
-      <span class="entry-count" id="entryCount">0</span>
+      <div class="search-input-wrap">
+        <span class="search-icon">
+          <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </span>
+        <input class="search-input" id="searchInput" type="text" placeholder="Buscar obras…" autocomplete="off" />
+        <button class="btn-clear-search" id="btnClearSearch" title="Limpar busca" style="display: none;">
+          <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <select class="category-select" id="categoryFilter" title="Filtrar por Categoria">
+        <option value="all">Todas</option>
+        <option value="manga">Mangá</option>
+        <option value="manhwa">Manhwa</option>
+        <option value="manhua">Manhua</option>
+        <option value="anime">Anime</option>
+        <option value="webtoon">Webtoon</option>
+        <option value="serie">Série</option>
+        <option value="filme">Filme</option>
+        <option value="livro">Livro</option>
+        <option value="outro">Outro</option>
+      </select>
+
+      <select class="status-select" id="statusFilter" title="Filtrar por Status de Leitura">
+        <option value="all">Status: Todos</option>
+        <option value="lendo">Lendo</option>
+        <option value="concluido">Concluídos</option>
+        <option value="pausado">Pausados</option>
+        <option value="dropado">Dropados</option>
+        <option value="planejo">Planejo Ler</option>
+      </select>
     </div>
 
-    <!-- Entries List -->
+    <!-- Entries List (Obras View) -->
     <main class="entries-list" id="entriesList">
       <div class="empty-state" id="emptyState">
-        <span class="empty-icon">◇</span>
-        <p>Nenhuma entrada ainda.<br>Clique em <strong>＋</strong> para começar.</p>
+        <div class="empty-icon">
+          <svg class="svg-icon svg-xl" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+        </div>
+        <p>Nenhuma obra encontrada.<br>Clique em <strong>+ Nova Obra</strong> para começar.</p>
       </div>
     </main>
+
+    <!-- Sites List View (Central Consolidada de Sites) -->
+    <section class="sites-list-view" id="sitesListView" style="display: none;">
+      <div class="empty-state" id="emptySitesState" style="display: none;">
+        <div class="empty-icon">
+          <svg class="svg-icon svg-xl" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+        </div>
+        <p>Nenhum site cadastrado ainda.<br>Adicione obras ou fontes para consultar os sites aqui.</p>
+      </div>
+      <div class="sites-cards-container" id="sitesCardsContainer"></div>
+    </section>
+
+    <!-- Bottom Navigation Bar (Obras vs Meus Sites) -->
+    <nav class="bottom-nav-bar" id="bottomNavBar">
+      <button type="button" class="bottom-nav-btn active" id="navBtnWorks" title="Ver Minhas Obras">
+        <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+        <span>Obras</span>
+        <span class="bottom-nav-badge" id="navBadgeWorks">0</span>
+      </button>
+
+      <button type="button" class="bottom-nav-btn" id="navBtnSites" title="Consultar Todos os Sites de Leitura">
+        <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+        <span>Sites / Scans</span>
+        <span class="bottom-nav-badge" id="navBadgeSites">0</span>
+      </button>
+    </nav>
+
+    <!-- Confirm Delete Modal -->
+    <div class="modal-overlay" id="confirmDeleteModal">
+      <div class="modal-box">
+        <div class="modal-icon">
+          <svg class="svg-icon svg-lg" viewBox="0 0 24 24" style="color: var(--accent2);"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        </div>
+        <h3 class="modal-title">Excluir Obra?</h3>
+        <p class="modal-text" id="confirmDeleteText">Você tem certeza que deseja excluir esta obra e seu histórico de leitura?</p>
+        <div class="modal-actions">
+          <button class="btn-modal-cancel" id="btnCancelDelete">Cancelar</button>
+          <button class="btn-modal-confirm" id="btnConfirmDelete">Excluir</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirm Action / Increment Modal -->
+    <div class="modal-overlay" id="confirmActionModal">
+      <div class="modal-box">
+        <div class="modal-icon" id="confirmActionIcon">
+          <svg class="svg-icon svg-lg" viewBox="0 0 24 24" style="color: var(--accent);"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        </div>
+        <h3 class="modal-title" id="confirmActionTitle">Confirmar Avanço</h3>
+        <p class="modal-text" id="confirmActionText">Aviso de progresso</p>
+        <div class="modal-actions">
+          <button class="btn-modal-cancel" id="btnCancelAction">Cancelar</button>
+          <button class="btn-modal-confirm" id="btnConfirmAction">Avançar</button>
+        </div>
+      </div>
+    </div>
 
     <!-- Toast -->
     <div class="toast" id="toast"></div>
   </div>
 
+  <script src="canonical-resolver.js"></script>
+  <script src="alias-crowd-service.js"></script>
   <script src="storage-local.js"></script>
   <script src="popup.js"></script>
 </body>
