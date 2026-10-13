@@ -38,6 +38,12 @@ const { StorageLocal } = require('../storage-local');
   assert.strictEqual(settings.enableBadgeCount, true);
   assert.strictEqual(settings.enableQuickIncrement, true);
   assert.strictEqual(settings.enableAutoTitleDetection, true);
+  assert.strictEqual(settings.autoTrackAnime, true);
+
+  await StorageLocal.saveSettings({ autoTrackAnime: false });
+  const updatedSettings = await StorageLocal.getSettings();
+  assert.strictEqual(updatedSettings.autoTrackAnime, false);
+  await StorageLocal.saveSettings({ autoTrackAnime: true });
 
   console.log('Testing save and retrieve entry...');
   const entry = await StorageLocal.saveEntry({
