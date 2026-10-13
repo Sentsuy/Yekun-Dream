@@ -162,16 +162,37 @@ if (typeof module !== 'undefined' && module.exports) {
 
 (async function () {
   if (typeof document === 'undefined') return;
-  const existingRoot = document.getElementById('__ct_root__');
-  if (existingRoot) {
-    try { existingRoot.remove(); } catch (_) {}
-  }
 
   const currentHost = window.location.hostname.toLowerCase().replace(/^www\./, '');
 
   let appSettings = typeof StorageLocal !== 'undefined'
     ? await StorageLocal.getSettings()
-    : { enableFloatingButton: true, enableBadgeCount: true, blockedDomains: [], allowedDomains: [] };
+    : { enableFloatingButton: true, enableBadgeCount: true, blockedDomains: [], allowedDomains: [], autoTrackAnime: true };
+
+  const isTopFrame = (typeof window !== 'undefined' && window.top === window);
+
+  // Se estiver dentro de um iframe de player, executa apenas o Video Tracker e envia mensagem ao frame pai
+  if (!isTopFrame) {
+    if (appSettings.autoTrackAnime !== false) {
+      YekunVideoTracker.initAutoTracking(progressData => {
+        try {
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({
+              type: 'YEKUN_VIDEO_PROGRESS_COMPLETED',
+              source: 'yekun-dream',
+              ...progressData
+            }, '*');
+          }
+        } catch (_) {}
+      });
+    }
+    return; // Fast-exit no iframe (não injeta botão flutuante nem form)
+  }
+
+  const existingRoot = document.getElementById('__ct_root__');
+  if (existingRoot) {
+    try { existingRoot.remove(); } catch (_) {}
+  }
 
   function isDomainAllowed(hostName, allowedList = []) {
     if (!Array.isArray(allowedList) || allowedList.length === 0) return false;
@@ -1490,9 +1511,23 @@ if (typeof module !== 'undefined' && module.exports) {
   });
 
   // ── Salvar (Atualiza existente ou cria nova sem duplicatas) ─
-  btnSave.addEventListener('click', async () => {
-    const name    = nameInp.value.trim() || currentTitle || 'Sem título';
-    const chapter = chapterInp.value.trim() || 'Cap. 1';
+  async function executeSaveReading(opts = {}) {
+    if (typeof StorageLocal === 'undefined') return null;
+
+    if (!currentTitle && typeof extractPageData === 'function') {
+      try {
+        const pd = await extractPageData();
+        if (pd && pd.title) {
+          currentTitle = pd.title;
+          if (pd.chapter && (!chapterInp.value || chapterInp.value === 'Cap. 1')) {
+            chapterInp.value = pd.chapter;
+          }
+        }
+      } catch (_) {}
+    }
+
+    const name    = (nameInp && nameInp.value ? nameInp.value.trim() : '') || currentTitle || 'Sem título';
+    const chapter = (chapterInp && chapterInp.value ? chapterInp.value.trim() : '') || (lastExtractedPageData && lastExtractedPageData.chapter) || 'Cap. 1';
 
     const siteDomain = StorageLocal.extractDomain(currentUrl) || currentHost;
     const siteLabel  = StorageLocal.formatSiteName(siteDomain);
@@ -1525,16 +1560,26 @@ if (typeof module !== 'undefined' && module.exports) {
       }
     } catch (e) {}
 
-    const isUpdate = !!existingEntry;
-    const isNewSource = isUpdate && !matchedSource;
-
-    if (isNewSource) {
-      toast(`✓ Novo site vinculado à ${savedWork.name}!`);
-    } else if (isUpdate) {
-      toast(`✓ Progresso atualizado — ${chapter}`);
+    if (opts.autoTrack) {
+      toast(`✓ ${chapter} concluído e salvo automaticamente! (70%)`, 2800);
     } else {
-      toast(`✓ Obra salva com sucesso!`);
+      const isUpdate = !!existingEntry;
+      const isNewSource = isUpdate && !matchedSource;
+
+      if (isNewSource) {
+        toast(`✓ Novo site vinculado à ${savedWork.name}!`);
+      } else if (isUpdate) {
+        toast(`✓ Progresso atualizado — ${chapter}`);
+      } else {
+        toast(`✓ Obra salva com sucesso!`);
+      }
     }
+
+    return savedWork;
+  }
+
+  btnSave.addEventListener('click', async () => {
+    await executeSaveReading({ autoTrack: false });
 
     setTimeout(() => {
       panel.classList.remove('open');
@@ -1543,6 +1588,50 @@ if (typeof module !== 'undefined' && module.exports) {
       resetFormState();
     }, 1200);
   });
+
+  // ── Auto-Tracker de Animes (70% do Vídeo & Idempotência) ──
+  const autoSavedInSession = new Set();
+
+  async function handleAutoSave(progressData = {}) {
+    if (appSettings.autoTrackAnime === false) return;
+
+    if (!existingEntry && typeof StorageLocal !== 'undefined') {
+      try {
+        const allStoredWorks = await StorageLocal.getWorks();
+        if (typeof extractPageData === 'function') {
+          const pd = await extractPageData();
+          if (pd && pd.title) {
+            currentTitle = pd.title;
+            if (pd.chapter && (!chapterInp.value || chapterInp.value === 'Cap. 1')) {
+              chapterInp.value = pd.chapter;
+            }
+            existingEntry = findExistingWork(allStoredWorks, pd.title);
+          }
+        }
+      } catch (_) {}
+    }
+
+    const chap = (chapterInp && chapterInp.value ? chapterInp.value.trim() : '') || (lastExtractedPageData && lastExtractedPageData.chapter) || 'Ep. 01';
+    const sessionKey = `${currentUrl || window.location.href}__${chap}`;
+    if (autoSavedInSession.has(sessionKey)) return;
+    autoSavedInSession.add(sessionKey);
+
+    await executeSaveReading({ autoTrack: true });
+  }
+
+  // Ouvinte de mensagens vindas de players embutidos em iframe
+  window.addEventListener('message', event => {
+    if (event && event.data && event.data.type === 'YEKUN_VIDEO_PROGRESS_COMPLETED' && event.data.source === 'yekun-dream') {
+      handleAutoSave(event.data);
+    }
+  });
+
+  // Também inicializa rastreamento direto no Top Frame (caso o player esteja no DOM principal)
+  if (appSettings.autoTrackAnime !== false) {
+    YekunVideoTracker.initAutoTracking(progressData => {
+      handleAutoSave(progressData);
+    });
+  }
 
   // ── Fechar ao clicar fora do host ────────────────────────
   document.addEventListener('click', e => {
@@ -1684,6 +1773,9 @@ if (typeof module !== 'undefined' && module.exports) {
       currentUrl = newUrl;
       matchedSource = null;
       existingEntry = null;
+      if (typeof autoSavedInSession !== 'undefined') {
+        autoSavedInSession.clear();
+      }
       if (typeof StorageLocal !== 'undefined') {
         StorageLocal.getWorks().then(updateBadge);
       }

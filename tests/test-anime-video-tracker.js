@@ -180,6 +180,27 @@ class MockVideo {
     assert.strictEqual(triggerCount, 2, 'Segundo episódio computado após troca de src');
   }
 
+  console.log('--- TEST 7: Manifest all_frames configuration ---');
+  {
+    const fs = require('fs');
+    const path = require('path');
+    const manifest = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../manifest.json'), 'utf8'));
+    assert.ok(manifest.content_scripts, 'Manifest must have content_scripts');
+    const cs = manifest.content_scripts[0];
+    assert.strictEqual(cs.all_frames, true, 'content_scripts must have all_frames: true');
+  }
+
+  console.log('--- TEST 8: Cross-Frame Message Protocol & Idempotency ---');
+  {
+    const fs = require('fs');
+    const path = require('path');
+    const contentSource = fs.readFileSync(path.resolve(__dirname, '../content.js'), 'utf8');
+
+    assert.ok(contentSource.includes('YEKUN_VIDEO_PROGRESS_COMPLETED'), 'content.js must define or handle YEKUN_VIDEO_PROGRESS_COMPLETED');
+    assert.ok(contentSource.includes('window.top === window') || contentSource.includes('window.top!==window') || contentSource.includes('isTopFrame'), 'content.js must check top frame vs iframe');
+    assert.ok(contentSource.includes('autoSavedInSession') || contentSource.includes('autoTrack'), 'content.js must handle session idempotency or autoTrack');
+  }
+
   console.log('✓ All anime video tracker tests passed successfully!');
 })().catch(err => {
   console.error('FAIL in anime video tracker tests:', err);

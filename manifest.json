@@ -1,13 +1,15 @@
 {
   "manifest_version": 3,
-  "name": "Chapter Tracker",
-  "version": "1.1.0",
-  "description": "Salve e acompanhe seu progresso em mangás, séries e animes — com botão flutuante em qualquer página.",
+  "name": "Yekun Dream",
+  "version": "1.2.0",
+  "description": "Acompanhe seu progresso em animes, mangás e webtoons — 100% livre, privado e sem coleta de dados pessoais. Desenvolvido por Sentsuy (Sentsuy Corp).",
   "permissions": [
     "storage",
     "activeTab",
     "tabs",
-    "alarms"
+    "alarms",
+    "notifications",
+    "scripting"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -20,7 +22,7 @@
       "48":  "icons/icon48.png",
       "128": "icons/icon128.png"
     },
-    "default_title": "Chapter Tracker"
+    "default_title": "Yekun Dream"
   },
   "icons": {
     "16":  "icons/icon16.png",
@@ -34,7 +36,9 @@
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js":      ["storage-local.js", "content.js"],
+      "js":      ["canonical-resolver.js", "alias-crowd-service.js", "storage-local.js", "content.js"],
+      "all_frames": true,
+      "match_about_blank": true,
       "run_at":  "document_idle"
     }
   ]
