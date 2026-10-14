@@ -11,6 +11,7 @@ const popupCss = fs.readFileSync(path.resolve(__dirname, '../popup.css'), 'utf8'
 assert.ok(popupCss.includes('[data-theme="dark"]') || popupCss.includes(':root'), 'popup.css must define dark theme');
 assert.ok(popupCss.includes('[data-theme="light"]'), 'popup.css must define light theme');
 assert.ok(popupCss.includes('[data-theme="pink"]'), 'popup.css must define pink theme');
+assert.ok(popupCss.includes('[data-theme="neon"]'), 'popup.css must define neon theme');
 
 // Yellow check: neon yellow #e8ff47 must be gone from popup.css
 assert.strictEqual(popupCss.includes('#e8ff47'), false, 'Neon yellow #e8ff47 must be removed from popup.css');

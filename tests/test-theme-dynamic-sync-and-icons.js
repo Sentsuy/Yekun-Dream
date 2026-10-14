@@ -31,7 +31,12 @@ const expectedIconFiles = [
   'icons/icon-pink-16.png',
   'icons/icon-pink-32.png',
   'icons/icon-pink-48.png',
-  'icons/icon-pink-128.png'
+  'icons/icon-pink-128.png',
+  'icons/icon-neon.svg',
+  'icons/icon-neon-16.png',
+  'icons/icon-neon-32.png',
+  'icons/icon-neon-48.png',
+  'icons/icon-neon-128.png'
 ];
 
 for (const rel of expectedIconFiles) {
@@ -47,6 +52,7 @@ assert.ok(iconSvg.includes('#38bdf8'), 'Master icon.svg must use Yekun Dream Sky
 // 3. content.js floating button multi-theme support
 assert.ok(contentJs.includes('data-theme="light"'), 'content.js must define light theme styles');
 assert.ok(contentJs.includes('data-theme="pink"'), 'content.js must define pink theme styles');
+assert.ok(contentJs.includes('data-theme="neon"'), 'content.js must define neon theme styles');
 assert.ok(contentJs.includes('var(--accent)'), 'content.js must use var(--accent) for FAB and panel elements');
 assert.ok(contentJs.includes('applyTheme'), 'content.js must define applyTheme function');
 assert.ok(contentJs.includes('YEKUN') && contentJs.includes('DREAM'), 'content.js panel must display YEKUN DREAM branding');

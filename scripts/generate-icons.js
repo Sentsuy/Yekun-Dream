@@ -52,6 +52,22 @@ const THEMES = {
       accentAlt: '#ec4899',
       pageFill: '#34192b'
     }
+  },
+  neon: {
+    bg: [5, 7, 15, 255],              // #05070f Deep Cyber Void
+    border: [0, 240, 255, 255],        // #00f0ff Cyber Neon Cyan
+    accent: [0, 240, 255, 255],        // #00f0ff
+    accentAlt: [255, 0, 127, 255],     // #ff007f Electric Magenta
+    pageFill: [12, 16, 34, 255],       // #0c1022
+    starCore: [255, 255, 255, 255],
+    hex: {
+      bg: '#05070f',
+      border: '#00f0ff',
+      accent: '#00f0ff',
+      accentAlt: '#ff007f',
+      starCore: '#ffffff',
+      pageFill: '#0c1022'
+    }
   }
 };
 
@@ -270,7 +286,8 @@ fs.writeFileSync(path.join(iconsDir, 'icon.svg'), generateSvg('dark'));
 fs.writeFileSync(path.join(iconsDir, 'icon-dark.svg'), generateSvg('dark'));
 fs.writeFileSync(path.join(iconsDir, 'icon-light.svg'), generateSvg('light'));
 fs.writeFileSync(path.join(iconsDir, 'icon-pink.svg'), generateSvg('pink'));
-console.log('✓ Master SVGs generated: icon.svg, icon-dark.svg, icon-light.svg, icon-pink.svg');
+fs.writeFileSync(path.join(iconsDir, 'icon-neon.svg'), generateSvg('neon'));
+console.log('✓ Master SVGs generated: icon.svg, icon-dark.svg, icon-light.svg, icon-pink.svg, icon-neon.svg');
 
 // 2. Default Manifest PNGs (Dark Official)
 [16, 32, 48, 128].forEach(size => {
@@ -280,7 +297,7 @@ console.log('✓ Master SVGs generated: icon.svg, icon-dark.svg, icon-light.svg,
 });
 
 // 3. Theme Variants
-['dark', 'light', 'pink'].forEach(themeKey => {
+['dark', 'light', 'pink', 'neon'].forEach(themeKey => {
   [16, 32, 48, 128].forEach(size => {
     const buf = createThemePng(size, themeKey);
     fs.writeFileSync(path.join(iconsDir, `icon-${themeKey}-${size}.png`), buf);

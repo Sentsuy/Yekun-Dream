@@ -171,247 +171,304 @@
           </button>
         </div>
 
-        <!-- Seção 1: Diagnóstico da Aba Ativa -->
-        <div class="settings-section">
-          <div class="settings-section-title">Status da Aba Atual</div>
-          <div class="settings-diagnostic-card" id="settingsDiagnosticCard">
-            <div class="diagnostic-row">
-              <div class="diagnostic-indicator" id="diagnosticIndicator"></div>
-              <div class="diagnostic-info">
-                <span class="diagnostic-title" id="diagnosticDomainTitle">Verificando aba atual...</span>
-                <span class="diagnostic-subtitle" id="diagnosticStatusText">Status do leitor e botão flutuante</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- Navegação por Pílulas (Settings Tabs) -->
+        <nav class="settings-tabs-nav" id="settingsTabsNav">
+          <button type="button" class="settings-tab-btn active" data-tab="pro" title="Yekun Cloud PRO & Nuvem">
+            <svg class="svg-icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            <span>PRO</span>
+          </button>
+          <button type="button" class="settings-tab-btn" data-tab="appearance" title="Aparência & Temas">
+            <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a10 10 0 0 1 0 20v-20z"></path></svg>
+            <span>Visual</span>
+          </button>
+          <button type="button" class="settings-tab-btn" data-tab="reader" title="Leitor & Automações">
+            <svg class="svg-icon" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            <span>Leitor</span>
+          </button>
+          <button type="button" class="settings-tab-btn" data-tab="notifications" title="Notificações & Sites">
+            <svg class="svg-icon" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+            <span>Alertas</span>
+          </button>
+          <button type="button" class="settings-tab-btn" data-tab="backup" title="Dados Locais & Backup">
+            <svg class="svg-icon" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            <span>Dados</span>
+          </button>
+        </nav>
 
-        <!-- Seção 2: Tema Visual -->
-        <div class="settings-section">
-          <div class="settings-section-title">Aparência & Cores</div>
-          <div class="theme-switcher theme-switcher-settings" id="themeSwitcher" title="Escolher Tema">
-            <button class="theme-btn active" data-theme="dark" title="Tema Escuro (Azul)">
-              <svg class="svg-icon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-              <span>Escuro</span>
-            </button>
-            <button class="theme-btn" data-theme="light" title="Tema Claro (Branco & Azul)">
-              <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-              <span>Claro</span>
-            </button>
-            <button class="theme-btn" data-theme="pink" title="Tema Rosa (Rosa & Branco)">
-              <svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg>
-              <span>Rosa</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Seção 3: Leitor & Botão Flutuante -->
-        <div class="settings-section">
-          <div class="settings-section-title">Leitor & Botão Flutuante</div>
-          <div class="toggle-list">
-            <label class="toggle-item">
-              <div class="toggle-label-wrap">
-                <span class="toggle-label">Botão flutuante nas páginas</span>
-                <span class="toggle-status" id="floatingButtonStatus">Ativado</span>
-              </div>
-              <div class="switch">
-                <input type="checkbox" id="toggleFloatingButton" />
-                <span class="slider"></span>
-              </div>
-            </label>
-
-            <label class="toggle-item">
-              <span class="toggle-label">Contador no botão flutuante</span>
-              <div class="switch">
-                <input type="checkbox" id="toggleBadgeCount" />
-                <span class="slider"></span>
-              </div>
-            </label>
-
-            <label class="toggle-item">
-              <span class="toggle-label">Ação rápida (+1) nos cards</span>
-              <div class="switch">
-                <input type="checkbox" id="toggleQuickIncrement" />
-                <span class="slider"></span>
-              </div>
-            </label>
-
-            <label class="toggle-item">
-              <span class="toggle-label">Preenchimento automático do título</span>
-              <div class="switch">
-                <input type="checkbox" id="toggleAutoTitle" />
-                <span class="slider"></span>
-              </div>
-            </label>
-
-            <label class="toggle-item">
-              <span class="toggle-label">Auto-marcar animes ao assistir 70%</span>
-              <div class="switch">
-                <input type="checkbox" id="toggleAutoTrackAnime" />
-                <span class="slider"></span>
-              </div>
-            </label>
-          </div>
-        </div>
-
-        <!-- Seção 4: Permissões de Sites -->
-        <div class="settings-section">
-          <div class="settings-section-title">Controle de Sites</div>
-          <div class="field-group">
-            <label class="field-label">DOMÍNIOS PERMITIDOS (ATIVAR BOTÃO)</label>
-            <div class="domain-input-wrap">
-              <input class="field-input input-add-chip" id="inputAllowedDomains" type="text" placeholder="Adicionar domínio e teclar Enter..." autocomplete="off" />
-              <span class="domain-enter-badge" title="Pressione Enter para adicionar">↵</span>
-            </div>
-            <div class="domain-chips-cloud" id="allowedChipsList"></div>
-          </div>
-
-          <div class="field-group">
-            <label class="field-label">DOMÍNIOS BLOQUEADOS</label>
-            <div class="domain-input-wrap">
-              <input class="field-input input-add-chip" id="inputBlockedDomains" type="text" placeholder="Adicionar domínio e teclar Enter..." autocomplete="off" />
-              <span class="domain-enter-badge" title="Pressione Enter para adicionar">↵</span>
-            </div>
-            <div class="domain-chips-cloud" id="blockedChipsList"></div>
-          </div>
-        </div>
-
-        <!-- Seção 5: Notificações & Lembretes -->
-        <div class="settings-section">
-          <div class="settings-section-title">Notificações & Lembretes</div>
-          <div class="toggle-list">
-            <label class="toggle-item">
-              <span class="toggle-label">Alertas de lançamento nos dias da obra</span>
-              <div class="switch">
-                <input type="checkbox" id="toggleReleaseNotifications" />
-                <span class="slider"></span>
-              </div>
-            </label>
-
-            <label class="toggle-item">
-              <span class="toggle-label">Alerta matinal (08:00)</span>
-              <div class="switch">
-                <input type="checkbox" id="toggleMorningNotification" />
-                <span class="slider"></span>
-              </div>
-            </label>
-
-            <label class="toggle-item">
-              <span class="toggle-label">Alerta vespertino (17:00)</span>
-              <div class="switch">
-                <input type="checkbox" id="toggleEveningNotification" />
-                <span class="slider"></span>
-              </div>
-            </label>
-          </div>
-        </div>
-
-        <!-- Seção 6: Sincronização & Nuvem (Yekun Cloud PRO) -->
-        <div class="settings-section">
-          <div class="settings-section-title">
-            <span>Sincronização em Nuvem</span>
-            <span class="pro-tag-badge">⭐ PRO</span>
-          </div>
-
-          <!-- Card de Status PRO -->
-          <div class="pro-status-card" id="proStatusCard">
-            <div class="pro-card-header">
-              <div class="pro-identity-info">
-                <span class="pro-badge" id="proBadgeLabel">FREE</span>
-                <span class="pro-account-email" id="proAccountEmail">Detectando conta…</span>
-              </div>
-              <button class="btn-subtle-edit" id="btnEditProEmail" title="Alterar e-mail manualmente">Editar</button>
+        <!-- Aba 1: Yekun Cloud PRO & Nuvem -->
+        <div class="settings-tab-pane active" id="paneSettingsPro">
+          <div class="settings-section">
+            <div class="settings-section-title">
+              <span>Sincronização em Nuvem</span>
+              <span class="pro-tag-badge">⭐ PRO</span>
             </div>
 
-            <!-- Bloco de entrada manual de e-mail (escondido por padrão) -->
-            <div class="pro-custom-email-row hidden" id="proCustomEmailRow">
-              <input class="field-input text-xs" id="inputCustomProEmail" type="email" placeholder="seu-email@gmail.com" />
-              <button class="btn-primary text-xs" id="btnSaveCustomProEmail">Salvar</button>
-            </div>
-
-            <div class="pro-card-body" id="proCardBody">
-              <p class="pro-desc" id="proDescText">
-                Sincronize suas obras entre PC, notebook e navegador em tempo real com o <strong>Yekun Cloud PRO</strong> por apenas <strong>R$ 20/ano</strong>.
-              </p>
-              
-              <!-- Bloco de Ativação por PIN de 4 Dígitos -->
-              <div class="pro-pin-section" id="proPinSection">
-                <label class="pro-pin-label">Já tem um código de ativação?</label>
-                <div class="pro-pin-row">
-                  <input class="pro-pin-input" id="inputProPin" type="text" maxlength="4" placeholder="••••" />
-                  <button class="btn-activate-pin" id="btnRedeemPin">Ativar PIN</button>
+            <div class="pro-status-card" id="proStatusCard">
+              <div class="pro-card-header">
+                <div class="pro-identity-info">
+                  <span class="pro-badge" id="proBadgeLabel">FREE</span>
+                  <span class="pro-account-email" id="proAccountEmail">Detectando conta…</span>
                 </div>
+                <button class="btn-subtle-edit" id="btnEditProEmail" title="Alterar e-mail manualmente">Editar</button>
               </div>
 
-              <!-- Ações de Assinatura -->
-              <div class="pro-actions-row" id="proActionsRow">
-                <button class="btn-upgrade-pro" id="btnOpenProModal">
-                  <span>⭐ Assinar Yekun PRO (R$ 20/ano)</span>
-                </button>
-                <button class="btn-verify-pro" id="btnVerifyPro" title="Reverificar assinatura ativa">
-                  <svg class="svg-icon svg-sm" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-                  <span>Verificar</span>
+              <!-- Entrada manual de e-mail -->
+              <div class="pro-custom-email-row hidden" id="proCustomEmailRow">
+                <input class="field-input text-xs" id="inputCustomProEmail" type="email" placeholder="seu-email@gmail.com" />
+                <button class="btn-primary text-xs" id="btnSaveCustomProEmail">Salvar</button>
+              </div>
+
+              <div class="pro-card-body" id="proCardBody">
+                <p class="pro-desc" id="proDescText">
+                  Sincronize suas obras entre múltiplos dispositivos em tempo real com o <strong>Yekun Cloud PRO</strong> por apenas <strong>R$ 20/ano</strong>.
+                </p>
+
+                <!-- 1-Click Google Connect -->
+                <div class="pro-google-row" id="proGoogleRow">
+                  <button type="button" class="btn-google-signin" id="btnConnectGoogle" title="Conectar com sua conta Google em 1 clique">
+                    <svg class="svg-icon svg-google" viewBox="0 0 24 24">
+                      <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"></path>
+                      <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"></path>
+                      <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"></path>
+                      <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"></path>
+                    </svg>
+                    <span>Conectar Conta Google</span>
+                  </button>
+                </div>
+
+                <!-- Ações de Assinatura & Verificação -->
+                <div class="pro-actions-row" id="proActionsRow">
+                  <button class="btn-upgrade-pro" id="btnOpenProModal">
+                    <svg class="svg-icon svg-sm" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                    <span>Assinar Yekun PRO (R$ 20/ano)</span>
+                  </button>
+                  <button class="btn-verify-pro" id="btnVerifyPro" title="Reverificar assinatura ativa">
+                    <svg class="svg-icon svg-sm" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                    <span>Verificar</span>
+                  </button>
+                </div>
+
+                <!-- Código Opcional / Legado em Accordion Colapsado -->
+                <details class="pro-pin-accordion" id="proPinAccordion">
+                  <summary class="pro-pin-summary">
+                    <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    <span>Possui um código de ativação?</span>
+                  </summary>
+                  <div class="pro-pin-section" id="proPinSection">
+                    <label class="pro-pin-label">Código numérico de ativação:</label>
+                    <div class="pro-pin-row">
+                      <input class="pro-pin-input" id="inputProPin" type="text" maxlength="4" placeholder="••••" />
+                      <button class="btn-activate-pin" id="btnRedeemPin">Ativar PIN</button>
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </div>
+
+            <!-- Controles de Sync -->
+            <div class="toggle-list pro-sync-controls" id="proSyncControls">
+              <label class="toggle-item">
+                <span class="toggle-label">Sincronização periódica em nuvem</span>
+                <div class="switch">
+                  <input type="checkbox" id="toggleAutoSync" />
+                  <span class="slider"></span>
+                </div>
+              </label>
+            </div>
+
+            <div class="field-group pro-sync-controls">
+              <label class="field-label">SINCRONIZAR AGORA</label>
+              <div class="url-row">
+                <input class="field-input" id="inputSyncKey" type="text" placeholder="Chave de sincronização" readonly />
+                <button class="btn-sync" id="btnSyncNow" title="Sincronizar agora">
+                  <svg class="svg-icon" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
                 </button>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Controles de Sync (habilitados para PRO) -->
-          <div class="toggle-list pro-sync-controls" id="proSyncControls">
-            <label class="toggle-item">
-              <span class="toggle-label">Sincronização periódica em nuvem</span>
-              <div class="switch">
-                <input type="checkbox" id="toggleAutoSync" />
-                <span class="slider"></span>
-              </div>
-            </label>
-          </div>
-
-          <div class="field-group pro-sync-controls">
-            <label class="field-label">SINCRONIZAR AGORA</label>
-            <div class="url-row">
-              <input class="field-input" id="inputSyncKey" type="text" placeholder="Chave de sincronização" readonly />
-              <button class="btn-sync" id="btnSyncNow" title="Sincronizar agora">
-                <svg class="svg-icon" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+        <!-- Aba 2: Aparência & Temas -->
+        <div class="settings-tab-pane" id="paneSettingsAppearance">
+          <div class="settings-section">
+            <div class="settings-section-title">Aparência & Temas Visuais</div>
+            <div class="theme-switcher theme-switcher-settings" id="themeSwitcher" title="Escolher Tema">
+              <button class="theme-btn active" data-theme="dark" title="Tema Escuro (Azul)">
+                <svg class="svg-icon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                <span>Escuro</span>
+              </button>
+              <button class="theme-btn" data-theme="light" title="Tema Claro (Branco & Azul)">
+                <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                <span>Claro</span>
+              </button>
+              <button class="theme-btn" data-theme="pink" title="Tema Rosa (Rosa Sakura)">
+                <svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg>
+                <span>Rosa</span>
+              </button>
+              <button class="theme-btn theme-btn-neon" data-theme="neon" title="Cyber Neon (Exclusivo PRO)">
+                <svg class="svg-icon" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                <span>Neon</span>
+                <span class="theme-pro-tag">PRO</span>
               </button>
             </div>
           </div>
         </div>
 
-        <!-- Seção 7: Dados & Backup -->
-        <div class="settings-section">
-          <div class="settings-section-title">Dados Locais & Backup</div>
-          <div class="storage-stats-card" id="storageStatsCard">
-            <div class="storage-stats-header">
-              <span class="storage-stats-title">Armazenamento Local</span>
-              <span class="storage-stats-badge" id="storageStatsSize">0 KB</span>
-            </div>
-            <div class="storage-stats-grid">
-              <div class="storage-stat-item">
-                <span class="storage-stat-val" id="storageStatWorks">0</span>
-                <span class="storage-stat-lbl">Obras cadastradas</span>
-              </div>
-              <div class="storage-stat-item">
-                <span class="storage-stat-val" id="storageStatSources">0</span>
-                <span class="storage-stat-lbl">Fontes rastreadas</span>
+        <!-- Aba 3: Leitor & Automações -->
+        <div class="settings-tab-pane" id="paneSettingsReader">
+          <!-- Status da Aba Ativa -->
+          <div class="settings-section">
+            <div class="settings-section-title">Status da Aba Atual</div>
+            <div class="settings-diagnostic-card" id="settingsDiagnosticCard">
+              <div class="diagnostic-row">
+                <div class="diagnostic-indicator" id="diagnosticIndicator"></div>
+                <div class="diagnostic-info">
+                  <span class="diagnostic-title" id="diagnosticDomainTitle">Verificando aba atual...</span>
+                  <span class="diagnostic-subtitle" id="diagnosticStatusText">Status do leitor e botão flutuante</span>
+                </div>
               </div>
             </div>
           </div>
 
-          <div class="backup-actions">
-            <button class="btn-backup" id="btnExportBackup">Exportar Backup (.json)</button>
-            <button class="btn-backup" id="btnImportBackup">Importar Backup</button>
-            <input type="file" id="fileImportBackup" accept=".json" style="display: none;" />
+          <!-- Toggles do Leitor -->
+          <div class="settings-section">
+            <div class="settings-section-title">Comportamento do Leitor</div>
+            <div class="toggle-list">
+              <label class="toggle-item">
+                <div class="toggle-label-wrap">
+                  <span class="toggle-label">Botão flutuante nas páginas</span>
+                  <span class="toggle-status" id="floatingButtonStatus">Ativado</span>
+                </div>
+                <div class="switch">
+                  <input type="checkbox" id="toggleFloatingButton" />
+                  <span class="slider"></span>
+                </div>
+              </label>
+
+              <label class="toggle-item">
+                <span class="toggle-label">Contador no botão flutuante</span>
+                <div class="switch">
+                  <input type="checkbox" id="toggleBadgeCount" />
+                  <span class="slider"></span>
+                </div>
+              </label>
+
+              <label class="toggle-item">
+                <span class="toggle-label">Ação rápida (+1) nos cards</span>
+                <div class="switch">
+                  <input type="checkbox" id="toggleQuickIncrement" />
+                  <span class="slider"></span>
+                </div>
+              </label>
+
+              <label class="toggle-item">
+                <span class="toggle-label">Preenchimento automático do título</span>
+                <div class="switch">
+                  <input type="checkbox" id="toggleAutoTitle" />
+                  <span class="slider"></span>
+                </div>
+              </label>
+
+              <label class="toggle-item">
+                <span class="toggle-label">Auto-marcar animes ao assistir 70%</span>
+                <div class="switch">
+                  <input type="checkbox" id="toggleAutoTrackAnime" />
+                  <span class="slider"></span>
+                </div>
+              </label>
+            </div>
           </div>
         </div>
 
-        <!-- Seção 8: Sobre & Informações -->
-        <div class="settings-section">
-          <div class="settings-section-title">Sobre o Aplicativo</div>
-          <div class="settings-about-row">
-            <button class="btn-settings-about" id="btnAbout" title="Sobre o Yekun Dream & Apoiar">
-              <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-              <span>Sobre o Yekun Dream, Privacidade & Apoiar (Pix)</span>
-            </button>
+        <!-- Aba 4: Notificações & Sites -->
+        <div class="settings-tab-pane" id="paneSettingsNotifications">
+          <div class="settings-section">
+            <div class="settings-section-title">Alertas de Lançamento</div>
+            <div class="toggle-list">
+              <label class="toggle-item">
+                <span class="toggle-label">Alertas de lançamento nos dias da obra</span>
+                <div class="switch">
+                  <input type="checkbox" id="toggleReleaseNotifications" />
+                  <span class="slider"></span>
+                </div>
+              </label>
+
+              <label class="toggle-item">
+                <span class="toggle-label">Alerta matinal (08:00)</span>
+                <div class="switch">
+                  <input type="checkbox" id="toggleMorningNotification" />
+                  <span class="slider"></span>
+                </div>
+              </label>
+
+              <label class="toggle-item">
+                <span class="toggle-label">Alerta vespertino (17:00)</span>
+                <div class="switch">
+                  <input type="checkbox" id="toggleEveningNotification" />
+                  <span class="slider"></span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-section-title">Controle de Domínios</div>
+            <div class="field-group">
+              <label class="field-label">DOMÍNIOS PERMITIDOS (ATIVAR BOTÃO)</label>
+              <div class="domain-input-wrap">
+                <input class="field-input input-add-chip" id="inputAllowedDomains" type="text" placeholder="Adicionar domínio e teclar Enter..." autocomplete="off" />
+                <span class="domain-enter-badge" title="Pressione Enter para adicionar">↵</span>
+              </div>
+              <div class="domain-chips-cloud" id="allowedChipsList"></div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">DOMÍNIOS BLOQUEADOS</label>
+              <div class="domain-input-wrap">
+                <input class="field-input input-add-chip" id="inputBlockedDomains" type="text" placeholder="Adicionar domínio e teclar Enter..." autocomplete="off" />
+                <span class="domain-enter-badge" title="Pressione Enter para adicionar">↵</span>
+              </div>
+              <div class="domain-chips-cloud" id="blockedChipsList"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Aba 5: Dados Locais, Backup & Sobre -->
+        <div class="settings-tab-pane" id="paneSettingsBackup">
+          <div class="settings-section">
+            <div class="settings-section-title">Armazenamento Local</div>
+            <div class="storage-stats-card" id="storageStatsCard">
+              <div class="storage-stats-header">
+                <span class="storage-stats-title">Uso de Armazenamento</span>
+                <span class="storage-stats-badge" id="storageStatsSize">0 KB</span>
+              </div>
+              <div class="storage-stats-grid">
+                <div class="storage-stat-item">
+                  <span class="storage-stat-val" id="storageStatWorks">0</span>
+                  <span class="storage-stat-lbl">Obras cadastradas</span>
+                </div>
+                <div class="storage-stat-item">
+                  <span class="storage-stat-val" id="storageStatSources">0</span>
+                  <span class="storage-stat-lbl">Fontes rastreadas</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="backup-actions">
+              <button class="btn-backup" id="btnExportBackup">Exportar Backup (.json)</button>
+              <button class="btn-backup" id="btnImportBackup">Importar Backup</button>
+              <input type="file" id="fileImportBackup" accept=".json" style="display: none;" />
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-section-title">Sobre o Aplicativo</div>
+            <div class="settings-about-row">
+              <button class="btn-settings-about" id="btnAbout" title="Sobre o Yekun Dream & Apoiar">
+                <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                <span>Sobre o Yekun Dream, Privacidade & Apoiar (Pix)</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

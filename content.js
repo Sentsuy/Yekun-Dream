@@ -295,6 +295,20 @@ if (typeof window !== 'undefined') {
       --muted:         #9d7b93;
     }
 
+    #ct-container[data-theme="neon"], :host([data-theme="neon"]) {
+      --bg:            #05070f;
+      --surface:       #0c1022;
+      --surface2:      #131936;
+      --border:        #00f0ff;
+      --accent:        #00f0ff;
+      --accent-hover:  #33f3ff;
+      --accent-rgb:    0, 240, 255;
+      --accent2:       #ff007f;
+      --text:          #e0f7ff;
+      --text-contrast: #05070f;
+      --muted:         #6482a6;
+    }
+
     /* ── FAB ── */
     #ct-fab {
       width: 48px; height: 48px;
@@ -672,7 +686,7 @@ if (typeof window !== 'undefined') {
   shadow.appendChild(wrap);
 
   function applyTheme(themeName = 'dark') {
-    const valid = ['dark', 'light', 'pink'].includes(themeName) ? themeName : 'dark';
+    const valid = ['dark', 'light', 'pink', 'neon'].includes(themeName) ? themeName : 'dark';
     host.setAttribute('data-theme', valid);
     wrap.setAttribute('data-theme', valid);
   }

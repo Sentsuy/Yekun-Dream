@@ -699,7 +699,7 @@ async function updateCurrentSiteToggleUI(providedTab = null) {
 
 // ── Theme Management (Dark, Light, Pink) ──────────────────
 function updateActionIcon(themeName = 'dark') {
-  const valid = ['dark', 'light', 'pink'].includes(themeName) ? themeName : 'dark';
+  const valid = ['dark', 'light', 'pink', 'neon'].includes(themeName) ? themeName : 'dark';
   try {
     if (typeof chrome !== 'undefined' && chrome.action && chrome.action.setIcon) {
       chrome.action.setIcon({
@@ -717,7 +717,7 @@ function updateActionIcon(themeName = 'dark') {
 }
 
 function applyTheme(themeName = 'dark') {
-  const valid = ['dark', 'light', 'pink'].includes(themeName) ? themeName : 'dark';
+  const valid = ['dark', 'light', 'pink', 'neon'].includes(themeName) ? themeName : 'dark';
   if (typeof document !== 'undefined' && document.documentElement && document.documentElement.setAttribute) {
     document.documentElement.setAttribute('data-theme', valid);
   }
@@ -738,6 +738,19 @@ function initThemeSwitcher() {
   document.querySelectorAll('.theme-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const theme = btn.dataset.theme;
+
+      // Trava exclusiva para o Tema Cyber Neon (PRO)
+      if (theme === 'neon') {
+        const isPro = proStatusCard && proStatusCard.classList.contains('is-pro');
+        if (!isPro) {
+          showToast('O Tema Cyber Neon e exclusivo para assinantes Yekun PRO');
+          if (modalProPix) {
+            modalProPix.classList.add('active');
+          }
+          return;
+        }
+      }
+
       applyTheme(theme);
       appSettings.theme = theme;
       await StorageLocal.saveSettings(appSettings);
@@ -745,8 +758,36 @@ function initThemeSwitcher() {
       showToast(
         theme === 'light' ? 'Tema Claro ativado' :
         theme === 'pink'  ? 'Tema Rosa ativado' :
+        theme === 'neon'  ? 'Tema Cyber Neon PRO ativado' :
                            'Tema Escuro ativado'
       );
+    });
+  });
+}
+
+function initSettingsTabs() {
+  const tabBtns = document.querySelectorAll('.settings-tab-btn');
+  const tabPanes = document.querySelectorAll('.settings-tab-pane');
+  if (!tabBtns.length || !tabPanes.length) return;
+
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.tab;
+      tabBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      tabPanes.forEach(pane => pane.classList.remove('active'));
+
+      const activePane = document.getElementById(
+        target === 'pro'           ? 'paneSettingsPro' :
+        target === 'appearance'    ? 'paneSettingsAppearance' :
+        target === 'reader'        ? 'paneSettingsReader' :
+        target === 'notifications' ? 'paneSettingsNotifications' :
+                                    'paneSettingsBackup'
+      );
+      if (activePane) {
+        activePane.classList.add('active');
+      }
     });
   });
 }
@@ -1855,6 +1896,29 @@ if (btnModalRedeemPin) {
   });
 }
 
+const btnConnectGoogle = document.getElementById('btnConnectGoogle');
+if (btnConnectGoogle) {
+  btnConnectGoogle.addEventListener('click', async () => {
+    showToast('Conectando conta Google...');
+    try {
+      const info = await IdentityService.getIdentityInfo();
+      if (info && info.email) {
+        await IdentityService.setCustomProEmail(info.email);
+        await updateProStatusUI(true);
+        showToast('Conta vinculada: ' + info.email);
+      } else {
+        if (proCustomEmailRow) {
+          proCustomEmailRow.classList.remove('hidden');
+          if (inputCustomProEmail) inputCustomProEmail.focus();
+        }
+        showToast('Informe seu e-mail para vincular');
+      }
+    } catch (e) {
+      showToast('Erro ao conectar conta');
+    }
+  });
+}
+
 if (btnVerifyPro) {
   btnVerifyPro.addEventListener('click', async () => {
     showToast('Verificando assinatura…');
@@ -2754,6 +2818,7 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
 // ── Init ──────────────────────────────────────────────────
 (async function init() {
   initThemeSwitcher();
+  initSettingsTabs();
   await loadSettingsToUI();
   await updateNotificationUnreadDot();
   allWorks = await StorageLocal.getWorks();

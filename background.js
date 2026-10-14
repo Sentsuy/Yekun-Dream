@@ -16,7 +16,7 @@ async function syncActionIcon() {
   if (typeof StorageLocal !== 'undefined' && typeof chrome !== 'undefined' && chrome.action && chrome.action.setIcon) {
     try {
       const settings = await StorageLocal.getSettings();
-      const valid = ['dark', 'light', 'pink'].includes(settings.theme) ? settings.theme : 'dark';
+      const valid = ['dark', 'light', 'pink', 'neon'].includes(settings.theme) ? settings.theme : 'dark';
       chrome.action.setIcon({
         path: {
           16: `icons/icon-${valid}-16.png`,
