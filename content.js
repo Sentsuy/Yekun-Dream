@@ -4,6 +4,8 @@
    Persistência direta via storage-local.js (v3: multi-fontes e obras).
    ════════════════════════════════════════════════════════ */
 
+(function () {
+
 const YekunVideoTracker = {
   targetRatio: 0.70,
   minPlayedSeconds: 120,
@@ -158,6 +160,10 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     YekunVideoTracker
   };
+}
+
+if (typeof window !== 'undefined') {
+  window.YekunVideoTracker = YekunVideoTracker;
 }
 
 (async function () {
@@ -1813,3 +1819,6 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
 })();
+
+})();
+
