@@ -894,7 +894,7 @@ async function updateProStatusUI(forceRefresh = false) {
       proStatusCard.classList.remove('is-pro');
       if (proBadgeLabel) {
         proBadgeLabel.className = 'pro-badge';
-        proBadgeLabel.textContent = '🔒 FREE';
+        proBadgeLabel.textContent = 'FREE';
       }
       if (proDescText) {
         proDescText.innerHTML = 'Sincronize suas obras entre PC, notebook e navegador em tempo real com o <strong>Yekun Cloud PRO</strong> por apenas <strong>R$ 20/ano</strong>.';
@@ -1823,7 +1823,7 @@ if (btnRedeemPin) {
     const config = { supabaseUrl: appSettings ? appSettings.supabaseUrl : '', supabaseKey: appSettings ? appSettings.supabaseKey : '' };
     const res = await IdentityService.redeemPin(config, pin);
     if (res.success) {
-      showToast('🎉 ' + res.message);
+      showToast('✓ ' + res.message);
       if (inputProPin) inputProPin.value = '';
       await updateProStatusUI(true);
     } else {
@@ -1843,7 +1843,7 @@ if (btnModalRedeemPin) {
     const config = { supabaseUrl: appSettings ? appSettings.supabaseUrl : '', supabaseKey: appSettings ? appSettings.supabaseKey : '' };
     const res = await IdentityService.redeemPin(config, pin);
     if (res.success) {
-      showToast('🎉 ' + res.message);
+      showToast('✓ ' + res.message);
       if (inputModalProPin) inputModalProPin.value = '';
       if (modalProPix) modalProPix.classList.remove('active');
       await updateProStatusUI(true);
