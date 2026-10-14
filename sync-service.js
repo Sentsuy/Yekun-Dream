@@ -4,22 +4,49 @@
    com resolução Last-Write-Wins (LWW) e soft-deletes (v3: Works & Sources).
    ════════════════════════════════════════════════════════ */
 
+if (typeof IdentityService === 'undefined' && typeof require !== 'undefined') {
+  try {
+    const idMod = require('./identity-service');
+    if (idMod && idMod.IdentityService) {
+      global.IdentityService = idMod.IdentityService;
+    }
+  } catch (_) {}
+}
+
 const STORAGE_KEY_ENTRIES_V3 = 'chapter_tracker_entries_v3';
 
 const SyncService = {
   async getClientConfig() {
     const settings = await StorageLocal.getSettings();
+    const supabaseUrl = settings.supabaseUrl ? settings.supabaseUrl.trim().replace(/\/$/, '') : '';
+    const supabaseKey = settings.supabaseKey ? settings.supabaseKey.trim() : '';
+
+    let isPro = false;
+    let proEmail = '';
+
+    if (typeof IdentityService !== 'undefined' && IdentityService && IdentityService.checkProStatus) {
+      try {
+        const proStatus = await IdentityService.checkProStatus({ supabaseUrl, supabaseKey });
+        isPro = !!proStatus.isPro;
+        proEmail = proStatus.email || '';
+      } catch (_) {}
+    }
+
+    const syncKey = proEmail || (settings.syncKey ? settings.syncKey.trim() : '');
+
     return {
-      syncKey: settings.syncKey ? settings.syncKey.trim() : '',
-      supabaseUrl: settings.supabaseUrl ? settings.supabaseUrl.trim().replace(/\/$/, '') : '',
-      supabaseKey: settings.supabaseKey ? settings.supabaseKey.trim() : ''
+      syncKey,
+      supabaseUrl,
+      supabaseKey,
+      isPro,
+      proEmail
     };
   },
 
   async pushPending() {
     const config = await this.getClientConfig();
-    if (!config.syncKey || !config.supabaseUrl || !config.supabaseKey) {
-      return { pushed: 0, reason: 'offline_mode' };
+    if (!config.isPro || !config.syncKey || !config.supabaseUrl || !config.supabaseKey) {
+      return { pushed: 0, reason: 'offline_or_free_mode' };
     }
 
     const allWorks = await StorageLocal.getAllRawWorks();
@@ -77,8 +104,8 @@ const SyncService = {
 
   async pullRemote() {
     const config = await this.getClientConfig();
-    if (!config.syncKey || !config.supabaseUrl || !config.supabaseKey) {
-      return { pulled: 0, reason: 'offline_mode' };
+    if (!config.isPro || !config.syncKey || !config.supabaseUrl || !config.supabaseKey) {
+      return { pulled: 0, reason: 'offline_or_free_mode' };
     }
 
     const url = `${config.supabaseUrl}/rest/v1/entries?sync_key=eq.${encodeURIComponent(config.syncKey)}&order=updated_at.desc`;
@@ -169,11 +196,18 @@ const SyncService = {
   async syncAll() {
     try {
       const config = await this.getClientConfig();
-      if (!config.syncKey) {
-        return { ok: true, message: 'Modo local ativo (nenhuma chave de sincronização configurada).' };
-      }
       if (!config.supabaseUrl || !config.supabaseKey) {
         return { ok: false, error: 'URL ou chave de API do Supabase não configuradas.' };
+      }
+      if (!config.isPro) {
+        return {
+          ok: false,
+          isProRequired: true,
+          error: 'A sincronização em nuvem é um recurso do Yekun Cloud PRO. Ative sua assinatura anual por R$ 20/ano para sincronizar.'
+        };
+      }
+      if (!config.syncKey) {
+        return { ok: false, error: 'E-mail ou chave de sincronização não identificados.' };
       }
 
       const pushRes = await this.pushPending();

@@ -57,8 +57,8 @@ function safeStorageSet(data) {
 
 const DEFAULT_SETTINGS = {
   syncKey: '',
-  supabaseUrl: '',
-  supabaseKey: '',
+  supabaseUrl: 'https://wbappdsgstzintgznikb.supabase.co',
+  supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndiYXBwZHNnc3R6aW50Z3puaWtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MTgyMDgsImV4cCI6MjEwNzQ5NDIwOH0.6Wc7YDcKpMCq_IWeo54f3U_14giEfjOAH3f5B019vfE',
   autoSyncIntervalMinutes: 15,
   enableFloatingButton: true,
   enableBadgeCount: true,
@@ -71,7 +71,8 @@ const DEFAULT_SETTINGS = {
   autoTrackAnime: true,
   blockedDomains: [],
   allowedDomains: [],
-  theme: 'dark'
+  theme: 'dark',
+  customProEmail: ''
 };
 
 function extractDomain(url) {
@@ -665,7 +666,13 @@ const StorageLocal = {
 
   async getSettings() {
     const result = await safeStorageGet([STORAGE_KEY_SETTINGS]);
-    return { ...DEFAULT_SETTINGS, ...(result[STORAGE_KEY_SETTINGS] || {}) };
+    const stored = result[STORAGE_KEY_SETTINGS] || {};
+    return {
+      ...DEFAULT_SETTINGS,
+      ...stored,
+      supabaseUrl: (stored.supabaseUrl && stored.supabaseUrl.trim()) ? stored.supabaseUrl : DEFAULT_SETTINGS.supabaseUrl,
+      supabaseKey: (stored.supabaseKey && stored.supabaseKey.trim()) ? stored.supabaseKey : DEFAULT_SETTINGS.supabaseKey
+    };
   },
 
   async saveSettings(settings) {
