@@ -112,38 +112,25 @@
             O projeto é 100% gratuito e livre! Caso queira ajudar nos custos de infraestrutura e hospedagem, doações voluntárias são muito bem-vindas.
           </p>
 
-          <!-- Mockup / Container do QR Code de Teste -->
+          <!-- Container do QR Code Pix -->
           <div class="pix-qr-container">
-            <div class="pix-qr-box" id="pixQrBox" title="QR Code Pix de Teste">
-              <svg class="svg-icon pix-qr-svg" viewBox="0 0 24 24">
-                <rect x="2" y="2" width="8" height="8" rx="1"></rect>
-                <rect x="14" y="2" width="8" height="8" rx="1"></rect>
-                <rect x="2" y="14" width="8" height="8" rx="1"></rect>
-                <rect x="5" y="5" width="2" height="2"></rect>
-                <rect x="17" y="5" width="2" height="2"></rect>
-                <rect x="5" y="17" width="2" height="2"></rect>
-                <line x1="14" y1="14" x2="14" y2="17"></line>
-                <line x1="17" y1="14" x2="22" y2="14"></line>
-                <line x1="17" y1="17" x2="17.01" y2="17"></line>
-                <line x1="20" y1="17" x2="20" y2="22"></line>
-                <line x1="14" y1="20" x2="17" y2="20"></line>
-              </svg>
-              <div class="pix-qr-overlay">[QR CODE DE TESTE]</div>
+            <div class="pix-qr-box" id="pixQrBox" title="QR Code Pix">
+              <img src="icons/pix-qrcode.png" class="pix-qr-img" alt="QR Code Pix" />
             </div>
-            <span class="pix-qr-caption">QR Code oficial para escanear no app do banco (Em breve)</span>
+            <span class="pix-qr-caption">Escaneie o QR Code no app do banco ou copie a chave abaixo</span>
           </div>
 
-          <!-- Chave Pix de Teste Copiável -->
+          <!-- Chave Pix Aleatória Copiável -->
           <div class="pix-key-wrap">
-            <label class="field-label">CHAVE PIX (MODO TESTE)</label>
+            <label class="field-label">CHAVE PIX (ALEATÓRIA)</label>
             <div class="pix-input-row">
-              <input class="field-input pix-key-input" id="pixTestKey" type="text" value="pix-teste@sentsuy.ddns.net" readonly />
-              <button class="btn-copy-pix" id="btnCopyPix" type="button" title="Copiar Chave Pix de Teste">
+              <input class="field-input pix-key-input" id="pixTestKey" type="text" value="a6eef510-b30c-48d7-a6bd-d5772054bcc1" readonly />
+              <button class="btn-copy-pix" id="btnCopyPix" type="button" title="Copiar Chave Pix">
                 <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                <span>Copiar (Teste)</span>
+                <span>Copiar</span>
               </button>
             </div>
-            <span class="pix-disclaimer">* Esta é uma chave ilustrativa de teste. A conta definitiva será cadastrada no futuro.</span>
+            <span class="pix-disclaimer">* Doações voluntárias para ajudar nos custos de infraestrutura e hospedagem.</span>
           </div>
         </div>
 
@@ -318,10 +305,58 @@
           </div>
         </div>
 
-        <!-- Seção 6: Sincronização & Nuvem -->
+        <!-- Seção 6: Sincronização & Nuvem (Yekun Cloud PRO) -->
         <div class="settings-section">
-          <div class="settings-section-title">Sincronização & Nuvem</div>
-          <div class="toggle-list">
+          <div class="settings-section-title">
+            <span>Sincronização em Nuvem</span>
+            <span class="pro-tag-badge">⭐ PRO</span>
+          </div>
+
+          <!-- Card de Status PRO -->
+          <div class="pro-status-card" id="proStatusCard">
+            <div class="pro-card-header">
+              <div class="pro-identity-info">
+                <span class="pro-badge" id="proBadgeLabel">🔒 FREE</span>
+                <span class="pro-account-email" id="proAccountEmail">Detectando conta…</span>
+              </div>
+              <button class="btn-subtle-edit" id="btnEditProEmail" title="Alterar e-mail manualmente">Editar</button>
+            </div>
+
+            <!-- Bloco de entrada manual de e-mail (escondido por padrão) -->
+            <div class="pro-custom-email-row hidden" id="proCustomEmailRow">
+              <input class="field-input text-xs" id="inputCustomProEmail" type="email" placeholder="seu-email@gmail.com" />
+              <button class="btn-primary text-xs" id="btnSaveCustomProEmail">Salvar</button>
+            </div>
+
+            <div class="pro-card-body" id="proCardBody">
+              <p class="pro-desc" id="proDescText">
+                Sincronize suas obras entre PC, notebook e navegador em tempo real com o <strong>Yekun Cloud PRO</strong> por apenas <strong>R$ 20/ano</strong>.
+              </p>
+              
+              <!-- Bloco de Ativação por PIN de 4 Dígitos -->
+              <div class="pro-pin-section" id="proPinSection">
+                <label class="pro-pin-label">Já tem um código de ativação?</label>
+                <div class="pro-pin-row">
+                  <input class="pro-pin-input" id="inputProPin" type="text" maxlength="4" placeholder="••••" />
+                  <button class="btn-activate-pin" id="btnRedeemPin">Ativar PIN</button>
+                </div>
+              </div>
+
+              <!-- Ações de Assinatura -->
+              <div class="pro-actions-row" id="proActionsRow">
+                <button class="btn-upgrade-pro" id="btnOpenProModal">
+                  <span>💎 Assinar Yekun PRO (R$ 20/ano)</span>
+                </button>
+                <button class="btn-verify-pro" id="btnVerifyPro" title="Reverificar assinatura ativa">
+                  <svg class="svg-icon svg-sm" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                  <span>Verificar</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Controles de Sync (habilitados para PRO) -->
+          <div class="toggle-list pro-sync-controls" id="proSyncControls">
             <label class="toggle-item">
               <span class="toggle-label">Sincronização periódica em nuvem</span>
               <div class="switch">
@@ -331,10 +366,10 @@
             </label>
           </div>
 
-          <div class="field-group">
-            <label class="field-label">CHAVE DE SINCRONIZAÇÃO (SYNC KEY)</label>
+          <div class="field-group pro-sync-controls">
+            <label class="field-label">SINCRONIZAR AGORA</label>
             <div class="url-row">
-              <input class="field-input" id="inputSyncKey" type="text" placeholder="ex: CT-USER-KEY" />
+              <input class="field-input" id="inputSyncKey" type="text" placeholder="Chave de sincronização" readonly />
               <button class="btn-sync" id="btnSyncNow" title="Sincronizar agora">
                 <svg class="svg-icon" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
               </button>
@@ -581,6 +616,41 @@
       </div>
     </div>
 
+    <!-- Modal Assinatura Yekun PRO (Pix R$ 20/ano) -->
+    <div class="modal-overlay" id="modalProPix">
+      <div class="modal-box modal-pro-box">
+        <div class="modal-icon" style="color: #ffd700;">
+          <svg class="svg-icon svg-lg" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+        </div>
+        <h3 class="modal-title">Yekun Cloud PRO</h3>
+        <div class="pro-modal-price">R$ 20,00 <span class="text-xs">/ ano</span></div>
+        <p class="modal-text text-sm">
+          Sincronização em nuvem ilimitada entre todos os seus navegadores e computadores por 365 dias.
+        </p>
+        
+        <div class="pro-pix-card">
+          <div class="pix-qrcode-wrapper">
+            <img src="icons/pix-qrcode.png" alt="QR Code Pix" class="pix-qrcode-img" />
+          </div>
+          <div class="pix-key-row">
+            <input class="field-input text-xs" id="proPixKeyText" type="text" value="sentsuy@gmail.com" readonly />
+            <button class="btn-pix-copy" id="btnCopyProPix" title="Copiar Chave Pix">Copiar</button>
+          </div>
+          <p class="pix-instruction">
+            Após o Pix, insira o código de 4 dígitos recebido para ativar na hora:
+          </p>
+          <div class="pro-pin-row modal-pin-row">
+            <input class="pro-pin-input" id="inputModalProPin" type="text" maxlength="4" placeholder="••••" />
+            <button class="btn-activate-pin" id="btnModalRedeemPin">Validar PIN</button>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-modal-cancel" id="btnCloseProModal">Fechar</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Toast -->
     <div class="toast" id="toast"></div>
   </div>
@@ -588,6 +658,7 @@
   <script src="canonical-resolver.js"></script>
   <script src="alias-crowd-service.js"></script>
   <script src="storage-local.js"></script>
+  <script src="identity-service.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

@@ -103,6 +103,27 @@ const linkOfficialSite     = document.getElementById('linkOfficialSite');
 const btnCopyPix           = document.getElementById('btnCopyPix');
 const pixTestKey           = document.getElementById('pixTestKey');
 
+// Pro & Pin Activation DOM refs
+const proStatusCard        = document.getElementById('proStatusCard');
+const proBadgeLabel        = document.getElementById('proBadgeLabel');
+const proAccountEmail      = document.getElementById('proAccountEmail');
+const btnEditProEmail      = document.getElementById('btnEditProEmail');
+const proCustomEmailRow    = document.getElementById('proCustomEmailRow');
+const inputCustomProEmail  = document.getElementById('inputCustomProEmail');
+const btnSaveCustomProEmail= document.getElementById('btnSaveCustomProEmail');
+const proDescText          = document.getElementById('proDescText');
+const inputProPin          = document.getElementById('inputProPin');
+const btnRedeemPin         = document.getElementById('btnRedeemPin');
+const btnOpenProModal      = document.getElementById('btnOpenProModal');
+const btnVerifyPro         = document.getElementById('btnVerifyPro');
+const proSyncControls      = document.querySelectorAll('.pro-sync-controls');
+const modalProPix          = document.getElementById('modalProPix');
+const btnCloseProModal     = document.getElementById('btnCloseProModal');
+const btnCopyProPix        = document.getElementById('btnCopyProPix');
+const proPixKeyText        = document.getElementById('proPixKeyText');
+const inputModalProPin     = document.getElementById('inputModalProPin');
+const btnModalRedeemPin    = document.getElementById('btnModalRedeemPin');
+
 // Form Status Pickers
 const readingStatusPicker  = document.getElementById('readingStatusPicker');
 const pubStatusPicker      = document.getElementById('pubStatusPicker');
@@ -535,10 +556,10 @@ if (linkOfficialSite) {
 
 if (btnCopyPix) {
   btnCopyPix.addEventListener('click', () => {
-    const key = (pixTestKey ? pixTestKey.value : 'pix-teste@sentsuy.ddns.net').trim();
+    const key = (pixTestKey ? pixTestKey.value : 'a6eef510-b30c-48d7-a6bd-d5772054bcc1').trim();
     if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(key).then(() => {
-        showToast('✓ Chave Pix copiada (Modo Teste)');
+        showToast('✓ Chave Pix copiada com sucesso!');
       }).catch(() => {
         showToast('✓ Chave Pix: ' + key);
       });
@@ -836,6 +857,60 @@ function fallbackStorageSizeCalc(works, statSizeEl) {
   }
 }
 
+async function updateProStatusUI(forceRefresh = false) {
+  if (typeof IdentityService === 'undefined' || !proStatusCard) return;
+  try {
+    const config = {
+      supabaseUrl: appSettings ? appSettings.supabaseUrl : '',
+      supabaseKey: appSettings ? appSettings.supabaseKey : ''
+    };
+    const status = await IdentityService.checkProStatus(config, forceRefresh);
+
+    if (proAccountEmail) {
+      proAccountEmail.textContent = status.email || 'Nenhuma conta vinculada';
+      proAccountEmail.title = status.email || '';
+    }
+
+    if (inputCustomProEmail && status.email) {
+      inputCustomProEmail.value = status.email;
+    }
+
+    if (status.isPro) {
+      proStatusCard.classList.add('is-pro');
+      if (proBadgeLabel) {
+        proBadgeLabel.className = 'pro-badge pro-badge-active';
+        proBadgeLabel.textContent = '⭐ PRO ATIVO';
+      }
+      if (proDescText) {
+        proDescText.innerHTML = `Assinatura Anual ativa por mais <strong>${status.daysLeft} dias</strong>. Sincronização multi-dispositivo liberada!`;
+      }
+      if (inputSyncKey) {
+        inputSyncKey.value = status.email;
+      }
+      if (proSyncControls) {
+        proSyncControls.forEach(el => el.classList.remove('is-locked'));
+      }
+    } else {
+      proStatusCard.classList.remove('is-pro');
+      if (proBadgeLabel) {
+        proBadgeLabel.className = 'pro-badge';
+        proBadgeLabel.textContent = '🔒 FREE';
+      }
+      if (proDescText) {
+        proDescText.innerHTML = 'Sincronize suas obras entre PC, notebook e navegador em tempo real com o <strong>Yekun Cloud PRO</strong> por apenas <strong>R$ 20/ano</strong>.';
+      }
+      if (inputSyncKey) {
+        inputSyncKey.value = status.email ? `${status.email} (PRO necessário)` : '';
+      }
+      if (proSyncControls) {
+        proSyncControls.forEach(el => el.classList.add('is-locked'));
+      }
+    }
+  } catch (e) {
+    console.warn('Erro ao atualizar status PRO:', e);
+  }
+}
+
 async function loadSettingsToUI() {
   appSettings = await StorageLocal.getSettings();
   applyTheme(appSettings.theme || 'dark');
@@ -854,6 +929,7 @@ async function loadSettingsToUI() {
   inputSyncKey.value           = appSettings.syncKey || '';
   renderDomainChips();
   await updateCurrentSiteToggleUI();
+  await updateProStatusUI();
   updateStorageStatsUI();
 }
 
@@ -1734,6 +1810,101 @@ btnSyncNow.addEventListener('click', async () => {
     showToast('Erro na sincronização');
   }
 });
+
+// ── Ativação Yekun Cloud PRO & PIN ────────────────────────
+if (btnRedeemPin) {
+  btnRedeemPin.addEventListener('click', async () => {
+    const pin = inputProPin ? inputProPin.value.trim() : '';
+    if (!pin) {
+      showToast('Digite o código de 4 dígitos');
+      return;
+    }
+    showToast('Validando código…');
+    const config = { supabaseUrl: appSettings ? appSettings.supabaseUrl : '', supabaseKey: appSettings ? appSettings.supabaseKey : '' };
+    const res = await IdentityService.redeemPin(config, pin);
+    if (res.success) {
+      showToast('🎉 ' + res.message);
+      if (inputProPin) inputProPin.value = '';
+      await updateProStatusUI(true);
+    } else {
+      showToast('⚠️ ' + (res.error || 'Código inválido'));
+    }
+  });
+}
+
+if (btnModalRedeemPin) {
+  btnModalRedeemPin.addEventListener('click', async () => {
+    const pin = inputModalProPin ? inputModalProPin.value.trim() : '';
+    if (!pin) {
+      showToast('Digite o código de 4 dígitos');
+      return;
+    }
+    showToast('Validando código…');
+    const config = { supabaseUrl: appSettings ? appSettings.supabaseUrl : '', supabaseKey: appSettings ? appSettings.supabaseKey : '' };
+    const res = await IdentityService.redeemPin(config, pin);
+    if (res.success) {
+      showToast('🎉 ' + res.message);
+      if (inputModalProPin) inputModalProPin.value = '';
+      if (modalProPix) modalProPix.classList.remove('active');
+      await updateProStatusUI(true);
+    } else {
+      showToast('⚠️ ' + (res.error || 'Código inválido'));
+    }
+  });
+}
+
+if (btnVerifyPro) {
+  btnVerifyPro.addEventListener('click', async () => {
+    showToast('Verificando assinatura…');
+    await updateProStatusUI(true);
+    showToast('Status atualizado');
+  });
+}
+
+if (btnOpenProModal && modalProPix) {
+  btnOpenProModal.addEventListener('click', () => {
+    modalProPix.classList.add('active');
+  });
+}
+
+if (btnCloseProModal && modalProPix) {
+  btnCloseProModal.addEventListener('click', () => {
+    modalProPix.classList.remove('active');
+  });
+}
+
+if (btnCopyProPix && proPixKeyText) {
+  btnCopyProPix.addEventListener('click', () => {
+    navigator.clipboard.writeText(proPixKeyText.value).then(() => {
+      showToast('Chave Pix copiada!');
+    }).catch(() => {
+      showToast('Erro ao copiar chave');
+    });
+  });
+}
+
+if (btnEditProEmail && proCustomEmailRow) {
+  btnEditProEmail.addEventListener('click', () => {
+    proCustomEmailRow.classList.toggle('hidden');
+    if (!proCustomEmailRow.classList.contains('hidden') && inputCustomProEmail) {
+      inputCustomProEmail.focus();
+    }
+  });
+}
+
+if (btnSaveCustomProEmail && inputCustomProEmail) {
+  btnSaveCustomProEmail.addEventListener('click', async () => {
+    const email = inputCustomProEmail.value.trim();
+    if (!email || !email.includes('@')) {
+      showToast('Informe um e-mail válido');
+      return;
+    }
+    await IdentityService.setCustomProEmail(email);
+    if (proCustomEmailRow) proCustomEmailRow.classList.add('hidden');
+    showToast('E-mail atualizado');
+    await updateProStatusUI(true);
+  });
+}
 
 // ── Helpers de Formatação e UI ────────────────────────────
 function getWorkInitials(name) {
