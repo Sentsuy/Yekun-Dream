@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════
-   Chapter Tracker — popup.js
+   Yekun Dream — popup.js
    Controle de UI, CRUD com StorageLocal v3, +1 rápido,
    painel de configurações, múltiplas fontes e histórico.
    ════════════════════════════════════════════════════════ */
@@ -1309,7 +1309,9 @@ async function captureCurrentTab(onlySource = false) {
               }
               if (!domTitle) {
                 const domTitleEl = document.querySelector([
+                  '.show-title-link', 'a.show-title-link', '[data-t="show-title-link"]',
                   '.manga-title a', '.series-title a', '.chapter-title-bar .manga-title a',
+                  'h1.title', 'h1[data-t="title"]', 'h1.heading--nKNOf',
                   'h1.manga-title', 'h1.entry-title', 'h1.series-title', 'h1.post-title',
                   '.manga-title', '.series-title', '.novel-title', '[itemprop="name"]'
                 ].join(', '));

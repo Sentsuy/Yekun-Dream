@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════
-   Chapter Tracker — background.js (Service Worker)
+   Yekun Dream — background.js (Service Worker)
    Gerenciamento de alarmes periódicos de sincronização
    e comunicação em segundo plano.
    ════════════════════════════════════════════════════════ */

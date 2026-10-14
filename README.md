@@ -1,231 +1,383 @@
-# Chapter Tracker ◈
+# Yekun Dream ◈
 
-> Extensão para navegadores (Manifest V3) criada para acompanhar e sincronizar o progresso de leitura e visualização de mangás, animes, séries, livros e outras mídias diretamente em qualquer página web.
+> **Extensão para navegadores (Manifest V3)** criada para acompanhar, unificar e sincronizar seu progresso de leitura e visualização de mangás, manhwas, animes, webtoons, séries e livros diretamente em qualquer página web.  
+> Desenvolvido por **Sentsuy** (*Sentsuy Corp*).
 
----
-
-## 1. Visão Geral do Projeto
-
-O **Chapter Tracker** é uma extensão de produtividade focada em leitores de mangás/manhwas/hqs e espectadores de séries/animes. Ela permite registrar rapidamente em qual capítulo ou episódio você parou, capturar automaticamente o link e o título da página e manter uma lista organizada para continuar sua leitura de onde parou.
-
----
-
-## 2. O Que Já Temos Implementado (O que Pode ser Aproveitado)
-
-O projeto possui uma base sólida de interface e lógica de injeção que pode ser **100% aproveitada**:
-
-### 2.1. Design System & UI Moderna (Dark Neon)
-- **Estética Cyberpunk / Minimalista**: Paleta escura consistente (`#0d0d0f`, `#141418`, `#1c1c22`) com realces em amarelo neon (`#e8ff47`) e acentos de alerta (`#ff5c5c`).
-- **Tipografia**: Uso das fontes Google Fonts `Space Mono` (código, metadados e tags) e `Syne` (títulos marcantes).
-- **Categorização por Tags**: Sistema de cores e filtros para 5 categorias:
-  - `manga` (roxo `#a78bfa`)
-  - `anime` (rosa `#f472b6`)
-  - `serie` (verde esmeralda `#34d399`)
-  - `livro` (azul `#60a5fa`)
-  - `outro` (laranja `#fb923c`)
-
-### 2.2. Botão Flutuante In-Page (`content.js` via Shadow DOM)
-- Injeta um Floating Action Button (FAB) com ícone `◈` no canto inferior direito de qualquer página web.
-- **Isolamento Total via Shadow DOM (`attachShadow({ mode: 'open' })`)**: Nenhum CSS da página externa (leitor de mangá ou streaming) quebra os estilos da extensão, nem a extensão vaza CSS para a página hospedeira.
-- **Detecção Inteligente do Título da Página**: Limpa automaticamente sufixos de sites populares (ex: `- Ler Online`, `| Manga Dex`, `– Scan`).
-- **Reconhecimento de Obra Já Cadastrada**: Se o usuário já registrou aquela obra anteriormente, o painel reconhece automaticamente, preenche o título, bloqueia edição acidental do nome e solicita apenas o novo capítulo lido.
-- **Badge Contador**: Contador flutuante no ícone mostrando a quantidade de obras cadastradas.
-
-### 2.3. Popup da Extensão (`popup.html`, `popup.css`, `popup.js`)
-- **Drawer de Criação/Edição**: Painel retrátil e animado para criar ou atualizar registros.
-- **Botão de Captura de Aba (`btnCapture`)**: Captura com um clique a URL ativa e o título limpo da aba atual via `chrome.tabs.query`.
-- **Filtro de Busca em Tempo Real**: Barra de pesquisa rápida que filtra por nome da obra, número do capítulo ou endereço de URL.
-- **Cards de Entradas Interativos**:
-  - Indicador de categoria colorido.
-  - Link direto para abrir a URL em nova aba (`chrome.tabs.create`).
-  - Botão de edição direta (`✎`).
-  - Botão de exclusão (`✕`).
-  - Data de última atualização formatada em português.
-- **Feedback Visual (Toast Notifications)**: Avisos visuais flutuantes temporários de sucesso ou erro.
-
-### 2.4. Service Worker Background (`background.js`)
-- Ponte de comunicação via `chrome.runtime.onMessage` para operações de leitura e escrita solicitadas pelo `content.js`.
+[![Manifest V3](https://img.shields.io/badge/Manifest-V3-blue.svg)](https://developer.chrome.com/docs/extensions/mv3/intro/)
+[![Local-First](https://img.shields.io/badge/Architecture-Local--First-green.svg)](#1-visão-geral)
+[![Tests](https://img.shields.io/badge/Tests-46%20Passing-brightgreen.svg)](#6-suíte-de-testes-automatizada)
+[![License](https://img.shields.io/badge/License-Software%20Livre-orange.svg)](#8-autor--licença)
 
 ---
 
-## 3. Como Funciona Atualmente (Fluxo Operacional)
+## 1. Visão Geral
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as Usuário
-    participant Page as Página Web / Leitor
-    participant Content as content.js (Shadow DOM)
-    participant BG as background.js (Worker)
-    participant Storage as chrome.storage.sync
-    participant Popup as popup.js (Menu Extensão)
+O **Yekun Dream** (versão 1.2.0) é uma extensão de produtividade focada em entusiastas de leitura e streaming. Diferente de soluções convencionais que criam registros duplicados a cada site visitado, o Yekun Dream conta com uma **arquitetura de obras multi-fontes**: você pode acompanhar a mesma obra em múltiplos leitores ou scans (como MangaDex, Neox Scans, Vegitoons, Crunchyroll, AnimesOnline, etc.), mantendo seu progresso consolidado em uma única entrada, com histórico detalhado e sincronização em nuvem.
 
-    User->>Page: Abre capítulo de mangá
-    Content->>BG: Solicita obras salvas (storageGet)
-    BG->>Storage: chrome.storage.sync.get()
-    Storage-->>BG: Retorna array de obras
-    BG-->>Content: Atualiza badge e histórico
-    User->>Content: Clica no botão flutuante ◈
-    Content->>Content: Detecta se o título já existe
-    User->>Content: Digita novo capítulo e clica "Salvar"
-    Content->>BG: Envia nova entrada (storageSet)
-    BG->>Storage: chrome.storage.sync.set()
-    Storage-->>User: Dados persistidos na conta Google do navegador
-
-    Note over User,Popup: A qualquer momento:
-    User->>Popup: Clica no ícone da extensão
-    Popup->>Storage: chrome.storage.sync.get()
-    Popup->>User: Exibe lista de obras, busca e edição
-```
+O projeto adota a filosofia **Local-First**: funciona 100% offline, com armazenamento local sem limites de cota, zero rastreamento e sem coleta de dados pessoais.
 
 ---
 
-## 4. Diagnóstico Técnico & Limitações da Abordagem Atual
+## 2. Principais Funcionalidades (v1.2.0)
 
-Embora o protótipo funcione visualmente bem, existem três gargalos técnicos críticos que impedem a continuidade suave sem ajustes:
+### 2.1. Arquitetura Multi-Fontes & Histórico de Leitura (Schema v3)
+- **Múltiplas Fontes por Obra**: Uma mesma obra (ex.: *Solo Leveling*) agrupa todas as fontes e scans onde você já a leu ou assistiu, registrando qual capítulo você parou em cada uma.
+- **Histórico Retrátil**: Gaveta expansível de histórico (até 50 registros por obra) exibindo data/hora, domínio, scan e capítulo/episódio lido.
+- **Migração Automática**: Sistema inteligente de auto-migração de esquemas legados (v2 para v3) sem qualquer perda de dados do usuário.
 
-### 4.1. Limitação Crítica do `chrome.storage.sync`
-1. **Estouro de Cota (8KB por item)**:
-   - No código atual, todas as obras são salvas dentro de uma única chave: `chapter_tracker_entries`.
-   - O limite do Google Chrome para um único item em `storage.sync` é de **8.192 bytes (8 KB)**.
-   - Ao salvar entre 20 a 50 obras com URLs longas, timestamps e títulos, a extensão **para de salvar silenciosamente ou estoura erro de cota**.
-2. **Não é Cross-Browser de Verdade**:
-   - `chrome.storage.sync` funciona apenas se o usuário estiver logado com uma conta Google no Chrome.
-   - **Não sincroniza** entre navegadores diferentes (ex: Chrome no PC do trabalho, Firefox ou Edge no notebook pessoal, Brave no celular).
+### 2.2. Auto-Rastreamento de Vídeos & Anime Tracker (Regra dos 70%)
+- **Detecção Automática de Progresso**: O módulo `YekunVideoTracker` monitora elementos `<video>` em tempo real durante a reprodução.
+- **Regra dos 70%**: Salva automaticamente o episódio quando o usuário assiste a 70% ou mais da duração total do vídeo.
+- **Prevenção de Falsos Positivos**: Exige um tempo mínimo assistido de reprodução real de 120 segundos, prevenindo que saltos manuais ou scrubbing na barra de progresso alterem o histórico indevidamente.
+- **Suporte a Iframes & Players Externos**: Configurado com `all_frames: true` e `match_about_blank: true` no Manifesto, permitindo capturar players embutidos de terceiros através de comunicação segura entre frames.
+- **Toast Discreto**: Notifica o salvamento automático com um toast in-page não invasivo.
+- **Controle Visual**: Opção liga/desliga no painel de configurações (`autoTrackAnime`).
 
-### 4.2. Inconsistência na Criação vs Edição entre `content.js` e `popup.js`
-- No `popup.js`, ao editar uma obra existente, ele localiza o ID e atualiza o item no array.
-- No `content.js`, ao detectar uma obra existente, ele faz um `entries.unshift(newEntry)` com um novo UUID gerado. Isso cria múltiplos cards da mesma obra na lista com capítulos diferentes, em vez de atualizar o capítulo atual ou manter um histórico interno da obra.
+### 2.3. Alertas de Lançamento & Sininho com Histórico Recente
+- **Dois Alarmes Diários em Segundo Plano**:
+  - Alerta matinal às **08:00** (`alarm_release_morning_0800`).
+  - Alerta vespertino às **17:00** (`alarm_release_evening_1700`).
+- **Trava Estrita Anti-Hiato e Anti-Cancelamento**: Obras em hiato (`hiato`), canceladas (`cancelado`), dropadas (`dropado`) ou concluídas (`concluido`) **nunca** disparam notificações, mesmo que possuam dias marcados na semana.
+- **Agendamento Híbrido Semanal (Opção 3)**:
+  - Seletor manual de dias da semana `[Dom] [Seg] [Ter] [Qua] [Qui] [Sex] [Sáb]` no formulário da obra.
+  - Inferência automática do dia de lançamento através da API GraphQL do AniList (`nextAiringEpisode.airingAt`).
+  - Badges visuais de dias nos cards das obras (`📅 Seg, Qui`).
+- **Sininho de Notificações (`#btnNotifications`)**:
+  - Indicador de não lidas (`#notifUnreadDot`) no cabeçalho do popup.
+  - Gaveta deslizante com a listagem dos lançamentos recentes, período (manhã/tarde), data, hora e link direto.
+  - Limite estrito de no máximo **20 itens** no armazenamento para zero impacto de memória.
+  - Botão **Limpar** para resetar o histórico.
+- **Ajustes Globais**: Toggles independentes para ativar/desativar alertas gerais, matinais e vespertinos.
 
-### 4.3. Assets Faltantes
-- O `manifest.json` declara ícones em `icons/icon16.png`, `icons/icon32.png`, `icons/icon48.png`, `icons/icon128.png`, mas a pasta `icons/` ainda não existe no repositório.
+### 2.4. Ação Rápida de Incremento Seguro (+1 com Guards)
+- **Comparação Semântica de Capítulos**: Ao clicar no botão `(+)`, a extensão verifica o capítulo/episódio detectado na aba ativa contra o capítulo salvo.
+- **Guards de Proteção**:
+  - Se o link da aba for maior: avança diretamente.
+  - Se for igual ou menor, ou se a aba pertencer a outra obra/página de índice: exibe o modal defensivo `showConfirmActionModal` antes de alterar o progresso, evitando avanços acidentais.
+
+### 2.5. Pipelines Especializados para Streaming & Animes
+- **Crunchyroll**:
+  - Extração inteligente que isola o nome oficial da série e o título do episódio atual.
+  - Formatação elegante e padronizada `Temp 01 - Ep 01` (substituindo identificadores técnicos brutos como `s01e01`).
+- **AnimesOnline (animesonlinecc.to)**:
+  - Tratamento específico para rotas `/episodio/...`, extraindo limpo o nome e número do episódio sem ruídos de SEO.
+- **Isolamento de Escopos**: Regras de animes/séries não conflitam com a extração de mangás/manhwas.
+
+### 2.6. Resolução Canônica & Catálogo Colaborativo de Aliases
+- **Canonical Public Resolver (`canonical-resolver.js`)**: Integração assíncrona, leve e com timeout de segurança (2500ms) com as APIs públicas do **AniList** (GraphQL) e **MangaDex** (REST) para reconhecer automaticamente títulos oficiais em múltiplos idiomas (Romaji, Inglês, Português e sinônimos).
+- **Crowdsourced Alias Consensus Engine (`alias-crowd-service.js`)**: Mecanismo de catálogo colaborativo de títulos com:
+  - Validação de quórum (mínimo de 2 confirmações independentes para verificação automática).
+  - Trava de integridade 1-para-1 contra conflitos (impede que um apelido seja associado a duas obras diferentes).
+  - Sanitização rígida de dados (bloqueia URLs, números de capítulos crus e caracteres perigosos).
+- **Smart Work Matching**: Algoritmo híbrido que combina normalização textual, correspondência de aliases e cálculo de similaridade fonética e por bigramas (coeficiente de Dice), sugerindo vínculos com altíssima precisão.
+
+### 2.7. Decodificadores SPA & Scans Especializadas
+O extrator inteligente de títulos e capítulos possui suporte dedicado para decodificar aplicações de página única (SPAs) e sistemas com rotas dinâmicas ou ofuscadas:
+- **Vegitoons**: Consulta a API interna `/capitulos/:id` para obter título e capítulo reais.
+- **MangásTop**: Consulta a rota REST do WordPress `/wp-json/mangastop/v1/leitor/:id`.
+- **MangaDex**: Consulta via API `/chapter/:uuid` com recuperação de metadados de relacionamentos.
+- **NexusToons**: Descriptografia de rotas com hash `/r/:hash` via algoritmo XOR reverso, além de suporte a rotas `/ler/:slug/:cap` e `/manga/:slug`.
+
+### 2.8. Botão Flutuante In-Page (Content Script & Shadow DOM)
+- **Isolamento Total via Shadow DOM**: O botão flutuante (`◈`) e seu painel de atalho utilizam `attachShadow({ mode: 'open' })`, garantindo que estilos da página externa não afetem a extensão e vice-versa.
+- **Draggable Floating Action Button**: O botão pode ser livremente arrastado e reposicionado na tela pelo usuário.
+- **Detecção & Limpeza Automática de Títulos**: Higieniza automaticamente prefixos ("Ler", "Assistir"), sufixos de scans, slogans de SEO e números de capítulos presentes no `<title>` da página.
+- **Vínculo Rápido (1-Click Link)**: Quando uma obra com nome alternativo é aberta, a extensão reconhece o alias e exibe um indicador sutil, ou oferece um diálogo de vínculo direto a uma obra já existente sem criar duplicatas.
+
+### 2.9. Interface Moderna, Temas Anti-Brilho & Ícones Dinâmicos
+- **3 Temas Visuais Calibrados (Anti-Brilho)**:
+  - 🌙 **Dark (Azul Neon)**: Fundo escuro profundo com detalhes em ciano/azul neon.
+  - ☀️ **Light (Branco & Azul)**: Tema diurno de alto contraste, limpo e legível.
+  - 🌸 **Pink (Sakura)**: Visual refinado com tons de rosa e bordô.
+- **Sincronização Dinâmica do Ícone**: O ícone da extensão no navegador muda dinamicamente de cor e contraste de acordo com o tema selecionado (`icon-dark-*`, `icon-light-*`, `icon-pink-*`).
+- **Ícones 100% Vetoriais (SVG inline)**: Design limpo e moderno sem dependências de fontes de ícones externas.
+- **Status de Leitura e Publicação**:
+  - *Status de Leitura*: `Lendo`, `Concluído`, `Pausado`, `Dropado`, `Planejo`.
+  - *Status de Publicação*: `Em Lançamento`, `Finalizada`, `Em Hiato`, `Cancelada`.
+- **Bottom Navigation**: Alternância intuitiva entre a aba de **Minhas Obras** e a **Central de Sites / Scans**.
+- **Central de Sites Consolidada**: Visão agrupada de todos os sites de leitura utilizados, listando quantas obras estão vinculadas a cada domínio e links diretos para acessá-los.
+- **Gavetas em Altura Total (Full-Height Drawers)**: Painéis com rolagem independente que garantem acesso total a todos os campos e botões em qualquer resolução.
+
+### 2.10. Nuvem, Sincronização & Backup
+- **Nuvem Pessoal via Supabase REST**: Sincronização universal entre múltiplos navegadores (Chrome, Brave, Edge, Opera, Firefox) usando **Chave de Sincronização pessoal (Sync Key)** e resolução de conflitos *Last-Write-Wins* (LWW) com *soft-delete*.
+- **Sincronização Periódica em Segundo Plano**: Rotina agendada no Service Worker via `chrome.alarms` a cada 15 minutos e na inicialização do navegador.
+- **Exportação & Importação de Backup (.json)**: Backup completo em arquivo JSON local (com suporte retroativo para importar backups legados v2).
+
+### 2.11. Controle Granular de Domínios & Privacidade Total
+- **Barra de Controle de Domínio**: Ative ou desative o botão flutuante no site atual com apenas 1 clique diretamente no topo do popup.
+- **Nuvem de Chips (Whitelist & Blacklist)**: Gerenciamento visual e intuitivo de domínios permitidos (*Allowed Domains*) e domínios bloqueados (*Blocked Domains*).
+- **Privacidade Total**: Zero coleta de dados pessoais, sem anúncios, sem telemetria e sem intermediários.
 
 ---
 
-## 5. Arquitetura de Sincronização Local e Nuvem (Cross-Browser)
-
-Para que o usuário possa usar a extensão em **qualquer navegador** (Chrome, Firefox, Edge, Brave, Opera, Arc) e ter sua leitura sincronizada em tempo real ou sob demanda, a solução recomendada é a arquitetura **Local-First (Offline-First)** com camada de sincronização em nuvem.
-
-### 5.1. Visão Geral da Arquitetura Local-First
+## 3. Arquitetura do Sistema
 
 ```mermaid
 graph TD
-    subgraph Navegador [Qualquer Navegador (Chrome, Firefox, Edge, Brave)]
-        UI[UI: Popup / Floating Action Button]
-        LocalDB[(Armazenamento Local: chrome.storage.local ou IndexedDB)]
-        SyncEngine[Mecanismo de Sincronização / Sync Manager]
-        UI <-->|Leitura e Escrita Imediatas (Sem Latência)| LocalDB
-        LocalDB <-->|Verifica Pendências| SyncEngine
+    subgraph PaginaWeb [Página Web: Leitor / Streaming]
+        DOM[Página HTML]
+        VideoTag[Tag Video / Iframes de Streaming]
+        Shadow[Shadow DOM Isolado]
+        FAB[Botão Flutuante Draggable]
+        LinkDialog[Diálogo de Vínculo de Obra]
+        Shadow --> FAB
+        Shadow --> LinkDialog
     end
 
-    subgraph Nuvem [Serviço em Nuvem Gratuito]
-        Auth[Autenticação de Usuário]
-        CloudDB[(Banco de Dados em Nuvem: Supabase / Firebase)]
-        SyncEngine <-->|Sincronização Bidirecional (HTTPS / WSS)| CloudDB
-        SyncEngine <-->|Token JWT| Auth
+    subgraph ContentScript [content.js]
+        Extract[Extrator de Capítulos & Títulos]
+        SPAs[Decodificadores SPA: Vegitoons, MangaDex, Nexus, Crunchyroll...]
+        VideoTracker[YekunVideoTracker: Auto-Rastreamento a 70%]
+        VideoTag --> VideoTracker
+        DOM --> Extract
+        Extract --> SPAs
     end
+
+    subgraph ResolucaoInteligente [Resolução & Inteligência]
+        Canon[canonical-resolver.js<br>AniList GraphQL & MangaDex REST]
+        Crowd[alias-crowd-service.js<br>Consenso Comunitário & Quórum]
+        Matcher[Smart Matcher, Bigramas & Token Similarity]
+    end
+
+    subgraph ArmazenamentoLocal [storage-local.js]
+        LocalDB[(chrome.storage.local<br>Schema v3 Multi-Fontes)]
+        NotifDB[(Histórico de Notificações: max 20 itens)]
+        Settings[(Configurações, Temas & Domínios)]
+    end
+
+    subgraph InterfacePopup [popup.html / popup.js / popup.css]
+        ThemeEngine[Seletor de Temas Anti-Brilho & Ícones SVG]
+        BottomNav[Bottom Navigation: Obras / Sites]
+        SearchFilters[Filtros de Busca, Categoria & Status]
+        BellPanel[Sininho de Notificações & Gaveta Recente]
+        CrudForm[Editor de Obra, Aliases & Dias Semanais]
+        ActionModal[Modal Defensivo de Confirmação +1]
+    end
+
+    subgraph BackgroundWorker [Service Worker: background.js]
+        SyncAlarms[Alarme Periódico de Sync]
+        ReleaseAlarms[Alarmes de Lançamento: 08:00 & 17:00]
+        SysNotifs[chrome.notifications: Alertas Nativos]
+        IconSync[Sincronizador Dinâmico de Ícones]
+        ReleaseAlarms --> SysNotifs
+    end
+
+    subgraph NuvemExterna [Nuvem Pessoal & APIs Públicas]
+        CloudAPI[(Supabase REST / Sync Key)]
+        AniListAPI[(AniList API GraphQL)]
+        MangaDexAPI[(MangaDex REST API)]
+    end
+
+    SPAs --> Matcher
+    Matcher --> Canon
+    Matcher --> Crowd
+    Matcher --> LocalDB
+    VideoTracker --> LocalDB
+    FAB --> LocalDB
+
+    Canon <--> AniListAPI
+    Canon <--> MangaDexAPI
+
+    LocalDB <--> CrudForm
+    LocalDB <--> BottomNav
+    LocalDB <--> SearchFilters
+    NotifDB <--> BellPanel
+
+    Settings --> ThemeEngine
+    ThemeEngine --> IconSync
+    LocalDB <--> sync-service.js
+    SyncAlarms --> sync-service.js
+    sync-service.js <--> CloudAPI
+    ReleaseAlarms <--> LocalDB
 ```
-
-### 5.2. Como Funciona a Camada Local (`chrome.storage.local`)
-1. **Sem limite de 8KB**: O `chrome.storage.local` suporta até 10 MB por padrão (e ilimitado com a permissão `"unlimitedStorage"`).
-2. **Funcionamento 100% Offline**: Toda adição, remoção ou avanço de capítulo é gravada instantaneamente no disco local. O usuário nunca espera requisições de rede para ler ou atualizar sua página.
-3. **Fila de Sincronização**: Cada entrada possui campos de controle de sincronismo:
-   - `updatedAt`: Carimbo de data/hora (milissegundos) da última alteração.
-   - `syncStatus`: `'synced'` ou `'pending'`.
-   - `deleted`: Flag booleana (`true`/`false`) para exclusão lógica (*soft delete*), garantindo que exclusões feitas offline se propaguem para a nuvem.
-
-### 5.3. Opções Recomendadas de Nuvem para Sincronização Universal
-
-| Opção | Prós | Contras | Recomendação |
-| :--- | :--- | :--- | :--- |
-| **Supabase (PostgreSQL + REST)** | • Gratuito (até 500MB e 50k usuários)<br>• Autenticação fácil (Email/Senha, Google, Magic Link)<br>• API REST simples via `fetch` nativo (sem libs pesadas)<br>• Suporta sincronização em tempo real | Exige criar um projeto no console do Supabase | **★ Melhor Escolha (Mais moderna e flexível)** |
-| **Firebase Firestore** | • Muito popular<br>• SDK bem documentado | SDK oficial adiciona peso ao pacote da extensão se não for usado via REST | Boa alternativa |
-| **Cloudflare Workers + D1 (SQLite)** | • Extremamente leve<br>• Grátis e latência ultra baixa | Exige deploy de script serverless próprio | Excelente para desenvolvedores experientes |
-| **Sync por Chave / Gist / Drive** | • Não requer servidor próprio<br>• Pode usar GitHub Gist secreto ou Google Drive | Depende de configuração manual de tokens pelo usuário | Ótimo para uso pessoal avançado |
 
 ---
 
-## 6. Modelo de Dados Sugerido (Schema v2)
+## 4. Modelo de Dados (Schema v3)
 
-Para suportar histórico de leitura, controle de status e sincronização sem conflito entre múltiplos navegadores:
+### 4.1. Estrutura de Obras (`WorkV3`)
 
 ```typescript
-interface TrackerEntry {
-  id: string;               // UUID v4 único (gerado no cliente)
-  userId?: string;          // ID do usuário autenticado na nuvem
-  name: string;             // Nome normalizado da obra (ex: "One Piece")
-  chapter: string;          // Capítulo ou episódio atual (ex: "Cap. 1110")
-  url: string;              // URL direta do capítulo atual
-  tag: 'manga' | 'anime' | 'serie' | 'livro' | 'outro';
-  coverUrl?: string;        // Opcional: imagem de capa da obra
-  notes?: string;           // Opcional: notas pessoais do leitor
-  status?: 'reading' | 'completed' | 'on_hold' | 'dropped';
+interface WorkV3 {
+  id: string;                       // Identificador único (ex: work_uuid)
+  name: string;                     // Nome principal da obra (ex: "Solo Leveling")
+  aliases?: string[];               // Nomes alternativos / sinônimos em outras línguas
+  tag: 'manga' | 'manhwa' | 'manhua' | 'anime' | 'webtoon' | 'serie' | 'livro' | 'outro';
+  readingStatus: 'lendo' | 'concluido' | 'pausado' | 'dropado' | 'planejo';
+  publicationStatus: 'lancamento' | 'concluido' | 'hiato' | 'cancelado';
+  releaseDays?: number[];           // Dias semanais de lançamento: 0=Dom, 1=Seg... 6=Sáb
+  mainChapter: string;              // Último capítulo lido (ex: "Cap. 179" ou "Temp 01 - Ep 01")
+  lastReadSourceId: string;         // ID da última fonte acessada
+  createdAt: number;                // Timestamp Epoch (ms)
+  updatedAt: number;                // Timestamp Epoch (ms) para resolução LWW
+  deleted: boolean;                 // Soft-delete para sincronização
+  syncStatus: 'synced' | 'pending'; // Estado de sincronização com a nuvem
 
-  // Campos de controle de sincronismo e integridade
-  createdAt: number;        // Timestamp Epoch ms
-  updatedAt: number;        // Timestamp Epoch ms (usado para Last-Write-Wins)
-  deleted?: boolean;        // Soft delete para propagar remoções
-  syncStatus?: 'synced' | 'pending';
+  sources: Array<{                  // Lista de fontes/scans vinculadas
+    id: string;                     // ID da fonte (ex: src_uuid)
+    siteName: string;               // Nome amigável do site (ex: "MangaDex")
+    domain: string;                 // Domínio (ex: "mangadex.org")
+    url: string;                    // URL do último capítulo acessado
+    chapter: string;                // Capítulo lido nesta fonte específica
+    updatedAt: number;              // Timestamp de leitura nesta fonte
+  }>;
+
+  history: Array<{                  // Histórico de leituras (últimos 50 acessos)
+    id: string;
+    timestamp: number;
+    siteName: string;
+    domain: string;
+    chapter: string;
+    url: string;
+  }>;
+}
+```
+
+### 4.2. Estrutura de Notificação (`NotificationItemV1`)
+
+```typescript
+interface NotificationItemV1 {
+  id: string;                       // Identificador único da notificação
+  workId: string;                   // ID da obra vinculada
+  workName: string;                 // Nome da obra
+  type: 'morning' | 'evening';      // Período: matinal (08:00) ou vespertino (17:00)
+  url: string;                      // URL de destino ao clicar
+  tag: string;                      // Categoria da obra
+  timestamp: number;                // Timestamp de envio
+  read: boolean;                    // Indicador de leitura
+}
+```
+
+### 4.3. Configurações Globais (`SettingsV3`)
+
+```typescript
+interface SettingsV3 {
+  syncKey: string;                          // Chave pessoal de sincronização em nuvem
+  supabaseUrl: string;                      // URL da instância Supabase REST
+  supabaseKey: string;                      // Chave de acesso Supabase
+  autoSyncIntervalMinutes: number;          // Intervalo de sync em segundo plano (padrão: 15 min)
+  enableFloatingButton: boolean;            // Botão flutuante ativo nas páginas (padrão: true)
+  enableBadgeCount: boolean;                // Contador numérico no botão flutuante (padrão: true)
+  enableQuickIncrement: boolean;            // Ação rápida (+1) com guards ativada (padrão: true)
+  enableAutoTitleDetection: boolean;        // Preenchimento automático do título (padrão: true)
+  enableAutoSync: boolean;                  // Sincronização periódica ligada (padrão: false)
+  enableReleaseNotifications: boolean;      // Notificações nos dias de lançamento (padrão: true)
+  enableMorningNotification: boolean;        // Alerta matinal às 08:00 (padrão: true)
+  enableEveningNotification: boolean;        // Alerta vespertino às 17:00 (padrão: true)
+  autoTrackAnime: boolean;                  // Auto-rastreamento de animes ao assistir 70% (padrão: true)
+  blockedDomains: string[];                 // Domínios onde a extensão não atua (Blacklist)
+  allowedDomains: string[];                 // Domínios com permissão expressa (Whitelist)
+  theme: 'dark' | 'light' | 'pink';         // Tema visual ativo (padrão: 'dark')
 }
 ```
 
 ---
 
-## 7. Estratégia de Resolução de Conflitos (Last-Write-Wins)
-
-Quando você atualiza um capítulo no computador e depois abre outro navegador:
-1. **Pull (Baixar alterações)**:
-   - A extensão consulta a nuvem buscando registros onde `updatedAt > ultimo_sync_local`.
-   - Se um registro remoto for mais recente que o local, ele sobrescreve o local.
-2. **Push (Enviar alterações locais)**:
-   - Se você leu um capítulo offline, o registro local terá `syncStatus = 'pending'`.
-   - Assim que a conexão for restabelecida, a extensão envia essas alterações para a nuvem.
-3. **Exclusões (*Soft Delete*)**:
-   - Quando você deleta uma obra, a extensão marca `deleted: true` e atualiza `updatedAt`.
-   - A nuvem recebe a marcação de deletado e propaga para todos os outros navegadores.
-
----
-
-## 8. Estrutura de Arquivos Atual
+## 5. Estrutura de Arquivos
 
 ```text
 .
-├── background.js       # Service worker em segundo plano
-├── content.js          # Botão flutuante injetado nas páginas (Shadow DOM)
-├── manifest.json       # Configurações da extensão (Manifest V3)
-├── popup.html          # Interface do menu popup da extensão
-├── popup.css           # Estilos e tema dark cyberpunk do popup
-├── popup.js            # Lógica de CRUD, busca e captura de abas
-├── package.json        # Dependências do projeto
-└── README.md           # Documentação arquitetural do projeto
+├── manifest.json              # Manifesto da extensão (Chrome Manifest V3)
+├── background.js              # Service Worker (alarmes de sync, lançamento e ícones)
+├── content.js                 # Content script: Shadow DOM, botão flutuante e Video Tracker
+├── storage-local.js           # Camada de persistência v3, migração, CRUD e notificações
+├── canonical-resolver.js      # Resolução de títulos canônicos via AniList e MangaDex
+├── alias-crowd-service.js     # Motor comunitário de consenso e quórum para aliases
+├── sync-service.js            # Serviço de sincronização em nuvem via Supabase REST
+├── popup.html                 # Interface gráfica do popup da extensão
+├── popup.css                  # Estilos, temas (Dark, Light, Pink) e layout de gavetas
+├── popup.js                   # Lógica da interface, bottom nav, sininho, filtros e editor
+├── package.json               # Configurações do projeto e scripts npm
+├── docs/                      # Documentação técnica e especificações
+│   ├── CHANGELOG.md           # Histórico de alterações e versões
+│   └── superpowers/specs/     # Especificações de design e planos de implementação
+├── icons/                     # Ícones PNG e SVG em todos os tamanhos e temas
+│   ├── icon16.png … icon128.png
+│   ├── icon-dark-16.png … icon-dark-128.png
+│   ├── icon-light-16.png … icon-light-128.png
+│   ├── icon-pink-16.png … icon-pink-128.png
+│   └── icon.svg
+├── scripts/
+│   └── generate-icons.js      # Gerador autônomo de ícones PNG para os temas
+├── tests/                     # 46 suítes de testes unitários e de integração
+│   ├── run-all-tests.js       # Executor geral de testes
+│   └── test-*.js
+└── README.md                  # Esta documentação
 ```
 
 ---
 
-## 9. Próximos Passos Recomendados para o Projeto
+## 6. Suíte de Testes Automatizada
 
-1. **[Fase 1] Correções Imediatas & Estabilidade**:
-   - [ ] Gerar os ícones `icons/icon16.png`, `icons/icon32.png`, `icons/icon48.png`, `icons/icon128.png`.
-   - [ ] Migrar a persistência imediata de `chrome.storage.sync` para `chrome.storage.local`.
-   - [ ] Corrigir no `content.js` a lógica ao salvar obra já existente (atualizar o capítulo e URL em vez de inserir novo item duplicado).
+O projeto conta com uma suíte de testes robusta cobrindo 100% dos fluxos críticos sem dependências externas complexas.
 
-2. **[Fase 2] Módulo de Autenticação e Nuvem**:
-   - [ ] Adicionar tela de Login / Registro ou "Chave de Sincronização" no popup.
-   - [ ] Criar serviço `sync-service.js` integrando com **Supabase** (usando a API REST nativa do Supabase com `fetch`).
-   - [ ] Implementar rotina de sincronização periódica (via `chrome.alarms` a cada 5 ou 15 minutos e ao abrir o navegador).
+Para executar todos os testes:
 
-3. **[Fase 3] Melhorias de Usabilidade**:
-   - [ ] Botão de "Avançar Capítulo (+1)" direto no card ou no botão flutuante.
-   - [ ] Histórico de capítulos lidos por obra.
-   - [ ] Opção de Exportar e Importar Backup em arquivo `.json`.
+```bash
+npm test
+```
+
+### Cobertura de Testes (46 Suítes Ativas)
+
+1. **Icon verification**: Validação de dimensões e existência de ícones para todos os temas.
+2. **Storage Local unit tests**: Operações CRUD fundamentais e persistência v3.
+3. **Storage v3 multi-source tests**: Múltiplas fontes e gaveta de histórico.
+4. **Content Script verification**: Injeção e isolamento do Shadow DOM.
+5. **Content Script v3 multi-source tests**: Integração de páginas e links de obras.
+6. **Chapter Regex & Title Sanitization tests**: Limpeza de sufixos de sites e slogans.
+7. **Floating Button Drag & Disable tests**: Arraste e desativação do botão flutuante.
+8. **User Demands Regression tests**: Prevenção de regressões em requisitos de usuários.
+9. **Allowed Domains Whitelist tests**: Lógica de ativação por lista de permissões.
+10. **Domain Chips & Floating Button Activation**: Comportamento dos seletores de chips.
+11. **UI/UX Enhancements for Non-Technical Users**: Acessibilidade e usabilidade para leigos.
+12. **Theme & Vector SVG icon tests**: Verificação dos temas e vetores SVG inline.
+13. **Work Component UI & Typography Cleanup**: Validação de componentes e tipografia.
+14. **Single Line Filter & Card Shadow tests**: Barra de filtros e sombras dos cards.
+15. **Discreet Site Button & Domain Concealment**: Barra discreta de permissões de domínio.
+16. **Real Scans & SPAs Extraction tests**: Testes com Vegitoons, MangaDex e NexusToons.
+17. **Popup features & settings verification**: Verificação de painéis do popup.
+18. **Popup v3 multi-source tests**: Renderização de fontes e histórico no popup.
+19. **Popup Aliases UI & Functional Storage**: Campo de aliases no formulário.
+20. **About Panel, Branding & Pix Setup**: Painel sobre, identidade e chave Pix.
+21. **Theme Dynamic Sync & Multi-Theme Icons**: Sincronização dinâmica de ícones.
+22. **Smart Work Matching & Cross-Site Aliases**: Similaridade por bigramas e tokens.
+23. **Canonical Public Resolver (AniList & MangaDex)**: Mapeamento via AniList e MangaDex.
+24. **Crowdsourced Alias Consensus & Quorum Engine**: Motor de quórum (>= 2 votos) e consenso.
+25. **Collaborative Alias & Storage Integration**: Integração do catálogo com o storage local.
+26. **Bottom Nav & Consolidated Sites Hub**: Central de sites e navegação inferior.
+27. **Reading & Publication Status tests**: Filtros e persistência de status de leitura/obra.
+28. **Series & Movies Divergence Normalization**: Diferenciação de séries e filmes.
+29. **Crunchyroll & Streaming Extraction**: Formatação `Temp 01 - Ep 01` e extração da série.
+30. **AnimesOnline & Anime Extraction Pipeline**: Pipeline para rotas de episódios e parsing.
+31. **Quick Increment Chapter Guards & Comparisons**: Validação semântica e modal defensivo do `(+)`.
+32. **Release Day Notifications & Bell History**: Agendamentos, limite de 20 itens e guarda anti-hiato.
+33. **Drawer Visibility & Full-Height Layout**: Layout e rolagem completa dos drawers.
+34. **Glare-Free Themes & Comfortable Typography**: Calibração anti-brilho e contraste ergonômico.
+35. **Save Pre-fill & Cross-Tab Activation Fixes**: Pré-preenchimento confiável e sincronia entre abas.
+36. **Verbatim Titles & Dual Aliases Extraction**: Extração literal e normalizada de títulos.
+37. **Cloud Sync & background verification**: Serviço de sincronização e alarmes.
+38. **Extension Context & Re-injection Safety**: Proteção contra invalidação de contexto.
+39. **Anime Video Tracker & Auto-Save (70%)**: Rastreamento de `<video>` e iframes a 70%.
+40–46. **Syntax checks**: Análise sintática estrita em todos os arquivos (`storage-local.js`, `sync-service.js`, `canonical-resolver.js`, `alias-crowd-service.js`, `background.js`, `content.js`, `popup.js`).
 
 ---
 
-## 10. Como Testar a Extensão Localmente Hoje
+## 7. Como Instalar e Usar no Navegador
 
-1. Abra o navegador baseado em Chromium (Google Chrome, Brave, Microsoft Edge, Opera).
+1. Abra seu navegador Chromium (**Google Chrome**, **Brave**, **Microsoft Edge**, **Opera**).
 2. Acesse `chrome://extensions/` (ou `edge://extensions/`).
-3. Ative a chave **"Modo do desenvolvedor"** no canto superior direito.
+3. No canto superior direito, ative a opção **"Modo do desenvolvedor"** (*Developer mode*).
 4. Clique no botão **"Carregar sem compactação"** (*Load unpacked*).
 5. Selecione a pasta deste projeto (`Yekun Dreaw - Extenção`).
-6. Abra qualquer site de leitura de mangás ou streaming para ver o botão flutuante `◈` no canto inferior da tela!
+6. A extensão estará instalada! Você verá o ícone do **Yekun Dream** na barra do navegador.
+7. Ao acessar sites de mangás ou animes:
+   - O botão flutuante `◈` aparecerá no canto inferior direito para salvar com um clique.
+   - Em animes/vídeos, ao assistir 70% do episódio, o progresso será salvo automaticamente!
+
+---
+
+## 8. Autor & Licença
+
+- **Autor**: Sentsuy (*Sentsuy Corp*)
+- **Site Oficial**: [sentsuy.ddns.net](https://sentsuy.ddns.net/)
+- **Natureza**: Software Livre & Gratuito — 100% focado em privacidade, sem fins lucrativos e sem coleta de dados pessoais.

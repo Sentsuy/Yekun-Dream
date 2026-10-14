@@ -19,6 +19,7 @@ assert.ok(js.includes('getWorks'), 'popup.js must call StorageLocal.getWorks()')
 assert.ok(js.includes('saveWorkReading') || js.includes('updateWorkDetails'), 'popup.js must call saveWorkReading or updateWorkDetails');
 assert.ok(js.includes('deleteSource'), 'popup.js must support deleteSource');
 assert.ok(js.includes('quickIncrementWork') || js.includes('quickIncrementChapter'), 'popup.js must support quick increment on works');
+assert.ok(js.includes('resetPopupForm'), 'popup.js must implement resetPopupForm() for clean form state');
 
 // 4. Search filter logic test
 function filterWorks(works, query) {

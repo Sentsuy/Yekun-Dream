@@ -34,6 +34,13 @@
    - Campo de ativação rápida por PIN numérico de 4 dígitos.
    - Modal com QR Code Pix oficial, botão de cópia de chave e instruções passo a passo.
 
+6. **Correção de Extração na Crunchyroll (`content.js` e `popup.js`)**:
+   - **Diagnóstico do Problema**: Em páginas de catálogo de animes da Crunchyroll (como `/series/GT00383992/full-clearing-another-world-under-a-goddess-with-zero-believers`), o driver anterior fazia uma busca global `a[href*="/series/"]`, capturando o primeiro link presente no menu/header de navegação global ("Solo Leveling", "One Piece", etc.) antes de chegar ao título do anime atual.
+   - **Solução Implementada**:
+     - **Cenário 1 (Página de Série `/series/`)**: Prioridade máxima no `h1.title` da série, JSON-LD `@type: TVSeries`, meta tag `og:title` ou no slug da própria URL atual (`StorageLocal.extractSlugTitle`), bloqueando terminantemente buscas em links de menu externos.
+     - **Cenário 2 (Player / Episódio `/watch/`)**: Prioridade no JSON-LD `TVEpisode` (`partOfSeries.name`), seletores específicos do player (`.show-title-link`, `[data-t="show-title-link"]`, breadcrumbs) e exclusão de links no `header`, `nav`, `footer` e carrosséis.
+     - Suíte de testes atualizada em [tests/test-crunchyroll-and-streaming.js](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/tests/test-crunchyroll-and-streaming.js) cobrindo Casos A até H com 100% de aprovação.
+
 ---
 
 ## 🚀 Passo a Passo para Retomar Amanhã (Em Qualquer Computador)

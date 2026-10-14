@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════
-   Chapter Tracker — storage-local.js
+   Yekun Dream — storage-local.js
    Unified local-first persistence via chrome.storage.local
    Version 3: Multi-source works and reading history
    ════════════════════════════════════════════════════════ */

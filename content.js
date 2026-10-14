@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════
-   Chapter Tracker — content.js
+   Yekun Dream — content.js
    Botão flutuante + mini-form inline (Shadow DOM isolado).
    Persistência direta via storage-local.js (v3: multi-fontes e obras).
    ════════════════════════════════════════════════════════ */
@@ -748,35 +748,77 @@ if (typeof window !== 'undefined') {
                /^(?:epis[oó]dio|episode|ep\.?)\s*\d+$/i.test(s);
       }
 
-      // 1. Procura link específico da série no player, breadcrumbs ou página (/series/:id/:slug)
-      const seriesLinks = Array.from(document.querySelectorAll('a[href*="/series/"]'));
-      for (const a of seriesLinks) {
-        const href = a.getAttribute('href') || '';
-        const slugTitle = typeof StorageLocal !== 'undefined' && StorageLocal.extractSlugTitle ? StorageLocal.extractSlugTitle(href) : '';
-        if (slugTitle && !isSeasonDesc(slugTitle)) {
-          const text = (a.textContent || '').trim();
-          if (text && !isSeasonDesc(text) && text.length > 1 && !/^(?:in[íi]cio|home|series|animes|crunchyroll)$/i.test(text)) {
-            title = text;
-          } else {
-            title = slugTitle;
+      const currentUrl = window.location.href;
+      const isSeriesPage = /\/series\/[A-Za-z0-9_-]+/i.test(currentUrl);
+
+      // ── CENÁRIO 1: Página da Própria Série (/series/:id/:slug) ──
+      // Na página da série, o anime é a própria página em exibição.
+      // NUNCA buscamos outros links "a[href*=/series/]" no documento para não capturar itens do menu/header.
+      if (isSeriesPage) {
+        // 1.1 Título principal no H1 da página de série
+        const h1 = document.querySelector('h1.title, h1[data-t="title"], h1.heading--nKNOf, h1:not(.site-title):not(.logo):not([class*="site"]):not([class*="logo"])');
+        if (h1 && h1.textContent) {
+          const rawH1 = h1.textContent.trim();
+          const cleanH1 = typeof StorageLocal !== 'undefined' && StorageLocal.cleanWorkTitle ? StorageLocal.cleanWorkTitle(rawH1) : rawH1;
+          if (cleanH1 && cleanH1.length > 1 && !/^(?:crunchyroll|in[íi]cio|home|browse|navegar|s[eé]ries|animes)$/i.test(cleanH1) && !isSeasonDesc(cleanH1)) {
+            title = cleanH1;
           }
-          break;
+        }
+
+        // 1.2 JSON-LD Schema.org TVSeries
+        if (!title) {
+          try {
+            const scripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+            for (const s of scripts) {
+              const raw = (s.textContent || '').trim();
+              if (!raw) continue;
+              const parsed = JSON.parse(raw);
+              const list = Array.isArray(parsed) ? parsed : (parsed['@graph'] || [parsed]);
+              for (const item of list) {
+                if (item && (item['@type'] === 'TVSeries' || item['@type'] === 'Series') && item.name) {
+                  const sName = item.name.trim();
+                  if (sName.length > 1 && !isSeasonDesc(sName)) {
+                    title = sName;
+                    break;
+                  }
+                }
+              }
+              if (title) break;
+            }
+          } catch (_) {}
+        }
+
+        // 1.3 Meta tags og:title / twitter:title
+        if (!title) {
+          const og = document.querySelector('meta[property="og:title"]')?.getAttribute('content') || '';
+          if (og) {
+            const cleanOg = typeof StorageLocal !== 'undefined' && StorageLocal.cleanWorkTitle ? StorageLocal.cleanWorkTitle(og) : og.trim();
+            if (cleanOg && cleanOg.length > 1 && !isSeasonDesc(cleanOg)) {
+              title = cleanOg;
+            }
+          }
+        }
+
+        // 1.4 Slug extraído diretamente da URL atual (/series/:id/:slug)
+        if (!title && typeof StorageLocal !== 'undefined' && StorageLocal.extractSlugTitle) {
+          const slugT = StorageLocal.extractSlugTitle(currentUrl);
+          if (slugT && !isSeasonDesc(slugT)) {
+            title = slugT;
+          }
+        }
+
+        // 1.5 document.title como fallback
+        if (!title && document.title) {
+          const cleanDoc = typeof StorageLocal !== 'undefined' && StorageLocal.cleanWorkTitle ? StorageLocal.cleanWorkTitle(document.title) : document.title.trim();
+          if (cleanDoc && cleanDoc.length > 1 && !isSeasonDesc(cleanDoc)) {
+            title = cleanDoc;
+          }
         }
       }
 
-      // 2. Elementos semânticos de série Crunchyroll (.show-title-link, [data-t="show-title-link"], [data-t="series-title"])
+      // ── CENÁRIO 2: Página de Reprodução / Episódio (/watch/:id/:slug) ou Outras Rotas ──
       if (!title) {
-        const showLink = document.querySelector('.show-title-link, a.show-title-link, [data-t="show-title-link"], [data-t="series-title"], .hero-heading-line a');
-        if (showLink && showLink.textContent && showLink.textContent.trim().length > 1) {
-          const t = showLink.textContent.trim();
-          if (!isSeasonDesc(t)) {
-            title = t;
-          }
-        }
-      }
-
-      // 3. JSON-LD Schema.org TVEpisode / partOfSeries
-      if (!title || !chapter) {
+        // 2.1 JSON-LD Schema.org TVEpisode / partOfSeries (Fonte mais estruturada e precisa no player)
         try {
           const scripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
           for (const s of scripts) {
@@ -809,26 +851,66 @@ if (typeof window !== 'undefined') {
             if (title && chapter) break;
           }
         } catch (_) {}
-      }
 
-      // 4. Rota de catálogo de série (/series/:id/:slug)
-      if (!title && window.location.href.includes('/series/')) {
-        const slugT = typeof StorageLocal !== 'undefined' && StorageLocal.extractSlugTitle ? StorageLocal.extractSlugTitle(window.location.href) : '';
-        if (slugT) {
-          title = slugT;
-        } else {
-          const h1Series = document.querySelector('h1');
-          if (h1Series && h1Series.textContent && !/assistir\s+na\s+crunchyroll/i.test(h1Series.textContent)) {
-            title = h1Series.textContent.trim();
+        // 2.2 Elementos semânticos dedicados do player (.show-title-link, [data-t="show-title-link"], breadcrumbs)
+        if (!title) {
+          const showLink = document.querySelector([
+            'a.show-title-link', '[data-t="show-title-link"]', '.show-title-link a', '.show-title-link',
+            '[data-t="series-title"]', '.hero-heading-line a', '.current-media-parent a',
+            '.breadcrumb a[href*="/series/"]', '.breadcrumbs a[href*="/series/"]', '[data-t="breadcrumb"] a[href*="/series/"]'
+          ].join(', '));
+
+          if (showLink) {
+            const t = (showLink.textContent || '').trim();
+            if (t && t.length > 1 && !isSeasonDesc(t) && !/^(?:in[íi]cio|home|series|animes|crunchyroll)$/i.test(t)) {
+              title = t;
+            } else {
+              const href = showLink.getAttribute('href') || '';
+              const slugTitle = typeof StorageLocal !== 'undefined' && StorageLocal.extractSlugTitle ? StorageLocal.extractSlugTitle(href) : '';
+              if (slugTitle && !isSeasonDesc(slugTitle)) {
+                title = slugTitle;
+              }
+            }
+          }
+        }
+
+        // 2.3 Busca links de série SOMENTE dentro de containers de mídia/player e NUNCA no header/nav/footer/carrossel
+        if (!title) {
+          const mediaContainer = document.querySelector('.erc-current-media-info, .current-media-parent, .hero-heading-line, [data-t="media-info"], .player-container');
+          if (mediaContainer) {
+            const a = mediaContainer.querySelector('a[href*="/series/"]');
+            if (a) {
+              const t = (a.textContent || '').trim();
+              if (t && t.length > 1 && !isSeasonDesc(t) && !/^(?:in[íi]cio|home|series|animes|crunchyroll)$/i.test(t)) {
+                title = t;
+              } else {
+                const href = a.getAttribute('href') || '';
+                const slugTitle = typeof StorageLocal !== 'undefined' && StorageLocal.extractSlugTitle ? StorageLocal.extractSlugTitle(href) : '';
+                if (slugTitle && !isSeasonDesc(slugTitle)) title = slugTitle;
+              }
+            }
+          }
+        }
+
+        // 2.4 Extração via document.title / meta og:title no player (ex: "Danganronpa 3 - Episódio 1 - Despair - Assistir na Crunchyroll")
+        if (!title) {
+          const rawDoc = document.title || document.querySelector('meta[property="og:title"]')?.getAttribute('content') || '';
+          if (rawDoc) {
+            const cleanDoc = typeof StorageLocal !== 'undefined' && StorageLocal.cleanWorkTitle ? StorageLocal.cleanWorkTitle(rawDoc) : '';
+            if (cleanDoc && cleanDoc.length > 1 && !isSeasonDesc(cleanDoc) && !/^(?:crunchyroll|in[íi]cio|home)$/i.test(cleanDoc)) {
+              title = cleanDoc;
+            }
           }
         }
       }
 
-      // 5. Extração de capítulo via metadados do player se JSON-LD não tiver
+      // ── Extração de capítulo via metadados do player se JSON-LD não tiver ──
       if (!chapter) {
-        const metaEl = document.querySelector('.erc-current-media-info, .current-media-parent, .hero-heading-line, [data-t="episode-title"], select[name*="season"]');
+        const metaEl = document.querySelector('.erc-current-media-info, .current-media-parent, .hero-heading-line, [data-t="episode-title"], [data-t="title"], select[name*="season"]');
         if (metaEl && metaEl.textContent) {
-          chapter = StorageLocal.extractChapter(window.location.href, '', metaEl.textContent);
+          chapter = StorageLocal.extractChapter(window.location.href, document.title || '', metaEl.textContent);
+        } else if (document.title) {
+          chapter = StorageLocal.extractChapter(window.location.href, document.title);
         }
       }
 
@@ -959,7 +1041,7 @@ if (typeof window !== 'undefined') {
       const semanticTitleEl = document.querySelector([
         '.show-title-link', 'a.show-title-link', '[data-t="show-title-link"]', '[data-t="series-title"]',
         '.hero-heading-line a', 'h4.heading--is-link a', 'h4.heading--is-link',
-        'a[href*="/series/"]:not([href="/series/"])',
+        '.breadcrumb a[href*="/series/"]', '.breadcrumbs a[href*="/series/"]',
         '.manga-title a', '.series-title a', '.chapter-title-bar .manga-title a',
         'h1.manga-title', 'h1.entry-title', 'h1.series-title', 'h1.post-title',
         '.manga-title', '.series-title', '.novel-title', '[itemprop="name"]'
@@ -976,6 +1058,7 @@ if (typeof window !== 'undefined') {
     if (!domWorkTitle) {
       const candidateLinks = Array.from(document.querySelectorAll('a[href*="/obra/"], a[href*="/story/"], a[href*="/title/"], a[href*="/manga/"], a[href*="/series/"], a[href*="/anime/"], a[href*="/show/"], .show-title-link, .breadcrumb a, .breadcrumbs a'));
       for (const a of candidateLinks) {
+        if (a.closest && a.closest('header, nav:not([class*="breadcrumb"]):not([class*="crumbs"]), footer, [role="navigation"], .erc-header, .erc-nav, [data-t="carousel"], .erc-carousel')) continue;
         const text = (a.textContent || '').trim();
         if (!text || text.length <= 1) continue;
         if (/^(?:in[íi]cio|home|todos\s+os\s+(?:mang[aá]s|epis[oó]dios|cap[íi]tulos|filmes)|todos\s+os\s+epis[oó]dios|mang[aá]s|animes|cat[aá]logo|menu|lista|all|cap[íi]tulo|chapter|epis[óo]dio|episode|crunchyroll)/i.test(text)) continue;

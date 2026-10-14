@@ -9,6 +9,10 @@ assert.ok(contentCode.includes('getWorks'), 'content.js must call StorageLocal.g
 assert.ok(contentCode.includes('saveWorkReading'), 'content.js must call StorageLocal.saveWorkReading()');
 assert.ok(contentCode.includes('ct-source') || contentCode.includes('siteName') || contentCode.includes('domain'), 'content.js must display or manage source/site');
 
+// Step 1b: Clean State Lifecycle & Zeroed Select
+assert.ok(contentCode.includes('resetFormState'), 'content.js must implement resetFormState() to purge dirty state');
+assert.ok(contentCode.includes("linkSelect.value = ''"), 'linkToggle must zero linkSelect.value on fresh query');
+
 // Step 2: Verification of matching logic functions
 // Emulate the matching logic used in content.js
 function normalize(s) {

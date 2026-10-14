@@ -2,7 +2,26 @@
 -- Yekun Dream — Supabase Pro & Assinaturas Anuais com PIN de 4 Dígitos
 -- ══════════════════════════════════════════════════════════════════════════
 
--- 1. Tabela de Assinaturas (Subscriptions)
+-- 1. Tabela Principal de Obras/Capítulos Sincronizados (Entries)
+CREATE TABLE IF NOT EXISTS entries (
+    id TEXT PRIMARY KEY,
+    sync_key TEXT NOT NULL,
+    name TEXT NOT NULL,
+    chapter TEXT DEFAULT 'Cap. 1',
+    url TEXT DEFAULT '',
+    tag TEXT DEFAULT 'manga',
+    created_at BIGINT NOT NULL DEFAULT (extract(epoch from now()) * 1000)::bigint,
+    updated_at BIGINT NOT NULL DEFAULT (extract(epoch from now()) * 1000)::bigint,
+    deleted BOOLEAN DEFAULT FALSE,
+    sources TEXT,
+    history TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_entries_sync_key ON entries(sync_key);
+CREATE INDEX IF NOT EXISTS idx_entries_updated_at ON entries(updated_at);
+ALTER TABLE entries ENABLE ROW LEVEL SECURITY;
+
+-- 2. Tabela de Assinaturas (Subscriptions)
 CREATE TABLE IF NOT EXISTS subscriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT UNIQUE NOT NULL,
@@ -18,7 +37,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 CREATE INDEX IF NOT EXISTS idx_subscriptions_email ON subscriptions(email);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_valid_until ON subscriptions(valid_until);
 
--- 2. Tabela de Códigos de Ativação (4 Dígitos)
+-- 3. Tabela de Códigos de Ativação (4 Dígitos)
 CREATE TABLE IF NOT EXISTS activation_pins (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     pin VARCHAR(4) UNIQUE NOT NULL,      -- Código de 4 dígitos (ex: '7492')
@@ -31,11 +50,11 @@ CREATE TABLE IF NOT EXISTS activation_pins (
 
 CREATE INDEX IF NOT EXISTS idx_activation_pins_pin ON activation_pins(pin);
 
--- 3. Habilitação de RLS
+-- 4. Habilitação de RLS
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activation_pins ENABLE ROW LEVEL SECURITY;
 
--- 4. Políticas para a tabela de assinaturas
+-- 5. Políticas para a tabela de assinaturas
 -- Permite leitura de status para qualquer cliente autenticado com a anon key
 DROP POLICY IF EXISTS "Permitir consulta de status por email" ON subscriptions;
 CREATE POLICY "Permitir consulta de status por email"
@@ -44,7 +63,7 @@ FOR SELECT
 TO anon
 USING (true);
 
--- 5. Função RPC Segura para Resgatar PIN de 4 Dígitos
+-- 6. Função RPC Segura para Resgatar PIN de 4 Dígitos
 -- Executa com privilégios de SECURITY DEFINER para atualizar tabelas sem expor chaves públicas
 CREATE OR REPLACE FUNCTION redeem_activation_pin(p_pin TEXT, p_email TEXT)
 RETURNS JSONB
@@ -113,7 +132,7 @@ BEGIN
 END;
 $$;
 
--- 6. Atualização de Políticas na Tabela entries (RLS)
+-- 7. Atualização de Políticas na Tabela entries (RLS)
 -- Garante que apenas assinantes com valid_until no futuro possam sincronizar
 DROP POLICY IF EXISTS "Permitir sync apenas para assinantes ativos" ON entries;
 DROP POLICY IF EXISTS "Permitir acesso completo via anon key" ON entries;
