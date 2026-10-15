@@ -211,8 +211,14 @@ if (typeof chrome !== 'undefined' && chrome.alarms && chrome.alarms.onAlarm) {
 if (typeof chrome !== 'undefined' && chrome.notifications && chrome.notifications.onClicked) {
   chrome.notifications.onClicked.addListener(async (notifId) => {
     const url = await getNotificationUrl(notifId);
+    // A-03: Validar protocolo antes de abrir URL armazenada
     if (url && chrome.tabs && chrome.tabs.create) {
-      chrome.tabs.create({ url });
+      try {
+        const u = new URL(url);
+        if (['http:', 'https:'].includes(u.protocol)) {
+          chrome.tabs.create({ url: u.href });
+        }
+      } catch (_) {}
     }
   });
 }
@@ -220,6 +226,8 @@ if (typeof chrome !== 'undefined' && chrome.notifications && chrome.notification
 // Listener de mensagens manuais
 if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    // A-02: Validar que a mensagem vem da própria extensão (não de páginas externas)
+    if (sender && sender.id && sender.id !== chrome.runtime.id) return;
     if (msg.action === 'syncNow') {
       if (typeof SyncService !== 'undefined') {
         SyncService.syncAll().then(res => sendResponse(res)).catch(err => sendResponse({ ok: false, error: err.message }));

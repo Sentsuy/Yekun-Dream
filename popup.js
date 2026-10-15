@@ -434,11 +434,7 @@ async function renderNotificationsList() {
       if (notif.url) {
         card.style.cursor = 'pointer';
         card.addEventListener('click', () => {
-          if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
-            chrome.tabs.create({ url: notif.url });
-          } else {
-            window.open(notif.url, '_blank');
-          }
+          safeOpenUrl(notif.url);
         });
       }
 
@@ -2287,9 +2283,7 @@ function buildWorkCard(work) {
   card.querySelectorAll('.btn-main-open').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
-      if (activeSrc.url && typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
-        chrome.tabs.create({ url: activeSrc.url });
-      }
+      if (activeSrc.url) safeOpenUrl(activeSrc.url);
     });
   });
 
@@ -2352,9 +2346,7 @@ function buildWorkCard(work) {
     avatarEl.style.cursor = 'pointer';
     avatarEl.addEventListener('click', e => {
       e.stopPropagation();
-      if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
-        chrome.tabs.create({ url: activeSrc.url });
-      }
+      safeOpenUrl(activeSrc.url);
     });
   }
 
@@ -2443,7 +2435,7 @@ function buildWorkCard(work) {
     if (btnOpen) {
       btnOpen.addEventListener('click', e => {
         e.stopPropagation();
-        if (src.url) chrome.tabs.create({ url: src.url });
+        if (src.url) safeOpenUrl(src.url);
       });
     }
 
@@ -2472,9 +2464,7 @@ function buildWorkCard(work) {
       const srcId = chip.dataset.srcid;
       const src = sources.find(s => s.id === srcId);
       const targetUrl = src ? src.url : chip.getAttribute('href');
-      if (targetUrl && targetUrl !== '#' && typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
-        chrome.tabs.create({ url: targetUrl });
-      }
+      if (targetUrl && targetUrl !== '#') safeOpenUrl(targetUrl);
     });
   });
 
@@ -2487,6 +2477,25 @@ function esc(s) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+// A-03: Abre URL armazenada somente se o protocolo for http/https
+// Previne abertura de javascript:, data:, file:, etc.
+function safeOpenUrl(url) {
+  try {
+    const u = new URL(url);
+    if (!['http:', 'https:'].includes(u.protocol)) return;
+    if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+      chrome.tabs.create({ url: u.href });
+    } else {
+      window.open(u.href, '_blank', 'noopener,noreferrer');
+    }
+  } catch (_) {}
+}
+
+// I-02: Valida formato de domínio antes de salvar nos chips
+function isValidDomain(d) {
+  return /^[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?(\.[a-z]{2,})+$/i.test((d || '').trim());
 }
 
 // ── Central Consolidada de Sites (Sem Duplicações) ──────
@@ -2660,9 +2669,7 @@ function renderSitesView(query = (searchInput ? searchInput.value.trim() : '')) 
       btnVisit.addEventListener('click', e => {
         e.stopPropagation();
         e.preventDefault();
-        if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
-          chrome.tabs.create({ url: visitUrl });
-        }
+        safeOpenUrl(visitUrl);
       });
     }
 
@@ -2681,9 +2688,7 @@ function renderSitesView(query = (searchInput ? searchInput.value.trim() : '')) 
         e.preventDefault();
         e.stopPropagation();
         const url = item.getAttribute('href');
-        if (url && url !== '#' && typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
-          chrome.tabs.create({ url });
-        }
+        if (url && url !== '#') safeOpenUrl(url);
       });
     });
 

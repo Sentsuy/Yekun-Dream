@@ -6,7 +6,7 @@
 (function (global) {
 
 const PRO_CACHE_KEY = 'yekun_pro_subscription_cache';
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 horas
+const CACHE_TTL_MS = 1 * 60 * 60 * 1000; // 1 hora (segurança: reduzido de 6h)
 
 const IdentityService = {
   normalizeEmail(email) {
@@ -66,6 +66,10 @@ const IdentityService = {
 
   async setCustomProEmail(email) {
     const clean = this.normalizeEmail(email);
+    // M-05: Validação básica de formato de e-mail antes de salvar
+    if (!clean || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(clean) || clean.length > 254) {
+      return '';
+    }
     return new Promise(resolve => {
       try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
@@ -118,46 +122,40 @@ const IdentityService = {
     }
 
     try {
-      const url = `${config.supabaseUrl}/rest/v1/subscriptions?email=eq.${encodeURIComponent(email)}&select=email,status,valid_until,plan`;
+      // C-01: Usar RPC check_pro_status em vez de query direta à tabela subscriptions.
+      // A RPC é SECURITY DEFINER e devolve apenas os dados do e-mail solicitado,
+      // sem expor a tabela completa via REST anon.
+      const url = `${config.supabaseUrl}/rest/v1/rpc/check_pro_status`;
       const res = await fetch(url, {
-        method: 'GET',
+        method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'apikey': config.supabaseKey,
           'Authorization': `Bearer ${config.supabaseKey}`
-        }
+        },
+        body: JSON.stringify({ p_email: email })
       });
 
       if (!res.ok) {
+        // I-03: Logar detalhe internamente, exibir mensagem genérica
         const errText = await res.text();
-        throw new Error(`Erro na consulta Supabase: ${res.status} - ${errText}`);
+        console.debug('[IdentityService] Erro check_pro_status:', res.status, errText);
+        throw new Error(`Falha ao verificar assinatura (${res.status})`);
       }
 
-      const rows = await res.json();
+      const result = await res.json();
       const now = Date.now();
-      let statusData = {
-        isPro: false,
+      const validUntil = Number(result.validUntil) || 0;
+
+      const statusData = {
+        isPro: !!result.isPro,
         email,
         source: idInfo.source,
-        daysLeft: 0,
-        validUntil: 0,
-        plan: 'none',
+        daysLeft: this.calculateDaysLeft(validUntil, now),
+        validUntil,
+        plan: result.plan || 'none',
         cached: false
       };
-
-      if (Array.isArray(rows) && rows.length > 0) {
-        const sub = rows[0];
-        const validUntil = Number(sub.valid_until) || 0;
-        const isActive = sub.status === 'active' && validUntil > now;
-        statusData = {
-          isPro: isActive,
-          email,
-          source: idInfo.source,
-          daysLeft: this.calculateDaysLeft(validUntil, now),
-          validUntil,
-          plan: sub.plan || 'annual',
-          cached: false
-        };
-      }
 
       await this.saveCachedProStatus(statusData);
       return statusData;

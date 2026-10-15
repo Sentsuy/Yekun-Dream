@@ -194,6 +194,11 @@ const SyncService = {
   },
 
   async syncAll() {
+    // I-04: Evitar race condition — rejeitar se já há uma sync em andamento
+    if (SyncService._syncInProgress) {
+      return { ok: false, reason: 'sync_already_in_progress' };
+    }
+    SyncService._syncInProgress = true;
     try {
       const config = await this.getClientConfig();
       if (!config.supabaseUrl || !config.supabaseKey) {
@@ -221,9 +226,13 @@ const SyncService = {
       };
     } catch (err) {
       return { ok: false, error: err.message };
+    } finally {
+      SyncService._syncInProgress = false;
     }
   }
 };
+
+SyncService._syncInProgress = false;
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { SyncService };

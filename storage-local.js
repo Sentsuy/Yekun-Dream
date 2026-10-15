@@ -231,13 +231,17 @@ function base64UrlDecode(str) {
   while (s.length % 4) s += "=";
   try {
     if (typeof atob === 'function') {
-      return decodeURIComponent(escape(atob(s)));
+      // I-05: Substituído escape() (depreciado) por TextDecoder
+      const binary = atob(s);
+      try {
+        return new TextDecoder('utf-8').decode(
+          Uint8Array.from(binary, c => c.charCodeAt(0))
+        );
+      } catch (_) {
+        return binary; // fallback para string binária pura
+      }
     }
-  } catch (_) {
-    try {
-      if (typeof atob === 'function') return atob(s);
-    } catch (__) {}
-  }
+  } catch (_) {}
   if (typeof Buffer !== 'undefined') {
     return Buffer.from(s, 'base64').toString('utf8');
   }
@@ -1438,6 +1442,11 @@ const StorageLocal = {
   },
 
   async importBackup(jsonString) {
+    // M-02: Validação de tamanho — rejeitar backups maiores que 5 MB
+    if (typeof jsonString !== 'string' || jsonString.length > 5 * 1024 * 1024) {
+      throw new Error('Arquivo de backup inválido ou maior que 5 MB.');
+    }
+
     const parsed = JSON.parse(jsonString);
     if (!parsed) throw new Error('Arquivo de backup inválido.');
 
@@ -1445,22 +1454,76 @@ const StorageLocal = {
     const map = new Map(currentWorks.map(w => [w.id, w]));
     let importedCount = 0;
 
+    // M-02: Função de sanitização — allowlist de campos (evita prototype pollution e campos arbitrários)
+    const VALID_TAGS = new Set(['manga', 'anime', 'webtoon', 'novel']);
+    const VALID_READ_STATUS = new Set(['lendo', 'concluido', 'pausado', 'dropado', 'planejo']);
+    const VALID_PUB_STATUS = new Set(['lancamento', 'completo', 'hiato', 'cancelado']);
+
+    function sanitizeWork(item) {
+      if (!item || typeof item !== 'object') return null;
+      const id = String(item.id || '').slice(0, 128);
+      const name = String(item.name || '').slice(0, 500).trim();
+      if (!id || !name) return null;
+
+      const sources = Array.isArray(item.sources)
+        ? item.sources.slice(0, 50).map(s => ({
+            id: String(s.id || generateId('src')).slice(0, 128),
+            siteName: String(s.siteName || '').slice(0, 100),
+            domain: String(s.domain || '').slice(0, 253),
+            url: String(s.url || '').slice(0, 2048),
+            chapter: String(s.chapter || '').slice(0, 100),
+            updatedAt: Number(s.updatedAt) || 0
+          }))
+        : [];
+
+      const history = Array.isArray(item.history)
+        ? item.history.slice(0, 200).map(h => ({
+            id: String(h.id || generateId('hist')).slice(0, 128),
+            timestamp: Number(h.timestamp) || 0,
+            siteName: String(h.siteName || '').slice(0, 100),
+            domain: String(h.domain || '').slice(0, 253),
+            chapter: String(h.chapter || '').slice(0, 100),
+            url: String(h.url || '').slice(0, 2048)
+          }))
+        : [];
+
+      return {
+        id,
+        name,
+        tag: VALID_TAGS.has(item.tag) ? item.tag : 'manga',
+        mainChapter: String(item.mainChapter || '').slice(0, 100),
+        lastReadSourceId: String(item.lastReadSourceId || '').slice(0, 128),
+        readingStatus: VALID_READ_STATUS.has(item.readingStatus) ? item.readingStatus : 'lendo',
+        publicationStatus: VALID_PUB_STATUS.has(item.publicationStatus) ? item.publicationStatus : 'lancamento',
+        aliases: Array.isArray(item.aliases)
+          ? item.aliases.slice(0, 20).map(a => String(a).slice(0, 300))
+          : [],
+        releaseDays: Array.isArray(item.releaseDays) ? item.releaseDays.filter(d => Number.isInteger(d) && d >= 0 && d <= 6) : [],
+        createdAt: Number(item.createdAt) || Date.now(),
+        updatedAt: Number(item.updatedAt) || Date.now(),
+        deleted: !!item.deleted,
+        syncStatus: 'pending',
+        sources,
+        history
+      };
+    }
+
     // Se for backup v3
     if (Array.isArray(parsed.works)) {
-      for (const item of parsed.works) {
-        if (!item.id || !item.name) continue;
+      // M-02: Limitar número máximo de obras importadas
+      const worksToImport = parsed.works.slice(0, 10000);
+      for (const raw of worksToImport) {
+        const item = sanitizeWork(raw);
+        if (!item) continue;
         const existing = map.get(item.id);
         if (!existing || (item.updatedAt || 0) >= (existing.updatedAt || 0)) {
-          map.set(item.id, {
-            ...item,
-            syncStatus: 'pending'
-          });
+          map.set(item.id, item);
           importedCount++;
         }
       }
     } else if (Array.isArray(parsed.entries)) {
       // Se for backup legado v2
-      for (const v2 of parsed.entries) {
+      for (const v2 of parsed.entries.slice(0, 10000)) {
         if (!v2.id || !v2.name) continue;
         const domain = extractDomain(v2.url);
         const siteName = formatSiteName(domain);
@@ -1471,17 +1534,17 @@ const StorageLocal = {
           id: sourceId,
           siteName,
           domain,
-          url: v2.url || '',
-          chapter: v2.chapter || 'Cap. 1',
+          url: String(v2.url || '').slice(0, 2048),
+          chapter: String(v2.chapter || 'Cap. 1').slice(0, 100),
           updatedAt: now
         };
 
         const existing = map.get(v2.id);
         if (!existing || now >= (existing.updatedAt || 0)) {
           map.set(v2.id, {
-            id: v2.id,
-            name: v2.name,
-            tag: v2.tag || 'manga',
+            id: String(v2.id).slice(0, 128),
+            name: String(v2.name).slice(0, 500).trim(),
+            tag: VALID_TAGS.has(v2.tag) ? v2.tag : 'manga',
             mainChapter: source.chapter,
             lastReadSourceId: sourceId,
             createdAt: v2.createdAt || now,
@@ -1508,9 +1571,21 @@ const StorageLocal = {
     const merged = Array.from(map.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
     await safeStorageSet({ [STORAGE_KEY_ENTRIES_V3]: merged });
 
-    if (parsed.settings) {
+    if (parsed.settings && typeof parsed.settings === 'object') {
       const currentSettings = await this.getSettings();
-      await this.saveSettings({ ...currentSettings, ...parsed.settings });
+      // M-02: Só importar campos conhecidos de settings, nunca fazer spread cego
+      const safeSettings = {};
+      const BOOL_SETTINGS = ['enableFloatingButton', 'enableBadgeCount', 'enableQuickIncrement',
+        'enableAutoTitleDetection', 'enableReleaseNotifications', 'enableMorningNotification', 'enableEveningNotification'];
+      for (const key of BOOL_SETTINGS) {
+        if (typeof parsed.settings[key] === 'boolean') safeSettings[key] = parsed.settings[key];
+      }
+      if (Array.isArray(parsed.settings.blockedDomains)) {
+        safeSettings.blockedDomains = parsed.settings.blockedDomains
+          .filter(d => typeof d === 'string' && d.length < 254)
+          .slice(0, 500);
+      }
+      await this.saveSettings({ ...currentSettings, ...safeSettings });
     }
 
     return importedCount;
