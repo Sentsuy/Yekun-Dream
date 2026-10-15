@@ -44,4 +44,11 @@ assert.ok(popupJs.includes('toggleAboutDrawer'), 'popup.js must implement toggle
 assert.ok(popupJs.includes('btnCopyPix'), 'popup.js must handle btnCopyPix click');
 assert.ok(popupJs.includes('linkOfficialSite'), 'popup.js must handle official site click');
 
+// 5. Settings tab pill navigation for Pix & About
+assert.ok(popupHtml.includes('data-tab="about"'), 'Must have data-tab="about" pill button in settings tabs');
+assert.ok(popupHtml.includes('id="paneSettingsAbout"'), 'Must have paneSettingsAbout section in settings tabs');
+assert.ok(popupHtml.includes('id="btnCopySettingsPix"'), 'Must have btnCopySettingsPix button');
+assert.ok(popupJs.includes('switchToSettingsTab'), 'popup.js must implement switchToSettingsTab');
+assert.ok(popupJs.includes('btnCopySettingsPix'), 'popup.js must handle btnCopySettingsPix');
+
 console.log('✓ All About Panel, Branding and Pix test assertions passed successfully!');

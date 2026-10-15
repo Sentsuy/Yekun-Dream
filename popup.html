@@ -193,6 +193,10 @@
             <svg class="svg-icon" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
             <span>Dados</span>
           </button>
+          <button type="button" class="settings-tab-btn" data-tab="about" title="Sobre o Projeto & Doação (Pix)">
+            <svg class="svg-icon" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+            <span>Apoiar / Pix</span>
+          </button>
         </nav>
 
         <!-- Aba 1: Yekun Cloud PRO & Nuvem -->
@@ -262,6 +266,12 @@
                     </div>
                   </div>
                 </details>
+
+                <!-- Doação Voluntária Opcional para o Projeto Livre -->
+                <div class="pro-voluntary-pix-hint" style="margin-top: 10px; padding: 8px 10px; background: rgba(255,255,255,0.03); border-radius: var(--radius); border: 1px dashed var(--border); font-size: 11px; color: var(--muted); display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                  <span>Deseja apenas apoiar o projeto com doação Pix?</span>
+                  <button type="button" class="btn-subtle-link" id="btnGoToPixTab" style="background: none; border: none; color: var(--accent); cursor: pointer; font-weight: 700; white-space: nowrap; text-decoration: underline;">Ver Pix</button>
+                </div>
               </div>
             </div>
 
@@ -468,6 +478,84 @@
                 <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
                 <span>Sobre o Yekun Dream, Privacidade & Apoiar (Pix)</span>
               </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Aba 6: Apoiar o Projeto (Pix) & Sobre -->
+        <div class="settings-tab-pane" id="paneSettingsAbout">
+          <!-- Card de Apoio e Doação Voluntária (Pix) -->
+          <div class="settings-section">
+            <div class="settings-section-title">
+              <svg class="svg-icon svg-xs" viewBox="0 0 24 24" style="color: #ff4081;"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+              <span>Apoiar o Projeto (Doação Pix Voluntária)</span>
+            </div>
+            
+            <div class="about-card about-pix-card" style="margin-top: 8px;">
+              <p class="about-pix-notice">
+                O <strong>Yekun Dream</strong> é um projeto livre e 100% gratuito. Se a extensão é útil no seu dia a dia e você deseja ajudar a manter os custos de hospedagem e infraestrutura, qualquer doação voluntária é muito bem-vinda!
+              </p>
+
+              <!-- Container do QR Code Pix -->
+              <div class="pix-qr-container">
+                <div class="pix-qr-box" id="pixQrBoxSettings" title="QR Code Pix">
+                  <img src="icons/pix-qrcode.png" class="pix-qr-img" alt="QR Code Pix" />
+                </div>
+                <span class="pix-qr-caption">Escaneie o QR Code no app do banco ou copie a chave abaixo</span>
+              </div>
+
+              <!-- Chave Pix Aleatória Copiável -->
+              <div class="pix-key-wrap">
+                <label class="field-label">CHAVE PIX (ALEATÓRIA)</label>
+                <div class="pix-input-row">
+                  <input class="field-input pix-key-input" id="pixSettingsKey" type="text" value="a6eef510-b30c-48d7-a6bd-d5772054bcc1" readonly />
+                  <button class="btn-copy-pix" id="btnCopySettingsPix" type="button" title="Copiar Chave Pix">
+                    <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    <span>Copiar</span>
+                  </button>
+                </div>
+                <span class="pix-disclaimer">* Doações voluntárias para apoiar o desenvolvimento contínuo da extensão.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sobre & Versão -->
+          <div class="settings-section">
+            <div class="settings-section-title">Sobre o Aplicativo</div>
+            <div class="about-card" style="margin-top: 8px;">
+              <div class="about-brand-row">
+                <div class="about-title-wrap">
+                  <span class="about-app-name">Yekun Dream</span>
+                  <span class="about-version-tag">v1.2.0</span>
+                </div>
+                <span class="about-author-badge">por <strong>Sentsuy</strong> (Sentsuy Corp)</span>
+              </div>
+              <p class="about-description">
+                O rastreador definitivo e elegante para seus mangás, manhwas, animes e séries favoritas.
+                Acompanhe lançamentos, sincronize capítulos e centralize suas leituras em um único lugar seguro.
+              </p>
+              <div class="about-links-row">
+                <a class="about-link" id="linkOfficialSiteSettings" href="https://sentsuy.ddns.net/" target="_blank" title="Visitar site oficial">
+                  <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                  <span>sentsuy.ddns.net</span>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Privacidade -->
+          <div class="settings-section">
+            <div class="settings-section-title">Privacidade & Manifesto</div>
+            <div class="about-card about-privacy-card" style="margin-top: 8px;">
+              <div class="about-card-title">
+                <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                <span>Privacidade Total & Zero Coleta de Dados</span>
+              </div>
+              <ul class="about-bullet-list">
+                <li>Toda a biblioteca é armazenada <strong>100% no seu computador</strong> via Storage Local.</li>
+                <li>Nenhum dado pessoal, histórico de navegação ou leitura é vendido ou monitorado.</li>
+                <li>Sem anúncios invasivos, rastreadores terceiros ou scripts maliciosos.</li>
+              </ul>
             </div>
           </div>
         </div>

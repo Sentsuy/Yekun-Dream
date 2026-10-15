@@ -102,6 +102,10 @@ const btnCloseAbout        = document.getElementById('btnCloseAbout');
 const linkOfficialSite     = document.getElementById('linkOfficialSite');
 const btnCopyPix           = document.getElementById('btnCopyPix');
 const pixTestKey           = document.getElementById('pixTestKey');
+const btnGoToPixTab        = document.getElementById('btnGoToPixTab');
+const btnCopySettingsPix   = document.getElementById('btnCopySettingsPix');
+const pixSettingsKey       = document.getElementById('pixSettingsKey');
+const linkOfficialSiteSettings = document.getElementById('linkOfficialSiteSettings');
 
 // Pro & Pin Activation DOM refs
 const proStatusCard        = document.getElementById('proStatusCard');
@@ -531,37 +535,66 @@ function toggleAboutDrawer() {
   syncBottomNavVisibility();
 }
 
-if (btnAbout) btnAbout.addEventListener('click', toggleAboutDrawer);
+if (btnAbout) {
+  btnAbout.addEventListener('click', () => {
+    if (settingsPanel && settingsPanel.classList.contains('open')) {
+      switchToSettingsTab('about');
+      return;
+    }
+    toggleAboutDrawer();
+  });
+}
 if (btnCloseAbout) btnCloseAbout.addEventListener('click', () => {
   if (aboutPanel) aboutPanel.classList.remove('open');
   if (btnAbout) btnAbout.classList.remove('active');
   syncBottomNavVisibility();
 });
 
-if (linkOfficialSite) {
-  linkOfficialSite.addEventListener('click', (e) => {
-    e.preventDefault();
-    const url = 'https://sentsuy.ddns.net/';
-    if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
-      chrome.tabs.create({ url });
-    } else {
-      window.open(url, '_blank');
-    }
+if (btnGoToPixTab) {
+  btnGoToPixTab.addEventListener('click', () => {
+    switchToSettingsTab('about');
   });
+}
+
+function handleOpenOfficialSite(e) {
+  if (e) e.preventDefault();
+  const url = 'https://sentsuy.ddns.net/';
+  if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+    chrome.tabs.create({ url });
+  } else {
+    window.open(url, '_blank');
+  }
+}
+
+if (linkOfficialSite) {
+  linkOfficialSite.addEventListener('click', handleOpenOfficialSite);
+}
+if (linkOfficialSiteSettings) {
+  linkOfficialSiteSettings.addEventListener('click', handleOpenOfficialSite);
+}
+
+function handleCopyPixKey(keyToCopy) {
+  const key = (keyToCopy || 'a6eef510-b30c-48d7-a6bd-d5772054bcc1').trim();
+  if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(key).then(() => {
+      showToast('✓ Chave Pix copiada com sucesso!');
+    }).catch(() => {
+      showToast('✓ Chave Pix: ' + key);
+    });
+  } else {
+    showToast('✓ Chave Pix: ' + key);
+  }
 }
 
 if (btnCopyPix) {
   btnCopyPix.addEventListener('click', () => {
-    const key = (pixTestKey ? pixTestKey.value : 'a6eef510-b30c-48d7-a6bd-d5772054bcc1').trim();
-    if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(key).then(() => {
-        showToast('✓ Chave Pix copiada com sucesso!');
-      }).catch(() => {
-        showToast('✓ Chave Pix: ' + key);
-      });
-    } else {
-      showToast('✓ Chave Pix: ' + key);
-    }
+    handleCopyPixKey(pixTestKey ? pixTestKey.value : '');
+  });
+}
+
+if (btnCopySettingsPix) {
+  btnCopySettingsPix.addEventListener('click', () => {
+    handleCopyPixKey(pixSettingsKey ? pixSettingsKey.value : '');
   });
 }
 
@@ -761,29 +794,43 @@ function initThemeSwitcher() {
   });
 }
 
-function initSettingsTabs() {
+function switchToSettingsTab(target) {
   const tabBtns = document.querySelectorAll('.settings-tab-btn');
   const tabPanes = document.querySelectorAll('.settings-tab-pane');
   if (!tabBtns.length || !tabPanes.length) return;
 
+  tabBtns.forEach(b => {
+    if (b.dataset.tab === target) {
+      b.classList.add('active');
+    } else {
+      b.classList.remove('active');
+    }
+  });
+
+  tabPanes.forEach(pane => pane.classList.remove('active'));
+
+  const activePane = document.getElementById(
+    target === 'pro'           ? 'paneSettingsPro' :
+    target === 'appearance'    ? 'paneSettingsAppearance' :
+    target === 'reader'        ? 'paneSettingsReader' :
+    target === 'notifications' ? 'paneSettingsNotifications' :
+    target === 'backup'        ? 'paneSettingsBackup' :
+    target === 'about'         ? 'paneSettingsAbout' :
+                                'paneSettingsBackup'
+  );
+  if (activePane) {
+    activePane.classList.add('active');
+  }
+}
+
+function initSettingsTabs() {
+  const tabBtns = document.querySelectorAll('.settings-tab-btn');
+  if (!tabBtns.length) return;
+
   tabBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       const target = btn.dataset.tab;
-      tabBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-
-      tabPanes.forEach(pane => pane.classList.remove('active'));
-
-      const activePane = document.getElementById(
-        target === 'pro'           ? 'paneSettingsPro' :
-        target === 'appearance'    ? 'paneSettingsAppearance' :
-        target === 'reader'        ? 'paneSettingsReader' :
-        target === 'notifications' ? 'paneSettingsNotifications' :
-                                    'paneSettingsBackup'
-      );
-      if (activePane) {
-        activePane.classList.add('active');
-      }
+      switchToSettingsTab(target);
     });
   });
 }
