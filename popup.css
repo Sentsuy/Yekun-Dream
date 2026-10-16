@@ -3486,31 +3486,50 @@ input:checked + .slider::before {
 
 /* Step 1 — pagar */
 .pro-pix-visual-row {
-  display: grid;
-  grid-template-columns: 100px 1fr;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 12px;
   background: var(--surface2);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 10px;
+  border-radius: var(--radius-lg, 8px);
+  padding: 14px;
 }
-.pro-pix-qr-side { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.pro-pix-qr-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
 .pro-pix-qr-visual {
-  width: 100px;
-  height: 100px;
-  background: #fff;
-  border-radius: 6px;
-  padding: 4px;
+  width: 165px;
+  height: 165px;
+  background: #ffffff;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  padding: 8px;
   box-sizing: border-box;
   object-fit: contain;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  transition: transform var(--transition);
+}
+.pro-pix-qr-visual:hover {
+  transform: scale(1.02);
 }
 .pro-pix-qr-caption {
-  font-size: 9px;
+  font-size: 10.5px;
   color: var(--muted);
   text-align: center;
-  line-height: 1.2;
+  line-height: 1.3;
 }
-.pro-pix-info-side { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.pro-pix-info-side {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
 .pro-pix-instructions {
   font-size: 10.5px;
   line-height: 1.45;
@@ -3524,6 +3543,39 @@ input:checked + .slider::before {
 .pro-pix-instructions strong {
   color: var(--text);
 }
+
+.pro-devmode-notice {
+  background: rgba(234, 179, 8, 0.08);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  border-radius: var(--radius);
+  padding: 9px 11px;
+  margin: 6px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.devmode-notice-tag {
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #facc15;
+  letter-spacing: 0.04em;
+}
+.devmode-notice-text {
+  font-size: 10.5px;
+  color: var(--text);
+  line-height: 1.35;
+  margin: 0;
+}
+.devmode-notice-text strong {
+  color: #facc15;
+}
+.devmode-notice-help {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.35;
+  margin: 0;
+}
+
 
 .btn-already-paid {
   width: 100%;

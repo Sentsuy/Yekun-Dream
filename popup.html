@@ -806,10 +806,10 @@
           <div class="pro-pix-visual-row">
             <div class="pro-pix-qr-side">
               <img src="icons/pix-qrcode.png" alt="QR Code Pix" class="pix-qr-img pro-pix-qr-visual" id="proPixQrImg" />
-              <span class="pro-pix-qr-caption">Escaneie ou use Copia-e-Cola</span>
+              <span class="pro-pix-qr-caption">Aponte a câmera do seu banco para o QR Code</span>
             </div>
             <div class="pro-pix-info-side">
-              <label class="field-label">PIX COPIA-E-COLA (R$ 20,00)</label>
+              <label class="field-label">OU PIX COPIA-E-COLA (R$ 20,00)</label>
               <div class="pix-input-row">
                 <input class="field-input text-xs" id="proPixBrCode" type="text" readonly placeholder="Gerando Pix dinâmico…" />
                 <button class="btn-copy-pix" id="btnCopyProBrCode" type="button" title="Copiar código Pix Copia-e-Cola">
@@ -818,15 +818,29 @@
                 </button>
               </div>
               <div class="pro-pix-instructions">
-                <span>Cole no app do seu banco em <strong>Pix &gt; Copia e Cola</strong> (ou aponte a câmera pro QR Code ao lado). A ativação da sua conta PRO é automática logo após a confirmação.</span>
+                <span>No app do seu banco, escolha <strong>Pix &gt; Copia e Cola</strong> e cole o código acima (ou escaneie o QR Code). A liberação do PRO é automática logo após a confirmação.</span>
               </div>
             </div>
           </div>
+
+          <!-- Aviso de modo Sandbox (visível em devmode ou quando a chave for de teste) -->
+          <div class="pro-devmode-notice hidden" id="proDevmodeNotice">
+            <div class="devmode-notice-header">
+              <span class="devmode-notice-tag">🧪 MODO DE TESTE (SANDBOX)</span>
+            </div>
+            <p class="devmode-notice-text">
+              O app do seu banco dá <strong>"QR Code inválido"</strong> porque a chave atual da AbacatePay é de teste (<code>abc_dev_...</code>) e não movimenta dinheiro real no Banco Central.
+            </p>
+            <p class="devmode-notice-help">
+              Para validar o fluxo de ativação da extensão agora, use o botão de simular abaixo. Para aceitar pagamentos reais pelo app do banco, altere a chave para produção (<code>abc_live_...</code>).
+            </p>
+          </div>
+
           <button class="btn-save btn-already-paid" id="btnAlreadyPaid" type="button">
             <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
             <span>Já paguei, confirmar</span>
           </button>
-          <button class="btn-dev-simulate" id="btnSimulatePayment" type="button" style="display:none;">[DEV] Simular pagamento</button>
+          <button class="btn-dev-simulate" id="btnSimulatePayment" type="button" style="display:none;">⚡ [TESTE] Simular pagamento aprovado</button>
         </div>
 
         <!-- Step 2: Aguardando -->

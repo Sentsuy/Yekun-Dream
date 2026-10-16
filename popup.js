@@ -2276,12 +2276,19 @@ async function startProPolling() {
   }
 }
 
+let currentChargeId = null;
+let currentBrCode = '';
+
 async function openProModal() {
   if (!modalProPix) return;
+  currentChargeId = null;
+  currentBrCode = '';
   if (proPixBrCode) {
     proPixBrCode.value = '';
     proPixBrCode.placeholder = 'Gerando Pix dinâmico do gateway…';
   }
+  const proDevmodeNotice = document.getElementById('proDevmodeNotice');
+  if (proDevmodeNotice) proDevmodeNotice.classList.add('hidden');
   if (btnSimulatePayment) {
     btnSimulatePayment.style.display = isProDevMode() ? 'inline-flex' : 'none';
   }
@@ -2301,9 +2308,17 @@ async function openProModal() {
       if (res.ok) {
         const data = await res.json();
         if (data && data.success && data.brCode) {
+          currentChargeId = data.chargeId || null;
+          currentBrCode = data.brCode || '';
           if (proPixBrCode) proPixBrCode.value = data.brCode;
           if (proPixQrImg && data.brCodeBase64) {
             proPixQrImg.src = data.brCodeBase64;
+          }
+
+          const isDev = data.brCode.includes('devmode') || isProDevMode();
+          if (isDev) {
+            if (proDevmodeNotice) proDevmodeNotice.classList.remove('hidden');
+            if (btnSimulatePayment) btnSimulatePayment.style.display = 'inline-flex';
           }
         } else {
           if (proPixBrCode) proPixBrCode.placeholder = 'Erro: ' + ((data && data.error) || 'Tente novamente.');
@@ -2343,8 +2358,27 @@ if (btnAlreadyPaid) {
 
 if (btnSimulatePayment) {
   btnSimulatePayment.addEventListener('click', async () => {
-    if (!isProDevMode()) return;
-    showToast('[DEV] Simulando pagamento confirmado…');
+    showToast('⚡ [DEV] Simulando confirmação do pagamento…');
+    try {
+      const supabaseUrl = appSettings && appSettings.supabaseUrl ? appSettings.supabaseUrl : 'https://wbappdsgstzintgznikb.supabase.co';
+      const supabaseKey = appSettings && appSettings.supabaseKey ? appSettings.supabaseKey : '';
+      if (currentChargeId && supabaseUrl) {
+        await fetch(`${supabaseUrl}/rest/v1/rpc/approve_from_gateway`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`
+          },
+          body: JSON.stringify({
+            p_gateway: 'abacatepay',
+            p_gateway_charge_id: currentChargeId,
+            p_amount_paid: 20.00,
+            p_approved_by: 'dev_simulator'
+          })
+        });
+      }
+    } catch (_) {}
     goToProStep(2);
     await startProPolling();
   });
