@@ -24,12 +24,15 @@ assert.ok(html.includes('id="inputCustomProEmail"'), 'popup.html deve permitir i
 assert.ok(html.includes('id="btnConnectGoogle"'), 'popup.html deve conter botão #btnConnectGoogle para login em 1 clique');
 assert.ok(html.includes('id="settingsTabsNav"'), 'popup.html deve conter navegação por pílulas #settingsTabsNav');
 
+assert.ok(html.includes('id="btnSaveCustomProEmail"'), 'popup.html deve conter botão #btnSaveCustomProEmail');
+
 console.log('Testing PRO CSS styles in popup.css...');
 assert.ok(css.includes('.pro-status-card'), 'popup.css deve conter estilos para .pro-status-card');
 assert.ok(css.includes('.pro-pin-input'), 'popup.css deve conter estilos para .pro-pin-input');
 assert.ok(css.includes('.pro-badge-active'), 'popup.css deve conter estilos para .pro-badge-active');
 assert.ok(css.includes('.settings-tabs-nav'), 'popup.css deve conter estilos para .settings-tabs-nav');
 assert.ok(css.includes('.btn-google-signin'), 'popup.css deve conter estilos para .btn-google-signin');
+assert.ok(css.includes('.pro-account-email-input'), 'popup.css deve conter estilos para .pro-account-email-input');
 
 console.log('Testing PRO JS logic in popup.js...');
 assert.ok(js.includes('updateProStatusUI'), 'popup.js deve conter função updateProStatusUI');

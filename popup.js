@@ -978,8 +978,13 @@ async function updateProStatusUI(forceRefresh = false) {
       proAccountEmail.title = status.email || '';
     }
 
-    if (inputCustomProEmail && status.email) {
-      inputCustomProEmail.value = status.email;
+    if (inputCustomProEmail) {
+      if (!inputCustomProEmail.classList.contains('is-editing')) {
+        inputCustomProEmail.value = status.email || '';
+        inputCustomProEmail.title = status.email || '';
+        inputCustomProEmail.readOnly = true;
+        inputCustomProEmail.disabled = true;
+      }
     }
 
     if (status.isPro) {
@@ -2109,15 +2114,27 @@ if (btnConnectGoogle) {
     try {
       const info = await IdentityService.getGoogleIdentityInfo();
       if (info && info.email) {
+        if (inputCustomProEmail) {
+          inputCustomProEmail.value = info.email;
+          inputCustomProEmail.classList.remove('is-editing');
+          inputCustomProEmail.disabled = true;
+          inputCustomProEmail.readOnly = true;
+        }
+        if (btnEditProEmail) btnEditProEmail.textContent = 'Editar';
+        if (btnSaveCustomProEmail) btnSaveCustomProEmail.classList.add('hidden');
         await IdentityService.setCustomProEmail(info.email);
         await updateProStatusUI(true);
         showToast('Conta Google conectada: ' + info.email);
       } else {
-        if (proCustomEmailRow) {
-          proCustomEmailRow.classList.remove('hidden');
-          if (inputCustomProEmail) inputCustomProEmail.focus();
+        if (inputCustomProEmail) {
+          inputCustomProEmail.classList.add('is-editing');
+          inputCustomProEmail.disabled = false;
+          inputCustomProEmail.readOnly = false;
+          inputCustomProEmail.focus();
         }
-        showToast('Nenhuma conta Google detectada. Digite seu e-mail.');
+        if (btnEditProEmail) btnEditProEmail.textContent = 'Cancelar';
+        if (btnSaveCustomProEmail) btnSaveCustomProEmail.classList.remove('hidden');
+        showToast('Nenhuma conta Google detectada. Digite seu e-mail e clique em Salvar.');
       }
     } catch (e) {
       showToast('Erro ao conectar conta Google');
@@ -2327,15 +2344,24 @@ if (btnCopyProPix && proPixKeyText) {
   });
 }
 
-if (btnEditProEmail && proCustomEmailRow) {
+if (btnEditProEmail && inputCustomProEmail) {
   btnEditProEmail.addEventListener('click', async () => {
-    proCustomEmailRow.classList.toggle('hidden');
-    if (!proCustomEmailRow.classList.contains('hidden') && inputCustomProEmail) {
-      const info = await IdentityService.getIdentityInfo();
-      if (info && info.email) {
-        inputCustomProEmail.value = info.email;
-      }
+    const isCurrentlyEditing = inputCustomProEmail.classList.contains('is-editing');
+    if (!isCurrentlyEditing) {
+      inputCustomProEmail.classList.add('is-editing');
+      inputCustomProEmail.disabled = false;
+      inputCustomProEmail.readOnly = false;
       inputCustomProEmail.focus();
+      btnEditProEmail.textContent = 'Cancelar';
+      if (btnSaveCustomProEmail) btnSaveCustomProEmail.classList.remove('hidden');
+    } else {
+      inputCustomProEmail.classList.remove('is-editing');
+      inputCustomProEmail.disabled = true;
+      inputCustomProEmail.readOnly = true;
+      const info = await IdentityService.getIdentityInfo();
+      inputCustomProEmail.value = (info && info.email) || '';
+      btnEditProEmail.textContent = 'Editar';
+      if (btnSaveCustomProEmail) btnSaveCustomProEmail.classList.add('hidden');
     }
   });
 }
@@ -2348,7 +2374,11 @@ if (btnSaveCustomProEmail && inputCustomProEmail) {
       return;
     }
     await IdentityService.setCustomProEmail(email);
-    if (proCustomEmailRow) proCustomEmailRow.classList.add('hidden');
+    inputCustomProEmail.classList.remove('is-editing');
+    inputCustomProEmail.disabled = true;
+    inputCustomProEmail.readOnly = true;
+    if (btnEditProEmail) btnEditProEmail.textContent = 'Editar';
+    btnSaveCustomProEmail.classList.add('hidden');
     await updateProStatusUI(true);
     showToast('Conta alterada para: ' + email);
   }));

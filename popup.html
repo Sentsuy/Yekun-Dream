@@ -207,16 +207,17 @@
               <div class="pro-card-header">
                 <div class="pro-identity-info">
                   <span class="pro-badge" id="proBadgeLabel">FREE</span>
-                  <span class="pro-account-email" id="proAccountEmail">Detectando conta…</span>
+                  <input class="pro-account-email-input" id="inputCustomProEmail" type="email" placeholder="Detectando conta…" readonly disabled />
+                  <span class="pro-account-email hidden" id="proAccountEmail" style="display:none;"></span>
                 </div>
-                <button class="btn-subtle-edit" id="btnEditProEmail" title="Alterar e-mail manualmente">Editar</button>
+                <div class="pro-email-actions">
+                  <button type="button" class="btn-subtle-edit" id="btnEditProEmail" title="Alterar e-mail manualmente">Editar</button>
+                  <button type="button" class="btn-save btn-save-email hidden" id="btnSaveCustomProEmail" title="Salvar novo e-mail">Salvar</button>
+                </div>
               </div>
 
-              <!-- Entrada manual de e-mail -->
-              <div class="pro-custom-email-row hidden" id="proCustomEmailRow">
-                <input class="field-input text-xs" id="inputCustomProEmail" type="email" placeholder="seu-email@gmail.com" />
-                <button class="btn-save" id="btnSaveCustomProEmail">Salvar</button>
-              </div>
+              <!-- Container de compatibilidade -->
+              <div class="pro-custom-email-row hidden" id="proCustomEmailRow" style="display: none;"></div>
 
               <div class="pro-card-body" id="proCardBody">
                 <p class="pro-desc" id="proDescText">

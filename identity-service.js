@@ -38,7 +38,7 @@ const IdentityService = {
     return new Promise(resolve => {
       try {
         if (typeof chrome !== 'undefined' && chrome.identity && typeof chrome.identity.getProfileUserInfo === 'function') {
-          chrome.identity.getProfileUserInfo(userInfo => {
+          const handleResult = (userInfo) => {
             if (userInfo && userInfo.email) {
               const clean = IdentityService.normalizeEmail(userInfo.email);
               if (clean) {
@@ -50,8 +50,26 @@ const IdentityService = {
               }
             }
             resolve({ email: '', source: 'none', id: '' });
-          });
-          return;
+          };
+
+          try {
+            // Chrome 84+: suporta { accountStatus: 'ANY' } para pegar mesmo sem Sync ativado
+            chrome.identity.getProfileUserInfo({ accountStatus: 'ANY' }, userInfo => {
+              if (userInfo && userInfo.email) {
+                handleResult(userInfo);
+              } else {
+                try {
+                  chrome.identity.getProfileUserInfo(handleResult);
+                } catch (_) {
+                  handleResult(userInfo);
+                }
+              }
+            });
+            return;
+          } catch (_) {
+            chrome.identity.getProfileUserInfo(handleResult);
+            return;
+          }
         }
       } catch (_) {}
       resolve({ email: '', source: 'none', id: '' });
