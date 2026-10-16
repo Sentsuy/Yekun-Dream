@@ -340,4 +340,4 @@ if (typeof module !== 'undefined' && module.exports) {
 
 global.IdentityService = IdentityService;
 
-})(typeof window !== 'undefined' ? window : global);
+})(typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : (typeof self !== 'undefined' ? self : this)));

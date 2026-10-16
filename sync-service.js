@@ -8,7 +8,7 @@ if (typeof IdentityService === 'undefined' && typeof require !== 'undefined') {
   try {
     const idMod = require('./identity-service');
     if (idMod && idMod.IdentityService) {
-      global.IdentityService = idMod.IdentityService;
+      (typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : this)).IdentityService = idMod.IdentityService;
     }
   } catch (_) {}
 }
@@ -237,3 +237,5 @@ SyncService._syncInProgress = false;
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { SyncService };
 }
+
+(typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : this)).SyncService = SyncService;

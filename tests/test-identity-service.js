@@ -82,6 +82,22 @@ const { IdentityService } = require('../identity-service');
   assert.strictEqual(IdentityService.calculateDaysLeft(thirtyDaysFuture, now), 30);
   assert.strictEqual(IdentityService.calculateDaysLeft(now - 1000, now), 0);
 
+  console.log('Testing Service Worker global scope compatibility (no global, no window)...');
+  const vm = require('vm');
+  const fs = require('fs');
+  const path = require('path');
+  const swCtx = vm.createContext({
+    console,
+    setTimeout,
+    clearTimeout
+  });
+  swCtx.self = swCtx;
+  swCtx.globalThis = swCtx;
+  const idFile = fs.readFileSync(path.join(__dirname, '../identity-service.js'), 'utf8');
+  vm.runInContext(idFile, swCtx);
+  assert.strictEqual(typeof swCtx.IdentityService, 'object');
+  assert.strictEqual(typeof swCtx.IdentityService.checkProStatus, 'function');
+
   console.log('✓ test-identity-service passed');
   process.exit(0);
 })();
