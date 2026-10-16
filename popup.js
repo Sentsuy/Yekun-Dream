@@ -127,6 +127,14 @@ const btnCopyProPix        = document.getElementById('btnCopyProPix');
 const proPixKeyText        = document.getElementById('proPixKeyText');
 const inputModalProPin     = document.getElementById('inputModalProPin');
 const btnModalRedeemPin    = document.getElementById('btnModalRedeemPin');
+const proPixBrCode         = document.getElementById('proPixBrCode');
+const proPixQrImg          = document.getElementById('proPixQrImg');
+const btnCopyProBrCode     = document.getElementById('btnCopyProBrCode');
+const btnAlreadyPaid       = document.getElementById('btnAlreadyPaid');
+const btnCancelWaiting     = document.getElementById('btnCancelWaiting');
+const btnCloseSuccess      = document.getElementById('btnCloseSuccess');
+const btnSimulatePayment   = document.getElementById('btnSimulatePayment');
+const proSuccessValidUntil = document.getElementById('proSuccessValidUntil');
 
 // Form Status Pickers
 const readingStatusPicker  = document.getElementById('readingStatusPicker');
@@ -521,6 +529,24 @@ if (btnCloseSettings) btnCloseSettings.addEventListener('click', () => {
   syncBottomNavVisibility();
 });
 
+// ── Brand click: back to Obras view & close all drawers ──
+const headerBrand = document.getElementById('headerBrand');
+if (headerBrand) {
+  headerBrand.addEventListener('click', () => {
+    if (formPanel) formPanel.classList.remove('open');
+    if (settingsPanel) settingsPanel.classList.remove('open');
+    if (aboutPanel) aboutPanel.classList.remove('open');
+    if (notificationsPanel) notificationsPanel.classList.remove('open');
+    if (btnSettings) btnSettings.classList.remove('active');
+    if (btnNotifications) btnNotifications.classList.remove('active');
+    if (btnAbout) btnAbout.classList.remove('active');
+    if (typeof switchView === 'function') {
+      switchView('works');
+    }
+    syncBottomNavVisibility();
+  });
+}
+
 // ── About Drawer & Pix Handlers ──────────────────────────
 function toggleAboutDrawer() {
   formPanel.classList.remove('open');
@@ -773,9 +799,7 @@ function initThemeSwitcher() {
         const isPro = proStatusCard && proStatusCard.classList.contains('is-pro');
         if (!isPro) {
           showToast('O Tema Cyber Neon e exclusivo para assinantes Yekun PRO');
-          if (modalProPix) {
-            modalProPix.classList.add('active');
-          }
+          openProModal();
           return;
         }
       }
@@ -814,9 +838,8 @@ function switchToSettingsTab(target) {
     target === 'appearance'    ? 'paneSettingsAppearance' :
     target === 'reader'        ? 'paneSettingsReader' :
     target === 'notifications' ? 'paneSettingsNotifications' :
-    target === 'backup'        ? 'paneSettingsBackup' :
     target === 'about'         ? 'paneSettingsAbout' :
-                                'paneSettingsBackup'
+                                'paneSettingsPro'
   );
   if (activePane) {
     activePane.classList.add('active');
@@ -1064,7 +1087,6 @@ async function persistSettings(options = {}) {
   toggleBadgeCount,
   toggleQuickIncrement,
   toggleAutoTitle,
-  toggleAutoSync,
   toggleReleaseNotifications,
   toggleMorningNotification,
   toggleEveningNotification,
@@ -1075,6 +1097,29 @@ async function persistSettings(options = {}) {
     showToast('Configurações salvas');
   });
 });
+
+// Auto-sync requer aceite dos termos antes de ligar
+if (toggleAutoSync) {
+  toggleAutoSync.addEventListener('change', async () => {
+    if (toggleAutoSync.checked) {
+      const accepted = await isProTermsAccepted();
+      if (!accepted) {
+        toggleAutoSync.checked = false;
+        openProTermsModal({
+          onAccept: async () => {
+            await recordProTermsAcceptance();
+            toggleAutoSync.checked = true;
+            await persistSettings();
+            showToast('Sincronização periódica ativada');
+          }
+        });
+        return;
+      }
+    }
+    await persistSettings();
+    showToast('Configurações salvas');
+  });
+}
 
 if (toggleCurrentSite) {
   toggleCurrentSite.addEventListener('change', async () => {
@@ -1874,8 +1919,110 @@ fileImportBackup.addEventListener('change', async (e) => {
   reader.readAsText(file);
 });
 
+// ── Termos de Uso do Yekun Cloud PRO ─────────────────────
+const CURRENT_PRO_TERMS_VERSION = '1.0';
+const PRO_TERMS_STORAGE_KEY = 'pro_terms_acceptance';
+
+const modalProTerms       = document.getElementById('modalProTerms');
+const proTermsBody        = document.getElementById('proTermsBody');
+const chkProTermsAccept   = document.getElementById('chkProTermsAccept');
+const btnAcceptProTerms   = document.getElementById('btnAcceptProTerms');
+const btnCancelProTerms   = document.getElementById('btnCancelProTerms');
+const btnReadProTerms     = document.getElementById('btnReadProTerms');
+const proTermsVersionLbl  = document.getElementById('proTermsVersionLabel');
+
+async function isProTermsAccepted() {
+  try {
+    const data = await new Promise(resolve => {
+      chrome.storage.local.get([PRO_TERMS_STORAGE_KEY], items => resolve(items || {}));
+    });
+    const rec = data[PRO_TERMS_STORAGE_KEY];
+    return !!(rec && rec.version === CURRENT_PRO_TERMS_VERSION && rec.accepted_at);
+  } catch (e) {
+    return false;
+  }
+}
+
+async function recordProTermsAcceptance() {
+  const email = (appSettings && appSettings.proEmail) || '';
+  const rec = {
+    version: CURRENT_PRO_TERMS_VERSION,
+    accepted_at: new Date().toISOString(),
+    email
+  };
+  await new Promise(resolve => {
+    chrome.storage.local.set({ [PRO_TERMS_STORAGE_KEY]: rec }, () => resolve());
+  });
+  return rec;
+}
+
+let pendingProTermsAction = null;
+function openProTermsModal({ readOnly = false, onAccept = null } = {}) {
+  if (!modalProTerms) return;
+  pendingProTermsAction = readOnly ? null : onAccept;
+  const box = modalProTerms.querySelector('.modal-terms-box');
+  if (box) {
+    box.classList.toggle('readonly', !!readOnly);
+  }
+  if (chkProTermsAccept) chkProTermsAccept.checked = false;
+  if (btnAcceptProTerms) btnAcceptProTerms.disabled = true;
+  if (proTermsBody) proTermsBody.scrollTop = 0;
+  if (proTermsVersionLbl) {
+    proTermsVersionLbl.textContent = `Versão ${CURRENT_PRO_TERMS_VERSION} — vigente desde 15/10/2026`;
+  }
+  if (btnCancelProTerms) {
+    btnCancelProTerms.textContent = readOnly ? 'Fechar' : 'Cancelar';
+  }
+  modalProTerms.classList.add('open');
+}
+function closeProTermsModal() {
+  if (modalProTerms) modalProTerms.classList.remove('open');
+  pendingProTermsAction = null;
+}
+
+async function requireProTermsAccepted(action) {
+  if (await isProTermsAccepted()) {
+    return action();
+  }
+  openProTermsModal({
+    onAccept: async () => {
+      await recordProTermsAcceptance();
+      return action();
+    }
+  });
+  return null;
+}
+
+if (chkProTermsAccept && btnAcceptProTerms) {
+  chkProTermsAccept.addEventListener('change', () => {
+    btnAcceptProTerms.disabled = !chkProTermsAccept.checked;
+  });
+}
+if (btnAcceptProTerms) {
+  btnAcceptProTerms.addEventListener('click', async () => {
+    if (!chkProTermsAccept || !chkProTermsAccept.checked) return;
+    const action = pendingProTermsAction;
+    closeProTermsModal();
+    if (typeof action === 'function') {
+      try { await action(); } catch (e) { showToast('Erro ao continuar operação'); }
+    }
+  });
+}
+if (btnCancelProTerms) {
+  btnCancelProTerms.addEventListener('click', () => {
+    const wasPending = !!pendingProTermsAction;
+    closeProTermsModal();
+    if (wasPending) showToast('Ação cancelada: aceite dos termos é obrigatório');
+  });
+}
+if (btnReadProTerms) {
+  btnReadProTerms.addEventListener('click', () => {
+    openProTermsModal({ readOnly: true });
+  });
+}
+
 // ── Sincronizar Agora ────────────────────────────────────
-btnSyncNow.addEventListener('click', async () => {
+btnSyncNow.addEventListener('click', () => requireProTermsAccepted(async () => {
   await persistSettings();
   showToast('Iniciando sincronização…');
   try {
@@ -1895,11 +2042,11 @@ btnSyncNow.addEventListener('click', async () => {
   } catch (e) {
     showToast('Erro na sincronização');
   }
-});
+}));
 
 // ── Ativação Yekun Cloud PRO & PIN ────────────────────────
 if (btnRedeemPin) {
-  btnRedeemPin.addEventListener('click', async () => {
+  btnRedeemPin.addEventListener('click', () => requireProTermsAccepted(async () => {
     const pin = inputProPin ? inputProPin.value.trim() : '';
     if (!pin) {
       showToast('Digite o código de 4 dígitos');
@@ -1915,11 +2062,11 @@ if (btnRedeemPin) {
     } else {
       showToast('⚠️ ' + (res.error || 'Código inválido'));
     }
-  });
+  }));
 }
 
 if (btnModalRedeemPin) {
-  btnModalRedeemPin.addEventListener('click', async () => {
+  btnModalRedeemPin.addEventListener('click', () => requireProTermsAccepted(async () => {
     const pin = inputModalProPin ? inputModalProPin.value.trim() : '';
     if (!pin) {
       showToast('Digite o código de 4 dígitos');
@@ -1931,17 +2078,20 @@ if (btnModalRedeemPin) {
     if (res.success) {
       showToast('✓ ' + res.message);
       if (inputModalProPin) inputModalProPin.value = '';
-      if (modalProPix) modalProPix.classList.remove('active');
+      if (res.validUntil && proSuccessValidUntil) {
+        proSuccessValidUntil.textContent = new Date(Number(res.validUntil)).toLocaleDateString('pt-BR');
+      }
+      goToProStep(3);
       await updateProStatusUI(true);
     } else {
       showToast('⚠️ ' + (res.error || 'Código inválido'));
     }
-  });
+  }));
 }
 
 const btnConnectGoogle = document.getElementById('btnConnectGoogle');
 if (btnConnectGoogle) {
-  btnConnectGoogle.addEventListener('click', async () => {
+  btnConnectGoogle.addEventListener('click', () => requireProTermsAccepted(async () => {
     showToast('Conectando conta Google...');
     try {
       const info = await IdentityService.getIdentityInfo();
@@ -1959,7 +2109,7 @@ if (btnConnectGoogle) {
     } catch (e) {
       showToast('Erro ao conectar conta');
     }
-  });
+  }));
 }
 
 if (btnVerifyPro) {
@@ -1970,15 +2120,189 @@ if (btnVerifyPro) {
   });
 }
 
-if (btnOpenProModal && modalProPix) {
-  btnOpenProModal.addEventListener('click', () => {
-    modalProPix.classList.add('active');
+// ── Pix BR Code (EMV QR Code) builder — gera Copia-e-Cola ─
+function brcodeCRC16(payload) {
+  let crc = 0xFFFF;
+  for (let i = 0; i < payload.length; i++) {
+    crc ^= payload.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) : (crc << 1);
+      crc &= 0xFFFF;
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(4, '0');
+}
+function emvField(id, value) {
+  const str = String(value);
+  return id + String(str.length).padStart(2, '0') + str;
+}
+function buildPixBRCode({ key, amount, merchantName = 'YEKUN DREAM', merchantCity = 'SAO PAULO', txid = '***' }) {
+  const gui = emvField('00', 'BR.GOV.BCB.PIX');
+  const keyField = emvField('01', key);
+  const merchantInfo = emvField('26', gui + keyField);
+  const additional = emvField('62', emvField('05', txid));
+  let payload = '';
+  payload += emvField('00', '01');
+  payload += merchantInfo;
+  payload += emvField('52', '0000');
+  payload += emvField('53', '986');
+  if (amount != null && amount !== '') {
+    payload += emvField('54', Number(amount).toFixed(2));
+  }
+  payload += emvField('58', 'BR');
+  payload += emvField('59', merchantName.slice(0, 25));
+  payload += emvField('60', merchantCity.slice(0, 15));
+  payload += additional;
+  payload += '6304';
+  return payload + brcodeCRC16(payload);
+}
+
+// ── Modal PRO: step indicator + fluxo de 3 fases ──────────
+const PRO_PIX_RANDOM_KEY = 'a6eef510-b30c-48d7-a6bd-d5772054bcc1';
+const PRO_PIX_AMOUNT = 20.00;
+const PRO_POLL_INTERVAL_MS = 10000;
+const PRO_POLL_MAX_MS = 10 * 60 * 1000;
+
+let proPollTimer = null;
+let proPollDeadline = 0;
+
+function isProDevMode() {
+  try {
+    return localStorage.getItem('yekun_dev') === '1'
+        || window.location.search.includes('dev=1');
+  } catch (_) { return false; }
+}
+
+function goToProStep(step) {
+  if (!modalProPix) return;
+  const panels = modalProPix.querySelectorAll('.pro-step-panel');
+  panels.forEach(p => p.classList.remove('active'));
+  const panel = modalProPix.querySelector('#proStepPanel' + step);
+  if (panel) panel.classList.add('active');
+  const steps = modalProPix.querySelectorAll('.pro-step');
+  steps.forEach(el => {
+    const n = Number(el.dataset.step || 0);
+    el.classList.toggle('done', n < step);
+    el.classList.toggle('active', n === step);
   });
 }
 
-if (btnCloseProModal && modalProPix) {
-  btnCloseProModal.addEventListener('click', () => {
-    modalProPix.classList.remove('active');
+function stopProPolling() {
+  if (proPollTimer) {
+    clearInterval(proPollTimer);
+    proPollTimer = null;
+  }
+  proPollDeadline = 0;
+}
+
+async function startProPolling() {
+  stopProPolling();
+  proPollDeadline = Date.now() + PRO_POLL_MAX_MS;
+  const config = { supabaseUrl: appSettings ? appSettings.supabaseUrl : '', supabaseKey: appSettings ? appSettings.supabaseKey : '' };
+  const checkNow = async () => {
+    try {
+      const status = await IdentityService.checkProStatus(config, true);
+      if (status && status.isPro) {
+        stopProPolling();
+        if (proSuccessValidUntil && status.validUntil) {
+          const d = new Date(Number(status.validUntil));
+          proSuccessValidUntil.textContent = d.toLocaleDateString('pt-BR');
+        }
+        goToProStep(3);
+        await updateProStatusUI(true);
+        return;
+      }
+    } catch (_) {}
+    if (Date.now() > proPollDeadline) {
+      stopProPolling();
+      showToast('Confirmação demorou mais que o esperado. Reabra o modal pra tentar de novo.');
+    }
+  };
+  await checkNow();
+  if (!proPollTimer && Date.now() < proPollDeadline) {
+    proPollTimer = setInterval(checkNow, PRO_POLL_INTERVAL_MS);
+  }
+}
+
+async function openProModal() {
+  if (!modalProPix) return;
+  if (proPixBrCode && !proPixBrCode.value) {
+    try {
+      proPixBrCode.value = buildPixBRCode({ key: PRO_PIX_RANDOM_KEY, amount: PRO_PIX_AMOUNT });
+    } catch (_) {
+      proPixBrCode.value = '';
+      proPixBrCode.placeholder = 'Gerando Pix dinâmico…';
+    }
+  }
+  if (btnSimulatePayment) {
+    btnSimulatePayment.style.display = isProDevMode() ? 'inline-flex' : 'none';
+  }
+  goToProStep(1);
+  modalProPix.classList.add('open');
+
+  try {
+    const idInfo = await IdentityService.getIdentityInfo();
+    const email = idInfo && idInfo.email ? idInfo.email.trim().toLowerCase() : '';
+    const supabaseUrl = appSettings && appSettings.supabaseUrl ? appSettings.supabaseUrl : 'https://wbappdsgstzintgznikb.supabase.co';
+    if (email && supabaseUrl) {
+      const res = await fetch(`${supabaseUrl}/functions/v1/create-pro-charge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, name: email.split('@')[0] })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.success && data.brCode) {
+          if (proPixBrCode) proPixBrCode.value = data.brCode;
+          if (proPixQrImg && data.brCodeBase64) {
+            proPixQrImg.src = data.brCodeBase64;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[PRO] Falha ao carregar Pix dinâmico, usando chave padrão:', err);
+  }
+}
+
+function closeProModal() {
+  if (!modalProPix) return;
+  stopProPolling();
+  modalProPix.classList.remove('open');
+}
+
+if (btnOpenProModal) {
+  btnOpenProModal.addEventListener('click', () => requireProTermsAccepted(() => openProModal()));
+}
+if (btnCloseProModal) btnCloseProModal.addEventListener('click', closeProModal);
+if (btnCloseSuccess)  btnCloseSuccess.addEventListener('click', closeProModal);
+if (btnCancelWaiting) btnCancelWaiting.addEventListener('click', () => { stopProPolling(); goToProStep(1); });
+
+if (btnAlreadyPaid) {
+  btnAlreadyPaid.addEventListener('click', () => {
+    goToProStep(2);
+    startProPolling();
+  });
+}
+
+if (btnSimulatePayment) {
+  btnSimulatePayment.addEventListener('click', async () => {
+    if (!isProDevMode()) return;
+    showToast('[DEV] Simulando pagamento confirmado…');
+    goToProStep(2);
+    await startProPolling();
+  });
+}
+
+if (btnCopyProBrCode && proPixBrCode) {
+  btnCopyProBrCode.addEventListener('click', () => {
+    if (!proPixBrCode.value) {
+      showToast('Código ainda não disponível');
+      return;
+    }
+    navigator.clipboard.writeText(proPixBrCode.value).then(() => {
+      showToast('Pix Copia-e-Cola copiado!');
+    }).catch(() => showToast('Erro ao copiar'));
   });
 }
 
@@ -1986,9 +2310,7 @@ if (btnCopyProPix && proPixKeyText) {
   btnCopyProPix.addEventListener('click', () => {
     navigator.clipboard.writeText(proPixKeyText.value).then(() => {
       showToast('Chave Pix copiada!');
-    }).catch(() => {
-      showToast('Erro ao copiar chave');
-    });
+    }).catch(() => showToast('Erro ao copiar chave'));
   });
 }
 
@@ -2002,7 +2324,7 @@ if (btnEditProEmail && proCustomEmailRow) {
 }
 
 if (btnSaveCustomProEmail && inputCustomProEmail) {
-  btnSaveCustomProEmail.addEventListener('click', async () => {
+  btnSaveCustomProEmail.addEventListener('click', () => requireProTermsAccepted(async () => {
     const email = inputCustomProEmail.value.trim();
     if (!email || !email.includes('@')) {
       showToast('Informe um e-mail válido');
@@ -2012,7 +2334,7 @@ if (btnSaveCustomProEmail && inputCustomProEmail) {
     if (proCustomEmailRow) proCustomEmailRow.classList.add('hidden');
     showToast('E-mail atualizado');
     await updateProStatusUI(true);
-  });
+  }));
 }
 
 // ── Helpers de Formatação e UI ────────────────────────────

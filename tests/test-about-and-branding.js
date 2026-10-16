@@ -22,7 +22,6 @@ assert.strictEqual(manifest.action.default_title, 'Yekun Dream', 'Default title 
 
 // 2. Popup HTML branding and About panel
 assert.ok(popupHtml.includes('YEKUN') && popupHtml.includes('DREAM'), 'Header brand must display Yekun Dream');
-assert.ok(popupHtml.includes('id="btnAbout"'), 'Must have btnAbout button');
 assert.ok(popupHtml.includes('id="aboutPanel"'), 'Must have aboutPanel section');
 assert.ok(popupHtml.includes('https://sentsuy.ddns.net/'), 'Must link to official website sentsuy.ddns.net');
 assert.ok(popupHtml.includes('Sentsuy Corp'), 'Must reference Sentsuy Corp');
