@@ -45,6 +45,7 @@ const testSuites = [
   { name: 'Anime Video Tracker & Auto-Save (70%)', cmd: 'node tests/test-anime-video-tracker.js' },
   { name: 'Supabase PRO SQL & RPC syntax', cmd: 'node tests/test-supabase-pro-sql-syntax.js' },
   { name: 'Supabase Activation Requests SQL (Fase 2)', cmd: 'node tests/test-supabase-activation-requests-sql.js' },
+  { name: 'Supabase Production Patch SQL (Consolidado)', cmd: 'node tests/test-supabase-production-patch.js' },
   { name: 'Edge Functions Structure (Fase 3)', cmd: 'node tests/test-edge-functions-structure.js' },
   { name: 'Identity Service & PIN validation', cmd: 'node tests/test-identity-service.js' },
   { name: 'PRO Cloud Sync Guard & Storage', cmd: 'node tests/test-pro-cloud-sync.js' },

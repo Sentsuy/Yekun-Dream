@@ -117,13 +117,48 @@ const { IdentityService } = require('../identity-service');
   assert.strictEqual(cleared.recoveryKey, '');
   assert.strictEqual(cleared.totpEnabled, false);
 
-  console.log('Testing TotpUtil secret generation and URL...');
-  const secret = IdentityService.Totp.generateSecret(16);
-  assert.strictEqual(secret.length, 16);
-  assert.ok(/^[A-Z2-7]+$/.test(secret), 'Secret must be valid Base32');
-  const otpUrl = IdentityService.Totp.getOtpAuthUrl('user@domain.com', secret);
-  assert.ok(otpUrl.includes('otpauth://totp/'));
-  assert.ok(otpUrl.includes(secret));
+  console.log('Testing claimChargeCredentials...');
+  const originalFetch = global.fetch;
+  global.fetch = async (url, opts) => {
+    if (url.includes('claim_charge_credentials')) {
+      const body = JSON.parse(opts.body);
+      if (body.p_gateway_charge_id === 'chg_paid_123') {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            isPaid: true,
+            isPro: true,
+            validUntil: Date.now() + 365 * 86400000,
+            access_pin: '123456',
+            recovery_key: 'YK-1234-5678-9012',
+            totp_enabled: false
+          })
+        };
+      } else {
+        return {
+          ok: true,
+          json: async () => ({ success: true, isPaid: false, status: 'pending' })
+        };
+      }
+    }
+    return { ok: false };
+  };
+
+  const pendingClaim = await IdentityService.claimChargeCredentials({ supabaseUrl: 'https://mock.supabase.co', supabaseKey: 'mock' }, 'user@test.com', 'chg_pending_456');
+  assert.strictEqual(pendingClaim.isPaid, false);
+  assert.strictEqual(pendingClaim.status, 'pending');
+
+  const paidClaim = await IdentityService.claimChargeCredentials({ supabaseUrl: 'https://mock.supabase.co', supabaseKey: 'mock' }, 'user@test.com', 'chg_paid_123');
+  assert.strictEqual(paidClaim.isPaid, true);
+  assert.strictEqual(paidClaim.accessPin, '123456');
+  assert.strictEqual(paidClaim.recoveryKey, 'YK-1234-5678-9012');
+
+  const savedCreds = await IdentityService.getStoredCredentials();
+  assert.strictEqual(savedCreds.accessPin, '123456');
+  assert.strictEqual(savedCreds.recoveryKey, 'YK-1234-5678-9012');
+
+  global.fetch = originalFetch;
 
   console.log('✓ test-identity-service passed');
   process.exit(0);

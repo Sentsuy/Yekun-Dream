@@ -74,6 +74,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           amount: PRO_PRICE_CENTS,
           expiresIn: EXPIRES_IN_SEC,
           description: 'Assinatura Yekun Cloud PRO - 365 dias',
+          customer: { email, name },
           metadata: { name, email },
         },
       }),

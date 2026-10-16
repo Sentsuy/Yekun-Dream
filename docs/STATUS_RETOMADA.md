@@ -1,56 +1,45 @@
 # 📌 Guia de Retomada do Projeto — Yekun Dream
 
 - **Data da Última Atualização:** 16 de Outubro de 2026
-- **Estado Geral:** ✅ 54/54 Suítes de Testes Automatizados Aprovadas (100% Verdes)
-- **Versão:** 1.2.0 (Yekun Cloud PRO + Gateway AbacatePay v2 100% Configurado)
+- **Estado Geral:** ✅ 56/56 Suítes de Testes Automatizados Aprovadas (100% Verdes)
+- **Versão:** 1.2.0 (Yekun Cloud PRO + Gateway AbacatePay v2 Produção Hardened)
 
 ---
 
 ## 🎯 Resumo do que foi Concluído Hoje
 
-1. **Validação da Conexão com Supabase**:
-   - URL do Projeto configurada: `https://wbappdsgstzintgznikb.supabase.co`
-   - Teste de requisição REST via `anon key` executado e aprovado com sucesso (leitura e gravação de teste).
-   - As credenciais padrão foram integradas em `DEFAULT_SETTINGS` com fallback inteligente em `storage-local.js`.
+1. **Blindagem de Segurança no Supabase & Gateway**:
+   - **Revogação de Permissão Pública (`approve_from_gateway`)**: Fechada a brecha de segurança onde qualquer usuário com a chave pública `anon` poderia aprovar pagamentos no banco. Agora apenas a `service_role` (usada pelo webhook da AbacatePay no servidor) tem permissão de aprovação.
+   - **Simulador de Testes Restrito (`simulate_dev_payment`)**: Criada função isolada de simulação com guarda estrita via regex (`gateway_charge_id ~* '(test|dev)'`), impedindo qualquer simulação indevida sobre cobranças de produção.
+   - **Nova RPC Segura (`claim_charge_credentials`)**: Permite que o popup da extensão, portando o `chargeId` efêmero da sessão ativa, resgate com segurança o PIN de 6 dígitos e a Chave Mestra imediatamente após o pagamento Pix ser confirmado.
+   - **Patch de Produção Consolidado**: Criado [scripts/supabase-pro-production-patch.sql](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/scripts/supabase-pro-production-patch.sql) pronto para execução em 1 clique no SQL Editor do Supabase.
 
-2. **Modelo de Negócio e Licenciamento (Yekun Cloud PRO)**:
-   - **Plano Anual**: R$ 20,00 por ano (validade de 365 dias).
-   - **Identidade Sem Fricção (`identity-service.js`)**: Detecção automática da conta Google conectada ao Chrome via `chrome.identity.getProfileUserInfo`, com campo para e-mail manual para quem usa Brave, Edge ou Opera.
-   - **Ativação por PIN de 4 Dígitos**: Sistema de validação instantânea via código numérico (ex: `7492`). Ao pagar o Pix, o usuário recebe o código e ativa 365 dias com 1 clique.
+2. **Fluxo de Polling e Entrega de Credenciais (`popup.js` e `identity-service.js`)**:
+   - Implementado método `IdentityService.claimChargeCredentials`.
+   - Polling ativo verifica o `currentChargeId` e salva automaticamente o PIN de 6 dígitos e a Chave Mestra no storage local no momento da confirmação.
+   - O Step 3 (Sucesso) agora exibe o PIN real de 6 dígitos e a Chave Mestra (`YK-XXXX-XXXX-XXXX`) para o usuário anotar.
+   - Correção para navegadores sem login Google nativo (Brave, Edge, Opera): a ativação ocorre sem bloqueios assim que o pagamento é concluído.
+   - Adicionados headers obrigatórios `apikey` e `Authorization` na chamada da Edge Function `create-pro-charge`.
 
-3. **Segurança no Banco de Dados (Supabase)**:
-   - Criado o script [scripts/supabase-pro-setup.sql](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/scripts/supabase-pro-setup.sql) contendo:
-     - Tabela `subscriptions` (controle de planos, e-mails e data de expiração `valid_until`).
-     - Tabela `activation_pins` (PINs de 4 dígitos não expostos ao público).
-     - Função RPC segura `redeem_activation_pin(p_pin, p_email)` com `SECURITY DEFINER`.
-     - Políticas RLS atualizadas na tabela `entries` para só autorizar sincronização de quem tiver assinatura ativa.
+3. **Gateway AbacatePay v2 & Edge Functions**:
+   - Atualizado o payload de `create-pro-charge/index.ts` para enviar o objeto estruturado `customer: { email, name }` além de `metadata` em conformidade com a API v2 da AbacatePay.
+   - Proteção do Webhook com conferência de segredo via header `x-abacatepay-secret` ou query `webhookSecret`.
 
-4. **Guarda no Motor de Sincronização (`sync-service.js`)**:
-   - Bloqueio elegante para usuários gratuitos com mensagem informativa.
-   - O e-mail da conta PRO passa a ser a `sync_key` universal entre dispositivos.
-
-5. **Interface no Popup (`popup.html` e `popup.css`)**:
-   - Card PRO no menu de configurações com indicador de status (`FREE` ou `⭐ PRO ATIVO`).
-   - Campo de ativação rápida por PIN numérico de 4 dígitos.
-   - Modal com QR Code Pix oficial, botão de cópia de chave e instruções passo a passo.
-
-6. **Correção de Extração na Crunchyroll (`content.js` e `popup.js`)**:
-   - **Diagnóstico do Problema**: Em páginas de catálogo de animes da Crunchyroll (como `/series/GT00383992/full-clearing-another-world-under-a-goddess-with-zero-believers`), o driver anterior fazia uma busca global `a[href*="/series/"]`, capturando o primeiro link presente no menu/header de navegação global ("Solo Leveling", "One Piece", etc.) antes de chegar ao título do anime atual.
-   - **Solução Implementada**:
-     - **Cenário 1 (Página de Série `/series/`)**: Prioridade máxima no `h1.title` da série, JSON-LD `@type: TVSeries`, meta tag `og:title` ou no slug da própria URL atual (`StorageLocal.extractSlugTitle`), bloqueando terminantemente buscas em links de menu externos.
-     - **Cenário 2 (Player / Episódio `/watch/`)**: Prioridade no JSON-LD `TVEpisode` (`partOfSeries.name`), seletores específicos do player (`.show-title-link`, `[data-t="show-title-link"]`, breadcrumbs) e exclusão de links no `header`, `nav`, `footer` e carrosséis.
-     - Suíte de testes atualizada em [tests/test-crunchyroll-and-streaming.js](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/tests/test-crunchyroll-and-streaming.js) cobrindo Casos A até H com 100% de aprovação.
+4. **Preparação para a Chrome Web Store (`docs/GUIA_PUBLICACAO.md`)**:
+   - Adicionadas justificativas formais exigidas pelo Google para as permissões `"identity"` e `"identity.email"`.
+   - Adicionado checklist passo a passo para configuração de secrets e webhook de produção na AbacatePay.
 
 ---
 
-## 🚀 Passo a Passo para Retomar Amanhã (Em Qualquer Computador)
+## 🚀 Passo a Passo para Entrada em Produção
 
-### Passo 1: Rodar o Script no Supabase
+### Passo 1: Executar o Patch Consolidado no Supabase
 1. Acesse o painel do seu projeto no [Supabase](https://supabase.com/).
 2. No menu lateral esquerdo, clique no ícone **SQL Editor** (`>_`).
 3. Abra uma **"New Query"**, cole o conteúdo completo do arquivo:
-   `scripts/supabase-pro-setup.sql`
+   [scripts/supabase-pro-production-patch.sql](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/scripts/supabase-pro-production-patch.sql)
 4. Clique no botão verde **"Run"**.
+*(Isso cria as colunas `access_pin`, `recovery_key`, `totp_secret`, as RPCs `claim_charge_credentials` e `verify_pro_access`, e blinda o `approve_from_gateway`).*
 
 ---
 

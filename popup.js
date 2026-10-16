@@ -2327,6 +2327,32 @@ async function startProPolling() {
   const config = { supabaseUrl: appSettings ? appSettings.supabaseUrl : '', supabaseKey: appSettings ? appSettings.supabaseKey : '' };
   const checkNow = async () => {
     try {
+      const idInfo = await IdentityService.getIdentityInfo();
+      const email = idInfo && idInfo.email ? idInfo.email.trim().toLowerCase() : '';
+
+      // 1. Se houver uma cobranca ativa em andamento, consulta diretamente claimChargeCredentials
+      if (currentChargeId && email) {
+        const claimRes = await IdentityService.claimChargeCredentials(config, email, currentChargeId);
+        if (claimRes && claimRes.isPaid && claimRes.isPro) {
+          stopProPolling();
+          if (proSuccessValidUntil && claimRes.validUntil) {
+            const d = new Date(Number(claimRes.validUntil));
+            proSuccessValidUntil.textContent = d.toLocaleDateString('pt-BR');
+          }
+          if (proSuccessPin) {
+            proSuccessPin.value = claimRes.accessPin || '------';
+          }
+          if (proSuccessRecovery) {
+            proSuccessRecovery.value = claimRes.recoveryKey || 'YK------';
+          }
+          goToProStep(3);
+          await updateProStatusUI(true);
+          showToast('✓ Pagamento confirmado! Assinatura PRO ativada.');
+          return;
+        }
+      }
+
+      // 2. Fallback: consulta generica de status PRO
       const status = await IdentityService.checkProStatus(config, true);
       if (status && status.isPro) {
         stopProPolling();
@@ -2383,10 +2409,15 @@ async function openProModal() {
     const idInfo = await IdentityService.getIdentityInfo();
     const email = idInfo && idInfo.email ? idInfo.email.trim().toLowerCase() : '';
     const supabaseUrl = appSettings && appSettings.supabaseUrl ? appSettings.supabaseUrl : 'https://wbappdsgstzintgznikb.supabase.co';
+    const supabaseKey = appSettings && appSettings.supabaseKey ? appSettings.supabaseKey : '';
     if (email && supabaseUrl) {
       const res = await fetch(`${supabaseUrl}/functions/v1/create-pro-charge`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`
+        },
         body: JSON.stringify({ email, name: email.split('@')[0] })
       });
       if (res.ok) {
@@ -2464,7 +2495,7 @@ if (btnSimulatePayment) {
       const supabaseUrl = appSettings && appSettings.supabaseUrl ? appSettings.supabaseUrl : 'https://wbappdsgstzintgznikb.supabase.co';
       const supabaseKey = appSettings && appSettings.supabaseKey ? appSettings.supabaseKey : '';
       if (currentChargeId && supabaseUrl) {
-        const simRes = await fetch(`${supabaseUrl}/rest/v1/rpc/approve_from_gateway`, {
+        const simRes = await fetch(`${supabaseUrl}/rest/v1/rpc/simulate_dev_payment`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -2472,10 +2503,7 @@ if (btnSimulatePayment) {
             'Authorization': `Bearer ${supabaseKey}`
           },
           body: JSON.stringify({
-            p_gateway: 'abacatepay',
-            p_gateway_charge_id: currentChargeId,
-            p_amount_paid: 20.00,
-            p_approved_by: 'dev_simulator'
+            p_gateway_charge_id: currentChargeId
           })
         });
         if (simRes.ok) {

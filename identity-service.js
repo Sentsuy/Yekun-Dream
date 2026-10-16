@@ -464,6 +464,87 @@ const IdentityService = {
     }
   },
 
+  async claimChargeCredentials(config, email, chargeId) {
+    const cleanEmail = this.normalizeEmail(email);
+    const cleanCharge = String(chargeId || '').trim();
+
+    if (!cleanEmail || !cleanCharge) {
+      return { success: false, isPaid: false, error: 'E-mail ou ID da cobrança ausente.' };
+    }
+
+    if (!config || !config.supabaseUrl || !config.supabaseKey) {
+      return { success: false, isPaid: false, error: 'Configuração do Supabase ausente.' };
+    }
+
+    try {
+      const url = `${config.supabaseUrl}/rest/v1/rpc/claim_charge_credentials`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': config.supabaseKey,
+          'Authorization': `Bearer ${config.supabaseKey}`
+        },
+        body: JSON.stringify({
+          p_email: cleanEmail,
+          p_gateway_charge_id: cleanCharge
+        })
+      });
+
+      if (!res.ok) {
+        return { success: false, isPaid: false, error: `HTTP ${res.status}` };
+      }
+
+      const data = await res.json();
+      if (data && data.isPaid && data.isPro) {
+        await this.saveStoredCredentials({
+          accessPin: data.access_pin || '',
+          recoveryKey: data.recovery_key || '',
+          totpEnabled: !!data.totp_enabled
+        });
+
+        const idInfo = await this.getIdentityInfo();
+        if (idInfo.source === 'custom' || !idInfo.email) {
+          await this.setCustomProEmail(cleanEmail);
+        }
+
+        const now = Date.now();
+        const validUntil = Number(data.validUntil) || 0;
+        const statusData = {
+          isPro: true,
+          email: cleanEmail,
+          source: idInfo.source,
+          daysLeft: this.calculateDaysLeft(validUntil, now),
+          validUntil,
+          plan: data.plan || 'annual',
+          accessPin: data.access_pin || '',
+          recoveryKey: data.recovery_key || '',
+          totpEnabled: !!data.totp_enabled,
+          cached: false
+        };
+        await this.saveCachedProStatus(statusData);
+
+        return {
+          success: true,
+          isPaid: true,
+          isPro: true,
+          statusData,
+          accessPin: data.access_pin || '',
+          recoveryKey: data.recovery_key || '',
+          validUntil
+        };
+      }
+
+      return {
+        success: !!(data && data.success),
+        isPaid: false,
+        status: (data && data.status) || 'pending'
+      };
+    } catch (err) {
+      return { success: false, isPaid: false, error: err.message };
+    }
+  },
+
   async redeemPin(config, pin, providedEmail = '') {
     const rawPin = String(pin || '').trim();
     const is4Digit = /^\d{4}$/.test(rawPin);

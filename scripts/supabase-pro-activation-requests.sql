@@ -362,7 +362,87 @@ END;
 $$;
 
 
--- ── 6. RPC: housekeeping — expira requests pendentes antigos ──────────────
+-- ── 6. RPC: claim_charge_credentials (resgate seguro do PIN/Chave) ───────
+CREATE OR REPLACE FUNCTION claim_charge_credentials(
+    p_email              TEXT,
+    p_gateway_charge_id  TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_clean_email  TEXT;
+    v_clean_charge TEXT;
+    v_req          RECORD;
+    v_sub          RECORD;
+    v_now          BIGINT;
+BEGIN
+    v_now := (extract(epoch from now()) * 1000)::bigint;
+    v_clean_email := lower(trim(coalesce(p_email, '')));
+    v_clean_charge := trim(coalesce(p_gateway_charge_id, ''));
+
+    IF v_clean_email = '' OR v_clean_charge = '' THEN
+        RETURN jsonb_build_object('success', false, 'isPaid', false, 'error', 'E-mail e ID da cobrança obrigatórios.');
+    END IF;
+
+    SELECT * INTO v_req
+    FROM activation_requests
+    WHERE gateway_charge_id = v_clean_charge
+      AND email = v_clean_email
+    LIMIT 1;
+
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('success', false, 'isPaid', false, 'error', 'Cobrança não encontrada.');
+    END IF;
+
+    IF v_req.status = 'pending' THEN
+        IF v_req.expires_at < v_now THEN
+            UPDATE activation_requests SET status = 'expired' WHERE id = v_req.id;
+            RETURN jsonb_build_object('success', true, 'isPaid', false, 'status', 'expired');
+        END IF;
+        RETURN jsonb_build_object('success', true, 'isPaid', false, 'status', 'pending');
+    END IF;
+
+    IF v_req.status = 'approved' THEN
+        SELECT * INTO v_sub
+        FROM subscriptions
+        WHERE id = v_req.subscription_id;
+
+        IF NOT FOUND THEN
+            SELECT * INTO v_sub
+            FROM subscriptions
+            WHERE email = v_clean_email
+              AND status = 'active'
+              AND valid_until > v_now;
+        END IF;
+
+        IF FOUND THEN
+            RETURN jsonb_build_object(
+                'success',      true,
+                'isPaid',       true,
+                'isPro',        true,
+                'email',        v_sub.email,
+                'validUntil',   v_sub.valid_until,
+                'plan',         v_sub.plan,
+                'access_pin',   v_sub.access_pin,
+                'recovery_key', v_sub.recovery_key,
+                'totp_enabled', coalesce(v_sub.totp_enabled, false)
+            );
+        END IF;
+    END IF;
+
+    RETURN jsonb_build_object(
+        'success', false,
+        'isPaid',  false,
+        'status',  v_req.status,
+        'error',   coalesce(v_req.error_message, 'Cobrança não aprovada ou expirada.')
+    );
+END;
+$$;
+
+
+-- ── 7. RPC: housekeeping — expira requests pendentes antigos ──────────────
 CREATE OR REPLACE FUNCTION expire_old_requests()
 RETURNS INT
 LANGUAGE plpgsql
@@ -383,12 +463,16 @@ END;
 $$;
 
 
--- ── 7. Grants: expõe as RPCs ao role anon via REST ────────────────────────
+-- ── 8. Grants e Seguranca: controle estrito de execucao ───────────────────
+-- approve_from_gateway deve ser acessivel APENAS pelo service_role (Edge Functions servidoras)
+REVOKE EXECUTE ON FUNCTION approve_from_gateway(TEXT, TEXT, NUMERIC, TEXT) FROM anon;
+REVOKE EXECUTE ON FUNCTION approve_from_gateway(TEXT, TEXT, NUMERIC, TEXT) FROM public;
+GRANT EXECUTE ON FUNCTION approve_from_gateway(TEXT, TEXT, NUMERIC, TEXT) TO service_role;
+
 GRANT EXECUTE ON FUNCTION request_activation(TEXT, NUMERIC, TEXT, TEXT) TO anon;
-GRANT EXECUTE ON FUNCTION approve_from_gateway(TEXT, TEXT, NUMERIC, TEXT) TO anon;
+GRANT EXECUTE ON FUNCTION claim_charge_credentials(TEXT, TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION verify_pro_access(TEXT, TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION expire_old_requests() TO anon;
--- _generate_unique_pin é interna, não precisa expor
 
 -- ══════════════════════════════════════════════════════════════════════════
 -- Fim da Fase 2. Para testar:

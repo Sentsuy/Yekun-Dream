@@ -122,11 +122,17 @@ Permitir que o usuário acompanhe, unifique e sincronize seu progresso de leitur
    Necessárias para ler a URL e o título da aba atual ao clicar no botão "Capturar Aba", atualizar o ícone do site ativo e notificar as abas abertas quando o usuário altera as configurações de tema ou ativa/desativa o botão flutuante no domínio.
    ```
 
+7. **Permissões `identity` e `identity.email`**:
+   ```text
+   Necessárias exclusivamente para detectar a conta Google conectada ao navegador do usuário e utilizá-la como identificador único da assinatura Yekun Cloud PRO, permitindo vincular o pagamento via Pix e sincronizar com segurança as leituras entre múltiplos dispositivos do próprio usuário sem necessidade de cadastros manuais ou criação de senhas.
+   ```
+
 ### Declaração de Coleta de Dados (Data Usage):
 Na seção de certificações, marque:
 - [x] **Não vendo nem transfiro dados de usuários para terceiros.**
 - [x] **Não utilizo nem transfiro dados de usuários para fins não relacionados à funcionalidade principal da extensão.**
 - [x] **Não utilizo nem transfiro dados de usuários para determinar solvência nem para fins de concessão de empréstimos.**
+- [x] **Dados de Identificação Pessoal (E-mail):** Coletado estritamente para autenticação de licença e sincronização em nuvem do usuário.
 
 ---
 
@@ -183,3 +189,31 @@ Você pode publicar um texto simples no seu domínio (`https://sentsuy.ddns.net/
 ### Firefox Add-ons (Mozilla AMO)
 - Acesse o [Mozilla Add-on Developer Hub](https://addons.mozilla.org/developers/).
 - Faça o upload do `.zip`. O Firefox possui suporte ao Manifest V3.
+
+---
+
+## 8. Checklist de Produção: Supabase & Gateway AbacatePay
+
+Antes de subir a versão final para os usuários:
+
+### 8.1. Aplicar o Patch de Produção no Supabase
+1. Acesse o [SQL Editor do Supabase](https://supabase.com/dashboard/project/wbappdsgstzintgznikb/sql).
+2. Abra o arquivo [scripts/supabase-pro-production-patch.sql](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/scripts/supabase-pro-production-patch.sql).
+3. Cole todo o conteúdo e clique em **Run**.
+4. Isso garante:
+   - Criação das colunas de segurança `access_pin`, `recovery_key` e `totp_secret`.
+   - RPC `claim_charge_credentials` para resgate automático e instantâneo do PIN de 6 dígitos no popup.
+   - Revogação de permissões públicas no `approve_from_gateway` (fechando qualquer brecha de aprovação indevida).
+
+### 8.2. Configurar a AbacatePay em Modo Produção
+1. No painel da **AbacatePay**, gere sua chave de API com permissão `TRANSPARENT:CREATE`.
+2. Configure o Webhook:
+   - **URL**: `https://wbappdsgstzintgznikb.supabase.co/functions/v1/abacatepay-webhook?webhookSecret=SEU_WEBHOOK_SECRET`
+   - **Eventos**: Marque `transparent.completed` e `billing.paid`.
+3. Defina os Secrets nas Edge Functions do Supabase:
+   ```bash
+   supabase secrets set ABACATEPAY_API_KEY="sua_chave_producao_aqui"
+   supabase secrets set ABACATEPAY_WEBHOOK_SECRET="seu_webhook_secret_aqui"
+   supabase secrets set ABACATEPAY_BASE_URL="https://api.abacatepay.com/v2"
+   ```
+

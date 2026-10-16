@@ -40,6 +40,8 @@ assert.ok(/CREATE OR REPLACE FUNCTION request_activation/.test(sql),
   'Deve declarar RPC request_activation');
 assert.ok(/CREATE OR REPLACE FUNCTION approve_from_gateway/.test(sql),
   'Deve declarar RPC approve_from_gateway');
+assert.ok(/CREATE OR REPLACE FUNCTION claim_charge_credentials/.test(sql),
+  'Deve declarar RPC claim_charge_credentials');
 assert.ok(/CREATE OR REPLACE FUNCTION expire_old_requests/.test(sql),
   'Deve declarar RPC expire_old_requests');
 assert.ok(/CREATE OR REPLACE FUNCTION _generate_unique_pin/.test(sql),
@@ -63,11 +65,13 @@ assert.ok(/p_gateway\s+NOT IN\s*\(\s*'abacatepay',\s*'mercadopago',\s*'manual'/i
 assert.ok(/already_approved/.test(sql),
   'approve_from_gateway deve retornar already_approved em caso de reprocessamento');
 
-// 8. Grants ao role anon (as RPCs precisam ser chamadas pela REST)
+// 8. Grants ao role anon e restrição estrita de segurança
 assert.ok(/GRANT EXECUTE ON FUNCTION request_activation.*TO anon/i.test(sql.replace(/\s+/g, ' ')),
   'Deve grantar EXECUTE em request_activation para anon');
-assert.ok(/GRANT EXECUTE ON FUNCTION approve_from_gateway.*TO anon/i.test(sql.replace(/\s+/g, ' ')),
-  'Deve grantar EXECUTE em approve_from_gateway para anon');
+assert.ok(/GRANT EXECUTE ON FUNCTION claim_charge_credentials.*TO anon/i.test(sql.replace(/\s+/g, ' ')),
+  'Deve grantar EXECUTE em claim_charge_credentials para anon');
+assert.ok(/REVOKE EXECUTE ON FUNCTION approve_from_gateway.*FROM anon/i.test(sql.replace(/\s+/g, ' ')),
+  'Deve revogar EXECUTE em approve_from_gateway para anon por segurança');
 
 // 9. Idempotency por gateway_charge_id em request_activation
 assert.ok(/gateway_charge_id\s*=\s*trim\(p_gateway_charge_id\)/.test(sql),
