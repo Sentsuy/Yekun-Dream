@@ -2211,7 +2211,6 @@ function buildPixBRCode({ key, amount, merchantName = 'YEKUN DREAM', merchantCit
 }
 
 // ── Modal PRO: step indicator + fluxo de 3 fases ──────────
-const PRO_PIX_RANDOM_KEY = 'a6eef510-b30c-48d7-a6bd-d5772054bcc1';
 const PRO_PIX_AMOUNT = 20.00;
 const PRO_POLL_INTERVAL_MS = 10000;
 const PRO_POLL_MAX_MS = 10 * 60 * 1000;
@@ -2279,13 +2278,9 @@ async function startProPolling() {
 
 async function openProModal() {
   if (!modalProPix) return;
-  if (proPixBrCode && !proPixBrCode.value) {
-    try {
-      proPixBrCode.value = buildPixBRCode({ key: PRO_PIX_RANDOM_KEY, amount: PRO_PIX_AMOUNT });
-    } catch (_) {
-      proPixBrCode.value = '';
-      proPixBrCode.placeholder = 'Gerando Pix dinâmico…';
-    }
+  if (proPixBrCode) {
+    proPixBrCode.value = '';
+    proPixBrCode.placeholder = 'Gerando Pix dinâmico do gateway…';
   }
   if (btnSimulatePayment) {
     btnSimulatePayment.style.display = isProDevMode() ? 'inline-flex' : 'none';
@@ -2310,11 +2305,19 @@ async function openProModal() {
           if (proPixQrImg && data.brCodeBase64) {
             proPixQrImg.src = data.brCodeBase64;
           }
+        } else {
+          if (proPixBrCode) proPixBrCode.placeholder = 'Erro: ' + ((data && data.error) || 'Tente novamente.');
         }
+      } else {
+        if (proPixBrCode) proPixBrCode.placeholder = 'Gateway indisponível no momento.';
       }
+    } else {
+      if (proPixBrCode) proPixBrCode.placeholder = 'Informe um e-mail antes de assinar.';
+      showToast('Defina um e-mail antes de assinar o PRO');
     }
   } catch (err) {
-    console.warn('[PRO] Falha ao carregar Pix dinâmico, usando chave padrão:', err);
+    console.warn('[PRO] Falha ao carregar Pix dinâmico:', err);
+    if (proPixBrCode) proPixBrCode.placeholder = 'Erro de rede ao gerar cobrança.';
   }
 }
 
@@ -2350,20 +2353,12 @@ if (btnSimulatePayment) {
 if (btnCopyProBrCode && proPixBrCode) {
   btnCopyProBrCode.addEventListener('click', () => {
     if (!proPixBrCode.value) {
-      showToast('Código ainda não disponível');
+      showToast('Aguarde o código Pix ser gerado…');
       return;
     }
     navigator.clipboard.writeText(proPixBrCode.value).then(() => {
-      showToast('Pix Copia-e-Cola copiado!');
-    }).catch(() => showToast('Erro ao copiar'));
-  });
-}
-
-if (btnCopyProPix && proPixKeyText) {
-  btnCopyProPix.addEventListener('click', () => {
-    navigator.clipboard.writeText(proPixKeyText.value).then(() => {
-      showToast('Chave Pix copiada!');
-    }).catch(() => showToast('Erro ao copiar chave'));
+      showToast('✓ Pix Copia-e-Cola copiado! Cole no app do seu banco.');
+    }).catch(() => showToast('Erro ao copiar código'));
   });
 }
 

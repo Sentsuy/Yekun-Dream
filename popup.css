@@ -3511,20 +3511,18 @@ input:checked + .slider::before {
   line-height: 1.2;
 }
 .pro-pix-info-side { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.pro-pix-key-fallback summary {
+.pro-pix-instructions {
   font-size: 10.5px;
-  color: var(--muted);
-  cursor: pointer;
-  padding: 4px 0;
-  margin-top: 2px;
-}
-.pro-pix-key-fallback summary:hover { color: var(--accent); }
-.pro-pix-key-fallback[open] summary { color: var(--accent); margin-bottom: 4px; }
-.pro-pix-key-hint {
-  display: block;
-  font-size: 10px;
+  line-height: 1.45;
   color: var(--muted);
   margin-top: 4px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+.pro-pix-instructions strong {
+  color: var(--text);
 }
 
 .btn-already-paid {

@@ -811,22 +811,15 @@
             <div class="pro-pix-info-side">
               <label class="field-label">PIX COPIA-E-COLA (R$ 20,00)</label>
               <div class="pix-input-row">
-                <input class="field-input text-xs" id="proPixBrCode" type="text" readonly placeholder="Gerando…" />
+                <input class="field-input text-xs" id="proPixBrCode" type="text" readonly placeholder="Gerando Pix dinâmico…" />
                 <button class="btn-copy-pix" id="btnCopyProBrCode" type="button" title="Copiar código Pix Copia-e-Cola">
                   <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                   <span>Copiar</span>
                 </button>
               </div>
-              <details class="pro-pix-key-fallback">
-                <summary>Prefere digitar a chave manualmente?</summary>
-                <div class="pix-input-row">
-                  <input class="field-input text-xs" id="proPixKeyText" type="text" value="a6eef510-b30c-48d7-a6bd-d5772054bcc1" readonly />
-                  <button class="btn-copy-pix" id="btnCopyProPix" type="button" title="Copiar chave Pix">
-                    <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                  </button>
-                </div>
-                <small class="pro-pix-key-hint">Chave aleatória. Lembre de pagar <strong>R$ 20,00</strong>.</small>
-              </details>
+              <div class="pro-pix-instructions">
+                <span>Cole no app do seu banco em <strong>Pix &gt; Copia e Cola</strong> (ou aponte a câmera pro QR Code ao lado). A ativação da sua conta PRO é automática logo após a confirmação.</span>
+              </div>
             </div>
           </div>
           <button class="btn-save btn-already-paid" id="btnAlreadyPaid" type="button">
