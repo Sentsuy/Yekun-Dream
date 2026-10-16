@@ -1012,6 +1012,19 @@ async function updateProStatusUI(forceRefresh = false) {
       if (proSyncControls) {
         proSyncControls.forEach(el => el.classList.add('is-locked'));
       }
+
+      // Reverte tema Cyber Neon para Escuro automaticamente se a conta for FREE
+      if (appSettings && appSettings.theme === 'neon') {
+        appSettings.theme = 'dark';
+        applyTheme('dark');
+        await StorageLocal.saveSettings(appSettings);
+        broadcastSettingsToTabs(appSettings);
+        const themeBtns = document.querySelectorAll('.theme-btn');
+        themeBtns.forEach(b => {
+          b.classList.toggle('active', b.dataset.theme === 'dark');
+        });
+        showToast('Tema Cyber Neon desativado (exclusivo PRO). Retornado ao tema Escuro.');
+      }
     }
   } catch (e) {
     console.warn('Erro ao atualizar status PRO:', e);
@@ -2094,20 +2107,20 @@ if (btnConnectGoogle) {
   btnConnectGoogle.addEventListener('click', () => requireProTermsAccepted(async () => {
     showToast('Conectando conta Google...');
     try {
-      const info = await IdentityService.getIdentityInfo();
+      const info = await IdentityService.getGoogleIdentityInfo();
       if (info && info.email) {
         await IdentityService.setCustomProEmail(info.email);
         await updateProStatusUI(true);
-        showToast('Conta vinculada: ' + info.email);
+        showToast('Conta Google conectada: ' + info.email);
       } else {
         if (proCustomEmailRow) {
           proCustomEmailRow.classList.remove('hidden');
           if (inputCustomProEmail) inputCustomProEmail.focus();
         }
-        showToast('Informe seu e-mail para vincular');
+        showToast('Nenhuma conta Google detectada. Digite seu e-mail.');
       }
     } catch (e) {
-      showToast('Erro ao conectar conta');
+      showToast('Erro ao conectar conta Google');
     }
   }));
 }
@@ -2315,9 +2328,13 @@ if (btnCopyProPix && proPixKeyText) {
 }
 
 if (btnEditProEmail && proCustomEmailRow) {
-  btnEditProEmail.addEventListener('click', () => {
+  btnEditProEmail.addEventListener('click', async () => {
     proCustomEmailRow.classList.toggle('hidden');
     if (!proCustomEmailRow.classList.contains('hidden') && inputCustomProEmail) {
+      const info = await IdentityService.getIdentityInfo();
+      if (info && info.email) {
+        inputCustomProEmail.value = info.email;
+      }
       inputCustomProEmail.focus();
     }
   });
@@ -2332,8 +2349,8 @@ if (btnSaveCustomProEmail && inputCustomProEmail) {
     }
     await IdentityService.setCustomProEmail(email);
     if (proCustomEmailRow) proCustomEmailRow.classList.add('hidden');
-    showToast('E-mail atualizado');
     await updateProStatusUI(true);
+    showToast('Conta alterada para: ' + email);
   }));
 }
 

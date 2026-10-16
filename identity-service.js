@@ -22,7 +22,20 @@ const IdentityService = {
 
   async getIdentityInfo() {
     return new Promise(resolve => {
-      // 1. Tenta obter via chrome.identity (Google Chrome)
+      // 1. Prioridade: se o usuário configurou um e-mail manual, usa ele
+      IdentityService.getFallbackEmail().then(fallback => {
+        if (fallback && fallback.email) {
+          return resolve(fallback);
+        }
+
+        // 2. Se não houver e-mail manual, tenta obter via conta Google do Chrome
+        IdentityService.getGoogleIdentityInfo().then(resolve);
+      });
+    });
+  },
+
+  async getGoogleIdentityInfo() {
+    return new Promise(resolve => {
       try {
         if (typeof chrome !== 'undefined' && chrome.identity && typeof chrome.identity.getProfileUserInfo === 'function') {
           chrome.identity.getProfileUserInfo(userInfo => {
@@ -36,13 +49,24 @@ const IdentityService = {
                 });
               }
             }
-            IdentityService.getFallbackEmail().then(resolve);
+            resolve({ email: '', source: 'none', id: '' });
           });
           return;
         }
       } catch (_) {}
+      resolve({ email: '', source: 'none', id: '' });
+    });
+  },
 
-      IdentityService.getFallbackEmail().then(resolve);
+  async clearCustomProEmail() {
+    return new Promise(resolve => {
+      try {
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+          chrome.storage.local.remove(['customProEmail', PRO_CACHE_KEY], () => resolve());
+          return;
+        }
+      } catch (_) {}
+      resolve();
     });
   },
 

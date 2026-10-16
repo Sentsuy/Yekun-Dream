@@ -35,6 +35,8 @@ console.log('Testing PRO JS logic in popup.js...');
 assert.ok(js.includes('updateProStatusUI'), 'popup.js deve conter função updateProStatusUI');
 assert.ok(js.includes('btnRedeemPin'), 'popup.js deve conter evento para btnRedeemPin');
 assert.ok(js.includes('IdentityService.redeemPin'), 'popup.js deve chamar IdentityService.redeemPin');
+assert.ok(js.includes("appSettings.theme === 'neon'") && js.includes("applyTheme('dark')"), 'popup.js deve reverter tema neon para dark se a conta for FREE');
+assert.ok(js.includes('IdentityService.getGoogleIdentityInfo'), 'popup.js deve usar getGoogleIdentityInfo ao conectar conta Google');
 
 console.log('✓ test-popup-pro-ui passed');
 process.exit(0);
