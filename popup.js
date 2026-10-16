@@ -166,6 +166,28 @@ const btnCancelVerifyPro       = document.getElementById('btnCancelVerifyPro');
 const btnConfirmVerifyPro      = document.getElementById('btnConfirmVerifyPro');
 const verifyProAccessEmailDesc = document.getElementById('verifyProAccessEmailDesc');
 
+// Feedback & Community Feed DOM refs
+const btnQuickReportSite        = document.getElementById('btnQuickReportSite');
+const feedbackCategorySelect    = document.getElementById('feedbackCategorySelect');
+const feedbackMessage           = document.getElementById('feedbackMessage');
+const feedbackCharCounter       = document.getElementById('feedbackCharCounter');
+const feedbackIncludeSiteToggle = document.getElementById('feedbackIncludeSiteToggle');
+const feedbackSitePreview       = document.getElementById('feedbackSitePreview');
+const feedbackPreviewUrl        = document.getElementById('feedbackPreviewUrl');
+const feedbackPreviewWorkRow    = document.getElementById('feedbackPreviewWorkRow');
+const feedbackPreviewWork       = document.getElementById('feedbackPreviewWork');
+const feedbackEmail             = document.getElementById('feedbackEmail');
+const btnSubmitFeedback         = document.getElementById('btnSubmitFeedback');
+const btnSubmitFeedbackText     = document.getElementById('btnSubmitFeedbackText');
+const feedbackStatusMsg         = document.getElementById('feedbackStatusMsg');
+
+let currentFeedbackContext = {
+  url: '',
+  domain: '',
+  title: '',
+  chapter: ''
+};
+
 const SVG_PRO_EDIT_PENCIL = '<svg class="svg-icon svg-sm" viewBox="0 0 24 24"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>';
 const SVG_PRO_EDIT_CANCEL = '<svg class="svg-icon svg-sm" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
 
@@ -797,6 +819,7 @@ async function updateCurrentSiteToggleUI(providedTab = null) {
           sitePermissionBar.title = `Botão flutuante para este site (${currentActiveDomain})`;
         }
         updateDiagnosticUI(currentActiveDomain, isAllowed, true);
+        updateFeedbackContext(tab);
         return;
       }
     }
@@ -815,6 +838,7 @@ async function updateCurrentSiteToggleUI(providedTab = null) {
     sitePermissionBar.title = 'Botão flutuante não disponível nesta página';
   }
   updateDiagnosticUI(null, false, false);
+  updateFeedbackContext(null);
 }
 
 // ── Theme Management (Dark, Light, Pink) ──────────────────
@@ -903,6 +927,7 @@ function switchToSettingsTab(target) {
     target === 'appearance'    ? 'paneSettingsAppearance' :
     target === 'reader'        ? 'paneSettingsReader' :
     target === 'notifications' ? 'paneSettingsNotifications' :
+    target === 'feedback'      ? 'paneSettingsFeedback' :
     target === 'about'         ? 'paneSettingsAbout' :
                                 'paneSettingsPro'
   );
@@ -3620,10 +3645,194 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
   });
 }
 
+// ── Central de Feedback & Sugestões de Mapeamento ─────────
+const FEEDBACK_PLACEHOLDERS = {
+  site_mapping: 'Informe o site ou scan que você gostaria de ver mapeado no Yekun Dream (máx. 300 caracteres)...',
+  bug_report: 'Descreva a falha observada nesta página (ex: capítulo não detectado, player não marcou 70%)...',
+  suggestion: 'Envie sua sugestão de melhoria, crítica ou comentário sobre a extensão...'
+};
+
+function updateFeedbackContext(tab) {
+  if (!tab || !tab.url || (!tab.url.startsWith('http://') && !tab.url.startsWith('https://'))) {
+    currentFeedbackContext = { url: '', domain: '', title: '', chapter: '' };
+    renderFeedbackContextPreview();
+    return;
+  }
+
+  currentFeedbackContext.url = tab.url;
+  try {
+    currentFeedbackContext.domain = new URL(tab.url).hostname.replace(/^www\./, '');
+  } catch (_) {
+    currentFeedbackContext.domain = '';
+  }
+
+  currentFeedbackContext.title = tab.title || '';
+  if (typeof titleInput !== 'undefined' && titleInput && titleInput.value) {
+    currentFeedbackContext.title = titleInput.value.trim();
+  }
+  if (typeof currentChapterInput !== 'undefined' && currentChapterInput && currentChapterInput.value) {
+    currentFeedbackContext.chapter = currentChapterInput.value.trim();
+  }
+
+  renderFeedbackContextPreview();
+}
+
+function renderFeedbackContextPreview() {
+  if (!feedbackPreviewUrl) return;
+  const includeSite = !feedbackIncludeSiteToggle || feedbackIncludeSiteToggle.checked;
+  if (!includeSite || !currentFeedbackContext.url) {
+    if (feedbackSitePreview) feedbackSitePreview.style.opacity = '0.5';
+    feedbackPreviewUrl.textContent = includeSite ? 'Nenhuma página web ativa' : 'Dados da página não serão incluídos';
+    if (feedbackPreviewWorkRow) feedbackPreviewWorkRow.style.display = 'none';
+    return;
+  }
+
+  if (feedbackSitePreview) feedbackSitePreview.style.opacity = '1';
+  try {
+    const parsed = new URL(currentFeedbackContext.url);
+    feedbackPreviewUrl.textContent = `${parsed.hostname}${parsed.pathname}`;
+  } catch (_) {
+    feedbackPreviewUrl.textContent = currentFeedbackContext.url.substring(0, 50);
+  }
+
+  if (currentFeedbackContext.title && feedbackPreviewWorkRow && feedbackPreviewWork) {
+    feedbackPreviewWorkRow.style.display = 'flex';
+    const chapText = currentFeedbackContext.chapter ? ` (${currentFeedbackContext.chapter})` : '';
+    feedbackPreviewWork.textContent = `${currentFeedbackContext.title}${chapText}`;
+  } else if (feedbackPreviewWorkRow) {
+    feedbackPreviewWorkRow.style.display = 'none';
+  }
+}
+
+function updateFeedbackCharCounter() {
+  if (!feedbackMessage || !feedbackCharCounter) return;
+  const count = (feedbackMessage.value || '').length;
+  feedbackCharCounter.textContent = `${count} / 300`;
+  feedbackCharCounter.classList.toggle('warning', count >= 260 && count < 300);
+  feedbackCharCounter.classList.toggle('limit', count >= 300);
+}
+
+function showFeedbackStatus(msg, isSuccess) {
+  if (!feedbackStatusMsg) return;
+  feedbackStatusMsg.textContent = msg;
+  feedbackStatusMsg.className = `feedback-status-msg ${isSuccess ? 'success' : 'error'}`;
+}
+
+function hideFeedbackStatus() {
+  if (!feedbackStatusMsg) return;
+  feedbackStatusMsg.textContent = '';
+  feedbackStatusMsg.className = 'feedback-status-msg hidden';
+}
+
+function initFeedback() {
+  if (feedbackMessage) {
+    feedbackMessage.addEventListener('input', updateFeedbackCharCounter);
+  }
+
+  if (feedbackCategorySelect) {
+    feedbackCategorySelect.addEventListener('change', () => {
+      const cat = feedbackCategorySelect.value;
+      if (feedbackMessage && FEEDBACK_PLACEHOLDERS[cat]) {
+        feedbackMessage.placeholder = FEEDBACK_PLACEHOLDERS[cat];
+      }
+    });
+  }
+
+  if (feedbackIncludeSiteToggle) {
+    feedbackIncludeSiteToggle.addEventListener('change', renderFeedbackContextPreview);
+  }
+
+  if (btnQuickReportSite) {
+    btnQuickReportSite.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (settingsPanel && !settingsPanel.classList.contains('open')) {
+        toggleSettingsDrawer();
+      }
+      switchToSettingsTab('feedback');
+      if (feedbackCategorySelect) {
+        if (currentFeedbackContext.title || currentFeedbackContext.chapter) {
+          feedbackCategorySelect.value = 'bug_report';
+        } else {
+          feedbackCategorySelect.value = 'site_mapping';
+        }
+        feedbackCategorySelect.dispatchEvent(new Event('change'));
+      }
+      if (feedbackIncludeSiteToggle) {
+        feedbackIncludeSiteToggle.checked = true;
+        renderFeedbackContextPreview();
+      }
+      if (feedbackMessage) {
+        setTimeout(() => feedbackMessage.focus(), 150);
+      }
+    });
+  }
+
+  if (btnSubmitFeedback) {
+    btnSubmitFeedback.addEventListener('click', async () => {
+      if (!feedbackMessage) return;
+      const category = feedbackCategorySelect ? feedbackCategorySelect.value : 'suggestion';
+      const message = feedbackMessage.value.trim();
+      const includeSite = feedbackIncludeSiteToggle ? feedbackIncludeSiteToggle.checked : false;
+      const userEmail = feedbackEmail ? feedbackEmail.value.trim() : '';
+
+      const payload = {
+        category,
+        message,
+        siteUrl: includeSite ? currentFeedbackContext.url : null,
+        detectedTitle: includeSite ? currentFeedbackContext.title : null,
+        detectedChapter: includeSite ? currentFeedbackContext.chapter : null,
+        userEmail: userEmail || null
+      };
+
+      if (typeof FeedbackService === 'undefined') {
+        showFeedbackStatus('Módulo de feedback não carregado.', false);
+        return;
+      }
+
+      const validation = FeedbackService.validatePayload(payload);
+      if (!validation.valid) {
+        showFeedbackStatus(validation.error, false);
+        return;
+      }
+
+      const config = {
+        supabaseUrl: (appSettings && appSettings.supabaseUrl) || 'https://wbappdsgstzintgznikb.supabase.co',
+        supabaseKey: (appSettings && appSettings.supabaseKey) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndiYXBwZHNnc3R6aW50Z3puaWtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MTgyMDgsImV4cCI6MjEwNzQ5NDIwOH0.6Wc7YDcKpMCq_IWeo54f3U_14giEfjOAH3f5B019vfE'
+      };
+
+      btnSubmitFeedback.disabled = true;
+      if (btnSubmitFeedbackText) btnSubmitFeedbackText.textContent = 'Enviando...';
+      hideFeedbackStatus();
+
+      try {
+        const res = await FeedbackService.submitFeedback(config, payload);
+        if (res.success) {
+          feedbackMessage.value = '';
+          updateFeedbackCharCounter();
+          showFeedbackStatus('✓ ' + (res.message || 'Feedback enviado com sucesso!'), true);
+          showToast('✓ Feedback enviado com sucesso!');
+          setTimeout(() => {
+            hideFeedbackStatus();
+          }, 5000);
+        } else {
+          showFeedbackStatus('⚠️ ' + (res.error || 'Falha ao enviar feedback.'), false);
+          showToast('⚠️ ' + (res.error || 'Erro no envio'));
+        }
+      } catch (err) {
+        showFeedbackStatus('⚠️ Falha de comunicação: ' + (err.message || 'tente novamente.'), false);
+      } finally {
+        btnSubmitFeedback.disabled = false;
+        if (btnSubmitFeedbackText) btnSubmitFeedbackText.textContent = 'Enviar Feedback';
+      }
+    });
+  }
+}
+
 // ── Init ──────────────────────────────────────────────────
 (async function init() {
   initThemeSwitcher();
   initSettingsTabs();
+  initFeedback();
   await loadSettingsToUI();
   await updateNotificationUnreadDot();
   allWorks = await StorageLocal.getWorks();

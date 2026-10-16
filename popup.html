@@ -52,10 +52,16 @@
         <span class="site-permission-label">Botão neste site</span>
         <span class="site-permission-domain" id="currentSiteDomain" title="Domínio atual"></span>
       </div>
-      <label class="switch switch-sm" title="Ativar ou desativar botão flutuante neste site">
-        <input type="checkbox" id="toggleCurrentSite" />
-        <span class="slider"></span>
-      </label>
+      <div class="site-permission-controls">
+        <button type="button" class="btn-quick-feedback" id="btnQuickReportSite" title="Reportar falha ou sugerir mapeamento deste site">
+          <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          <span>Feed</span>
+        </button>
+        <label class="switch switch-sm" title="Ativar ou desativar botão flutuante neste site">
+          <input type="checkbox" id="toggleCurrentSite" />
+          <span class="slider"></span>
+        </label>
+      </div>
     </div>
 
     <!-- About & Info Panel (hidden by default) -->
@@ -188,6 +194,10 @@
           <button type="button" class="settings-tab-btn" data-tab="notifications" title="Notificações & Sites">
             <svg class="svg-icon" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
             <span>Alertas</span>
+          </button>
+          <button type="button" class="settings-tab-btn" data-tab="feedback" title="Feedback, Relatar Falhas & Sugerir Sites">
+            <svg class="svg-icon" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            <span>Feed</span>
           </button>
           <button type="button" class="settings-tab-btn" data-tab="about" title="Sobre o Projeto, Privacidade & Doação (Pix)">
             <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
@@ -537,7 +547,91 @@
           </div>
         </div>
 
-        <!-- Aba 5: Dados Locais, Backup & Sobre -->
+        <!-- Aba: Feed, Feedback & Sugestões de Mapeamento -->
+        <div class="settings-tab-pane" id="paneSettingsFeedback">
+          <div class="settings-section">
+            <div class="settings-section-title">
+              <span>Central de Feed & Sugestões</span>
+              <span class="feedback-badge-comm">Comunidade</span>
+            </div>
+            <p class="section-desc">
+              Sugira novos sites para mapearmos na extensão, reporte erros de captura de obras ou envie suas críticas e sugestões.
+            </p>
+
+            <div class="feedback-card">
+              <!-- Categoria -->
+              <div class="field-group">
+                <label class="field-label" for="feedbackCategorySelect">CATEGORIA DO RELATO</label>
+                <select class="field-input feedback-select" id="feedbackCategorySelect">
+                  <option value="site_mapping" selected>🌐 Sugerir novo site ou scan para mapear</option>
+                  <option value="bug_report">🐛 Reportar falha na obra ou player deste site</option>
+                  <option value="suggestion">💡 Sugestão de melhoria ou crítica geral</option>
+                </select>
+              </div>
+
+              <!-- Mensagem com contador de 300 caracteres -->
+              <div class="field-group">
+                <div class="feedback-label-row">
+                  <label class="field-label" for="feedbackMessage">MENSAGEM (DIRETA E OBJETIVA)</label>
+                  <span class="feedback-char-counter" id="feedbackCharCounter">0 / 300</span>
+                </div>
+                <textarea 
+                  class="field-input feedback-textarea" 
+                  id="feedbackMessage" 
+                  rows="3" 
+                  maxlength="300" 
+                  placeholder="Descreva o site para mapear ou o problema observado (máx. 300 caracteres)..."
+                ></textarea>
+              </div>
+
+              <!-- Anexo contextual da página ativa -->
+              <div class="feedback-context-box">
+                <label class="toggle-item feedback-toggle-item">
+                  <span class="toggle-label text-sm">Vincular dados da página ativa</span>
+                  <div class="switch switch-sm">
+                    <input type="checkbox" id="feedbackIncludeSiteToggle" checked />
+                    <span class="slider"></span>
+                  </div>
+                </label>
+                <div class="feedback-site-preview" id="feedbackSitePreview">
+                  <div class="feedback-preview-row">
+                    <span class="feedback-preview-label">URL:</span>
+                    <span class="feedback-preview-val" id="feedbackPreviewUrl">—</span>
+                  </div>
+                  <div class="feedback-preview-row" id="feedbackPreviewWorkRow" style="display: none;">
+                    <span class="feedback-preview-label">Obra detectada:</span>
+                    <span class="feedback-preview-val" id="feedbackPreviewWork">—</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- E-mail opcional -->
+              <div class="field-group" style="margin-top: 10px;">
+                <label class="field-label" for="feedbackEmail">SEU E-MAIL (OPCIONAL, CASO QUEIRA RESPOSTA)</label>
+                <input 
+                  class="field-input" 
+                  id="feedbackEmail" 
+                  type="email" 
+                  maxlength="150" 
+                  placeholder="exemplo@email.com" 
+                  autocomplete="email"
+                />
+              </div>
+
+              <!-- Status Message -->
+              <div class="feedback-status-msg hidden" id="feedbackStatusMsg"></div>
+
+              <!-- Botão de Envio -->
+              <div class="feedback-actions">
+                <button type="button" class="btn-save btn-feedback-submit" id="btnSubmitFeedback">
+                  <svg class="svg-icon svg-sm" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                  <span id="btnSubmitFeedbackText">Enviar Feedback</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Aba 5: Info (Sobre, Privacidade & Doação Pix) -->
         <div class="settings-tab-pane" id="paneSettingsAbout">
           <!-- Card de Apoio e Doação Voluntária (Pix) -->
@@ -1059,6 +1153,7 @@
   <script src="alias-crowd-service.js"></script>
   <script src="storage-local.js"></script>
   <script src="identity-service.js"></script>
+  <script src="feedback-service.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
