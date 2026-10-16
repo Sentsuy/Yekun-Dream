@@ -1,5 +1,6 @@
 /* ─── Reset & Base ───────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+.hidden { display: none !important; }
 
 /* ─── 3 Calm Themes (Dark, Light, Pink) ───────────────────────── */
 :root,
@@ -3025,23 +3026,33 @@ input:checked + .slider::before {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 6px;
   margin-bottom: 8px;
+  width: 100%;
+  flex-wrap: nowrap;
 }
 
 .pro-identity-info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
 }
 
 .pro-badge {
   font-size: 10px;
   font-weight: 700;
-  padding: 2px 6px;
+  padding: 2px 7px;
   border-radius: 4px;
   background: var(--surface2);
   color: var(--muted);
   border: 1px solid var(--border);
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1.35;
+  display: inline-flex;
+  align-items: center;
 }
 
 .pro-badge-active {
@@ -3062,6 +3073,11 @@ input:checked + .slider::before {
 }
 
 .pro-account-email-input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  height: 28px;
+  box-sizing: border-box;
   font-size: 11px;
   color: var(--muted);
   font-family: var(--font-mono);
@@ -3069,10 +3085,11 @@ input:checked + .slider::before {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 4px 8px;
-  max-width: 165px;
-  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   cursor: not-allowed;
-  opacity: 0.75;
+  opacity: 0.8;
   transition: all var(--transition);
 }
 
@@ -3089,17 +3106,93 @@ input:checked + .slider::before {
 .pro-email-actions {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.btn-icon-subtle,
+.btn-subtle-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all var(--transition);
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.btn-icon-subtle:hover,
+.btn-subtle-edit:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--surface3, rgba(255, 255, 255, 0.08));
+}
+
+.btn-icon-subtle:active,
+.btn-subtle-edit:active {
+  transform: scale(0.95);
+}
+
+.btn-subtle-edit.is-editing-cancel {
+  color: var(--danger, #ef4444);
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.btn-subtle-edit.is-editing-cancel:hover {
+  color: #f87171;
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.16);
 }
 
 .btn-save-email {
-  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 8px;
+  font-family: var(--font-sans);
   font-size: 10.5px;
   font-weight: 700;
   border-radius: var(--radius);
+  background: var(--accent);
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  transition: all var(--transition);
 }
 
-.btn-subtle-edit,
+.btn-save-email.hidden {
+  display: none !important;
+}
+
+.btn-save-email:hover {
+  opacity: 0.92;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+}
+
+.btn-save-email:active {
+  transform: scale(0.96);
+}
+
+.btn-save-email .svg-icon {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2.5;
+}
+
 .btn-subtle-link {
   display: inline-flex;
   align-items: center;
@@ -3116,12 +3209,10 @@ input:checked + .slider::before {
   transition: all var(--transition);
   white-space: nowrap;
 }
-.btn-subtle-edit:hover,
 .btn-subtle-link:hover {
   color: var(--accent);
   border-color: var(--accent);
 }
-.btn-subtle-edit:active,
 .btn-subtle-link:active {
   transform: scale(.97);
 }

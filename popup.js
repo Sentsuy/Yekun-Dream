@@ -136,6 +136,41 @@ const btnCloseSuccess      = document.getElementById('btnCloseSuccess');
 const btnSimulatePayment   = document.getElementById('btnSimulatePayment');
 const proSuccessValidUntil = document.getElementById('proSuccessValidUntil');
 
+const SVG_PRO_EDIT_PENCIL = '<svg class="svg-icon svg-sm" viewBox="0 0 24 24"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>';
+const SVG_PRO_EDIT_CANCEL = '<svg class="svg-icon svg-sm" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+
+function setProEmailEditingMode(isEditing) {
+  if (!inputCustomProEmail) return;
+  if (isEditing) {
+    inputCustomProEmail.classList.add('is-editing');
+    inputCustomProEmail.disabled = false;
+    inputCustomProEmail.readOnly = false;
+    inputCustomProEmail.focus();
+    if (btnEditProEmail) {
+      btnEditProEmail.innerHTML = SVG_PRO_EDIT_CANCEL;
+      btnEditProEmail.title = 'Cancelar edição';
+      btnEditProEmail.setAttribute('aria-label', 'Cancelar edição');
+      btnEditProEmail.classList.add('is-editing-cancel');
+    }
+    if (btnSaveCustomProEmail) {
+      btnSaveCustomProEmail.classList.remove('hidden');
+    }
+  } else {
+    inputCustomProEmail.classList.remove('is-editing');
+    inputCustomProEmail.disabled = true;
+    inputCustomProEmail.readOnly = true;
+    if (btnEditProEmail) {
+      btnEditProEmail.innerHTML = SVG_PRO_EDIT_PENCIL;
+      btnEditProEmail.title = 'Alterar e-mail manualmente';
+      btnEditProEmail.setAttribute('aria-label', 'Alterar e-mail manualmente');
+      btnEditProEmail.classList.remove('is-editing-cancel');
+    }
+    if (btnSaveCustomProEmail) {
+      btnSaveCustomProEmail.classList.add('hidden');
+    }
+  }
+}
+
 // Form Status Pickers
 const readingStatusPicker  = document.getElementById('readingStatusPicker');
 const pubStatusPicker      = document.getElementById('pubStatusPicker');
@@ -982,8 +1017,7 @@ async function updateProStatusUI(forceRefresh = false) {
       if (!inputCustomProEmail.classList.contains('is-editing')) {
         inputCustomProEmail.value = status.email || '';
         inputCustomProEmail.title = status.email || '';
-        inputCustomProEmail.readOnly = true;
-        inputCustomProEmail.disabled = true;
+        setProEmailEditingMode(false);
       }
     }
 
@@ -2116,25 +2150,14 @@ if (btnConnectGoogle) {
       if (info && info.email) {
         if (inputCustomProEmail) {
           inputCustomProEmail.value = info.email;
-          inputCustomProEmail.classList.remove('is-editing');
-          inputCustomProEmail.disabled = true;
-          inputCustomProEmail.readOnly = true;
         }
-        if (btnEditProEmail) btnEditProEmail.textContent = 'Editar';
-        if (btnSaveCustomProEmail) btnSaveCustomProEmail.classList.add('hidden');
+        setProEmailEditingMode(false);
         await IdentityService.setCustomProEmail(info.email);
         await updateProStatusUI(true);
         showToast('Conta Google conectada: ' + info.email);
       } else {
-        if (inputCustomProEmail) {
-          inputCustomProEmail.classList.add('is-editing');
-          inputCustomProEmail.disabled = false;
-          inputCustomProEmail.readOnly = false;
-          inputCustomProEmail.focus();
-        }
-        if (btnEditProEmail) btnEditProEmail.textContent = 'Cancelar';
-        if (btnSaveCustomProEmail) btnSaveCustomProEmail.classList.remove('hidden');
-        showToast('Nenhuma conta Google detectada. Digite seu e-mail e clique em Salvar.');
+        setProEmailEditingMode(true);
+        showToast('Nenhuma conta Google detectada. Digite seu e-mail e clique no botão Salvar.');
       }
     } catch (e) {
       showToast('Erro ao conectar conta Google');
@@ -2348,20 +2371,11 @@ if (btnEditProEmail && inputCustomProEmail) {
   btnEditProEmail.addEventListener('click', async () => {
     const isCurrentlyEditing = inputCustomProEmail.classList.contains('is-editing');
     if (!isCurrentlyEditing) {
-      inputCustomProEmail.classList.add('is-editing');
-      inputCustomProEmail.disabled = false;
-      inputCustomProEmail.readOnly = false;
-      inputCustomProEmail.focus();
-      btnEditProEmail.textContent = 'Cancelar';
-      if (btnSaveCustomProEmail) btnSaveCustomProEmail.classList.remove('hidden');
+      setProEmailEditingMode(true);
     } else {
-      inputCustomProEmail.classList.remove('is-editing');
-      inputCustomProEmail.disabled = true;
-      inputCustomProEmail.readOnly = true;
+      setProEmailEditingMode(false);
       const info = await IdentityService.getIdentityInfo();
       inputCustomProEmail.value = (info && info.email) || '';
-      btnEditProEmail.textContent = 'Editar';
-      if (btnSaveCustomProEmail) btnSaveCustomProEmail.classList.add('hidden');
     }
   });
 }
@@ -2374,11 +2388,7 @@ if (btnSaveCustomProEmail && inputCustomProEmail) {
       return;
     }
     await IdentityService.setCustomProEmail(email);
-    inputCustomProEmail.classList.remove('is-editing');
-    inputCustomProEmail.disabled = true;
-    inputCustomProEmail.readOnly = true;
-    if (btnEditProEmail) btnEditProEmail.textContent = 'Editar';
-    btnSaveCustomProEmail.classList.add('hidden');
+    setProEmailEditingMode(false);
     await updateProStatusUI(true);
     showToast('Conta alterada para: ' + email);
   }));
