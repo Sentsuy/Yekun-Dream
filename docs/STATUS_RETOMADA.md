@@ -1,14 +1,30 @@
 # 📌 Guia de Retomada do Projeto — Yekun Dream
 
 - **Data da Última Atualização:** 16 de Outubro de 2026
-- **Estado Geral:** ✅ 56/56 Suítes de Testes Automatizados Aprovadas (100% Verdes)
-- **Versão:** 1.2.0 (Yekun Cloud PRO + Gateway AbacatePay v2 Produção Hardened)
+- **Estado Geral:** ✅ 60/60 Suítes de Testes Automatizados Aprovadas (100% Verdes)
+- **Versão:** 1.2.0 (Yekun Cloud PRO + Feed In-App & Mapeamento de Sites)
 
 ---
 
 ## 🎯 Resumo do que foi Concluído Hoje
 
-1. **Blindagem de Segurança no Supabase & Gateway**:
+1. **Central de Feed, Sugestões & Mapeamento de Sites (Feed In-App)**:
+   - **Limite Rígido de 300 Caracteres**: Tanto no front (`popup.html` e `popup.js`) quanto no back/RPC (`submit_feedback` e `feedback_reports.message VARCHAR(300)`), garantindo mensagens objetivas e bloqueando abusos ou textos inflados ("espertões").
+   - **3 Categorias Claras**:
+     - `site_mapping`: Sugerir novo site ou scan para ser adicionado ao ecossistema.
+     - `bug_report`: Relatar erro na captura da obra, capítulo ou player de vídeo.
+     - `suggestion`: Sugestão de melhoria, crítica ou comentário geral.
+   - **Dois Pontos de Acesso na Extensão**:
+     - *Aba dedicada "Feed" nas Configurações*: formulário com seletor, contador dinâmico de caracteres `0 / 300`, anexo contextual da aba ativa e e-mail opcional.
+     - *Atalho Contextual "Feed" na Barra de Site*: botão discreto ao lado do switch de permissão da página ativa, que abre o formulário pré-selecionando a categoria e associando a URL e obra detectada.
+   - **Script SQL no Supabase ([scripts/supabase-feedback-setup.sql](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/scripts/supabase-feedback-setup.sql))**:
+     - Tabela `feedback_reports` com índices de performance (`category`, `domain`, `status`, `created_at`) e campos de gestão (`status`, `admin_notes`) prontos para o futuro painel web.
+     - Tabela de rate limiting `feedback_rate_limits` (máx. 5 envios por hora).
+     - RPC `submit_feedback` com `SECURITY DEFINER`, sanitização e validação defensiva.
+     - RLS habilitado sem `SELECT` público (privacidade garantida; relatos só são lidos pelo administrador).
+   - **Serviço Universal ([feedback-service.js](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/feedback-service.js))**: Validação de payload no cliente, helpers de telemetria do navegador e integração com a RPC do Supabase.
+
+2. **Blindagem de Segurança no Supabase & Gateway**:
    - **Revogação de Permissão Pública (`approve_from_gateway`)**: Fechada a brecha de segurança onde qualquer usuário com a chave pública `anon` poderia aprovar pagamentos no banco. Agora apenas a `service_role` (usada pelo webhook da AbacatePay no servidor) tem permissão de aprovação.
    - **Simulador de Testes Restrito (`simulate_dev_payment`)**: Criada função isolada de simulação com guarda estrita via regex (`gateway_charge_id ~* '(test|dev)'`), impedindo qualquer simulação indevida sobre cobranças de produção.
    - **Nova RPC Segura (`claim_charge_credentials`)**: Permite que o popup da extensão, portando o `chargeId` efêmero da sessão ativa, resgate com segurança o PIN de 6 dígitos e a Chave Mestra imediatamente após o pagamento Pix ser confirmado.
@@ -43,25 +59,37 @@
 
 ---
 
-### Passo 2: Criar um PIN de Teste no Banco
-No mesmo SQL Editor do Supabase, execute o comando abaixo para gerar seu primeiro código de ativação:
-```sql
-INSERT INTO activation_pins (pin) VALUES ('7492');
-```
-*(Você pode criar quantos PINs de 4 dígitos quiser trocando o número).*
+### Passo 2: Executar o Setup de Feed & Feedback no Supabase
+1. No mesmo SQL Editor do Supabase, abra uma nova query.
+2. Cole o conteúdo de:
+   [scripts/supabase-feedback-setup.sql](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/scripts/supabase-feedback-setup.sql)
+3. Clique em **"Run"**.
+*(Isso cria as tabelas `feedback_reports` e `feedback_rate_limits`, a RPC `submit_feedback` e as regras de segurança RLS).*
 
 ---
 
-### Passo 3: Recarregar e Testar na Extensão
+### Passo 3: Criar um PIN de Teste no Banco (Opcional para testar PRO)
+No SQL Editor do Supabase, execute o comando abaixo para gerar um código de ativação se desejar testar a assinatura:
+```sql
+INSERT INTO activation_pins (pin) VALUES ('7492');
+```
+
+---
+
+### Passo 4: Recarregar e Testar na Extensão
 1. No navegador (Chrome/Edge/Brave), acesse `chrome://extensions/`.
 2. Ative o **Modo do desenvolvedor** (canto superior direito).
 3. Se a extensão já estiver instalada, clique no botão de **Recarregar (🔄)** no card do **Yekun Dream**.
-   *(Se estiver em outro PC, clique em "Carregar sem compactação" e aponte para a pasta deste projeto).*
-4. Abra o popup da extensão e vá até a aba/gaveta de **Configurações ⚙️**.
-5. No bloco **Sincronização em Nuvem (Yekun Cloud PRO)**:
-   - Digite o código `7492` no campo de PIN.
-   - Clique em **"Ativar PIN"**.
-   - O selo mudará para **⭐ PRO ATIVO**, informando que sua anuidade está garantida por **365 dias**, e a sincronização em nuvem será liberada imediatamente!
+4. Abra o popup da extensão:
+   - **Testar Feedback / Feed**:
+     - Clique no botão discreto **"Feed"** na barra do site atual (ao lado do switch), ou vá em **Configurações ⚙️ → Feed**.
+     - Selecione uma das 3 categorias (*Sugerir Site*, *Reportar Falha* ou *Sugestão Geral*).
+     - Digite uma mensagem (observe o contador `0 / 300` atualizando em tempo real e bloqueando além de 300).
+     - Clique em **"Enviar Feedback"**.
+   - **Testar PRO / Sincronização**:
+     - Vá na aba **PRO** das Configurações.
+     - Digite o PIN `7492` e clique em **"Ativar PIN"**.
+     - O selo mudará para **⭐ PRO ATIVO** por 365 dias.
 
 ---
 
@@ -70,7 +98,7 @@ Se quiser verificar a integridade de todo o projeto a qualquer momento pelo term
 ```bash
 npm test
 ```
-*Resultado esperado: 51 testes passando (0 falhas).*
+*Resultado esperado: 60 suítes de testes passando (100% de sucesso).*
 
 ---
 
