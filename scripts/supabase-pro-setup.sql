@@ -30,9 +30,19 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     status TEXT NOT NULL DEFAULT 'active', -- 'active', 'expired', 'canceled'
     amount_paid NUMERIC(10,2) DEFAULT 20.00,
     valid_until BIGINT NOT NULL,          -- Timestamp em milissegundos (epoch)
+    access_pin VARCHAR(6),                -- PIN numérico de acesso (ex: '839204')
+    recovery_key VARCHAR(19),             -- Chave Mestra de Recuperação (ex: 'YK-A9B4-7E2C-81F0')
+    totp_secret TEXT,                     -- Segredo TOTP Base32 para Google Authenticator
+    totp_enabled BOOLEAN DEFAULT FALSE,   -- Indicador de 2FA ativo
     created_at BIGINT NOT NULL DEFAULT (extract(epoch from now()) * 1000)::bigint,
     updated_at BIGINT NOT NULL DEFAULT (extract(epoch from now()) * 1000)::bigint
 );
+
+-- Migrações idempotentes caso a tabela já exista
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS access_pin VARCHAR(6);
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS recovery_key VARCHAR(19);
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS totp_secret TEXT;
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN DEFAULT FALSE;
 
 CREATE INDEX IF NOT EXISTS idx_subscriptions_email ON subscriptions(email);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_valid_until ON subscriptions(valid_until);

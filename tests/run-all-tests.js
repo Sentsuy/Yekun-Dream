@@ -50,6 +50,7 @@ const testSuites = [
   { name: 'PRO Cloud Sync Guard & Storage', cmd: 'node tests/test-pro-cloud-sync.js' },
   { name: 'Popup PRO UI & PIN flow', cmd: 'node tests/test-popup-pro-ui.js' },
   { name: 'PRO Cloud Terms of Use Gate', cmd: 'node tests/test-pro-terms-gate.js' },
+  { name: 'PRO PIN Hybrid Security & 2FA', cmd: 'node tests/test-pro-pin-hybrid-security.js' },
   { name: 'Syntax check: identity-service.js', cmd: 'node -c identity-service.js' },
   { name: 'Syntax check: storage-local.js', cmd: 'node -c storage-local.js' },
   { name: 'Syntax check: sync-service.js', cmd: 'node -c sync-service.js' },

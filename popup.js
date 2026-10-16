@@ -136,6 +136,36 @@ const btnCloseSuccess      = document.getElementById('btnCloseSuccess');
 const btnSimulatePayment   = document.getElementById('btnSimulatePayment');
 const proSuccessValidUntil = document.getElementById('proSuccessValidUntil');
 
+// Pro PIN, Security & Recovery DOM refs
+const proActiveSecurityCard    = document.getElementById('proActiveSecurityCard');
+const inputDisplayProPin       = document.getElementById('inputDisplayProPin');
+const btnToggleRevealPin       = document.getElementById('btnToggleRevealPin');
+const btnCopyDisplayPin        = document.getElementById('btnCopyDisplayPin');
+const inputDisplayProRecovery  = document.getElementById('inputDisplayProRecovery');
+const btnToggleRevealRecovery  = document.getElementById('btnToggleRevealRecovery');
+const btnCopyDisplayRecovery   = document.getElementById('btnCopyDisplayRecovery');
+const proSuccessPin            = document.getElementById('proSuccessPin');
+const btnCopySuccessPin        = document.getElementById('btnCopySuccessPin');
+const proSuccessRecovery       = document.getElementById('proSuccessRecovery');
+const btnCopySuccessRecovery   = document.getElementById('btnCopySuccessRecovery');
+const proTotpAccordion         = document.getElementById('proTotpAccordion');
+const lblTotpStatus            = document.getElementById('lblTotpStatus');
+const imgTotpQr                = document.getElementById('imgTotpQr');
+const inputTotpManualSecret    = document.getElementById('inputTotpManualSecret');
+const btnCopyTotpSecret        = document.getElementById('btnCopyTotpSecret');
+const inputTotpTestCode        = document.getElementById('inputTotpTestCode');
+const btnActivateTotp          = document.getElementById('btnActivateTotp');
+const proTotpVerifyRow         = document.getElementById('proTotpVerifyRow');
+const proTotpActiveRow         = document.getElementById('proTotpActiveRow');
+const btnDisableTotp           = document.getElementById('btnDisableTotp');
+
+// Modal Verify Pro Access (para novos acessos manuais)
+const modalVerifyProAccess     = document.getElementById('modalVerifyProAccess');
+const inputVerifyProSecret     = document.getElementById('inputVerifyProSecret');
+const btnCancelVerifyPro       = document.getElementById('btnCancelVerifyPro');
+const btnConfirmVerifyPro      = document.getElementById('btnConfirmVerifyPro');
+const verifyProAccessEmailDesc = document.getElementById('verifyProAccessEmailDesc');
+
 const SVG_PRO_EDIT_PENCIL = '<svg class="svg-icon svg-sm" viewBox="0 0 24 24"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>';
 const SVG_PRO_EDIT_CANCEL = '<svg class="svg-icon svg-sm" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
 
@@ -1036,14 +1066,58 @@ async function updateProStatusUI(forceRefresh = false) {
       if (proSyncControls) {
         proSyncControls.forEach(el => el.classList.remove('is-locked'));
       }
+
+      // Painel de Chaves de Acesso e Segurança
+      if (proActiveSecurityCard) {
+        proActiveSecurityCard.classList.remove('hidden');
+        const creds = await IdentityService.getStoredCredentials();
+        const accessPin = creds.accessPin || status.accessPin || '';
+        const recoveryKey = creds.recoveryKey || status.recoveryKey || '';
+
+        if (inputDisplayProPin) {
+          inputDisplayProPin.dataset.secret = accessPin;
+          if (inputDisplayProPin.type === 'text') {
+            inputDisplayProPin.value = accessPin || '------';
+          } else {
+            inputDisplayProPin.value = accessPin ? '••••••' : '------';
+          }
+        }
+
+        if (inputDisplayProRecovery) {
+          inputDisplayProRecovery.dataset.secret = recoveryKey;
+          if (inputDisplayProRecovery.type === 'text') {
+            inputDisplayProRecovery.value = recoveryKey || 'YK------';
+          } else {
+            inputDisplayProRecovery.value = recoveryKey ? '•••••••••••••••••••' : 'YK------';
+          }
+        }
+
+        // TOTP status
+        if (creds.totpEnabled) {
+          if (lblTotpStatus) lblTotpStatus.textContent = 'Google Authenticator (2FA Ativo)';
+          if (proTotpActiveRow) proTotpActiveRow.classList.remove('hidden');
+          if (proTotpVerifyRow) proTotpVerifyRow.classList.add('hidden');
+        } else {
+          if (lblTotpStatus) lblTotpStatus.textContent = 'Configurar Google Authenticator (2FA)';
+          if (proTotpActiveRow) proTotpActiveRow.classList.add('hidden');
+          if (proTotpVerifyRow) proTotpVerifyRow.classList.remove('hidden');
+        }
+      }
     } else {
       proStatusCard.classList.remove('is-pro');
+      if (proActiveSecurityCard) {
+        proActiveSecurityCard.classList.add('hidden');
+      }
       if (proBadgeLabel) {
         proBadgeLabel.className = 'pro-badge';
         proBadgeLabel.textContent = 'FREE';
       }
       if (proDescText) {
-        proDescText.innerHTML = 'Sincronize suas obras entre PC, notebook e navegador em tempo real com o <strong>Yekun Cloud PRO</strong> por apenas <strong>R$ 20/ano</strong>.';
+        if (status.needsPin) {
+          proDescText.innerHTML = 'Esta conta possui assinatura PRO ativa, mas <strong>requer autorização</strong> com PIN neste dispositivo.';
+        } else {
+          proDescText.innerHTML = 'Sincronize suas obras entre PC, notebook e navegador em tempo real com o <strong>Yekun Cloud PRO</strong> por apenas <strong>R$ 20/ano</strong>.';
+        }
       }
       if (inputSyncKey) {
         inputSyncKey.value = status.email ? `${status.email} (PRO necessário)` : '';
@@ -2260,6 +2334,13 @@ async function startProPolling() {
           const d = new Date(Number(status.validUntil));
           proSuccessValidUntil.textContent = d.toLocaleDateString('pt-BR');
         }
+        const creds = await IdentityService.getStoredCredentials();
+        if (proSuccessPin) {
+          proSuccessPin.value = creds.accessPin || status.accessPin || '------';
+        }
+        if (proSuccessRecovery) {
+          proSuccessRecovery.value = creds.recoveryKey || status.recoveryKey || 'YK------';
+        }
         goToProStep(3);
         await updateProStatusUI(true);
         return;
@@ -2362,8 +2443,9 @@ if (modalProPix) {
 
 if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && modalProPix && modalProPix.classList.contains('open')) {
-      closeProModal();
+    if (e.key === 'Escape') {
+      if (modalProPix && modalProPix.classList.contains('open')) closeProModal();
+      if (modalVerifyProAccess && modalVerifyProAccess.classList.contains('open')) closeVerifyProAccessModal();
     }
   });
 }
@@ -2382,7 +2464,7 @@ if (btnSimulatePayment) {
       const supabaseUrl = appSettings && appSettings.supabaseUrl ? appSettings.supabaseUrl : 'https://wbappdsgstzintgznikb.supabase.co';
       const supabaseKey = appSettings && appSettings.supabaseKey ? appSettings.supabaseKey : '';
       if (currentChargeId && supabaseUrl) {
-        await fetch(`${supabaseUrl}/rest/v1/rpc/approve_from_gateway`, {
+        const simRes = await fetch(`${supabaseUrl}/rest/v1/rpc/approve_from_gateway`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -2396,6 +2478,21 @@ if (btnSimulatePayment) {
             p_approved_by: 'dev_simulator'
           })
         });
+        if (simRes.ok) {
+          const simData = await simRes.json();
+          if (simData && simData.success) {
+            await IdentityService.saveStoredCredentials({
+              accessPin: simData.access_pin || '',
+              recoveryKey: simData.recovery_key || ''
+            });
+            if (proSuccessPin && simData.access_pin) {
+              proSuccessPin.value = simData.access_pin;
+            }
+            if (proSuccessRecovery && simData.recovery_key) {
+              proSuccessRecovery.value = simData.recovery_key;
+            }
+          }
+        }
       }
     } catch (_) {}
     goToProStep(2);
@@ -2428,18 +2525,219 @@ if (btnEditProEmail && inputCustomProEmail) {
   });
 }
 
+// ── Modal de Autorização PRO para novos acessos manuais ──
+let pendingVerifyEmail = '';
+function openVerifyProAccessModal(email) {
+  pendingVerifyEmail = email;
+  if (verifyProAccessEmailDesc) {
+    verifyProAccessEmailDesc.textContent = `A conta "${email}" possui assinatura PRO ativa. Digite o PIN de 6 dígitos ou sua Chave Mestra para liberar o acesso neste dispositivo:`;
+  }
+  if (inputVerifyProSecret) {
+    inputVerifyProSecret.value = '';
+    setTimeout(() => {
+      if (typeof inputVerifyProSecret.focus === 'function') inputVerifyProSecret.focus();
+    }, 80);
+  }
+  if (modalVerifyProAccess) {
+    modalVerifyProAccess.classList.add('open');
+  }
+}
+function closeVerifyProAccessModal() {
+  if (modalVerifyProAccess) {
+    modalVerifyProAccess.classList.remove('open');
+  }
+  pendingVerifyEmail = '';
+}
+if (btnCancelVerifyPro) {
+  btnCancelVerifyPro.addEventListener('click', closeVerifyProAccessModal);
+}
+if (modalVerifyProAccess) {
+  modalVerifyProAccess.addEventListener('click', (e) => {
+    if (e.target === modalVerifyProAccess) closeVerifyProAccessModal();
+  });
+}
+if (btnConfirmVerifyPro) {
+  btnConfirmVerifyPro.addEventListener('click', async () => {
+    const secret = inputVerifyProSecret ? inputVerifyProSecret.value.trim() : '';
+    if (!secret) {
+      showToast('Digite o PIN de 6 dígitos ou a Chave Mestra');
+      return;
+    }
+    showToast('Validando autorização…');
+    const config = { supabaseUrl: appSettings ? appSettings.supabaseUrl : '', supabaseKey: appSettings ? appSettings.supabaseKey : '' };
+    const res = await IdentityService.verifyProAccess(config, pendingVerifyEmail, secret);
+    if (res.success) {
+      closeVerifyProAccessModal();
+      setProEmailEditingMode(false);
+      await updateProStatusUI(true);
+      showToast('✓ PRO autorizado com sucesso neste dispositivo!');
+    } else {
+      showToast('⚠️ ' + (res.error || 'PIN ou Chave incorreta'));
+    }
+  });
+}
+
 if (btnSaveCustomProEmail && inputCustomProEmail) {
   btnSaveCustomProEmail.addEventListener('click', () => requireProTermsAccepted(async () => {
-    const email = inputCustomProEmail.value.trim();
+    const email = IdentityService.normalizeEmail(inputCustomProEmail.value);
     if (!email || !email.includes('@')) {
       showToast('Informe um e-mail válido');
       return;
     }
+    showToast('Verificando conta…');
+    const config = { supabaseUrl: appSettings ? appSettings.supabaseUrl : '', supabaseKey: appSettings ? appSettings.supabaseKey : '' };
+
+    try {
+      if (config.supabaseUrl && config.supabaseKey) {
+        const checkRes = await fetch(`${config.supabaseUrl}/rest/v1/rpc/check_pro_status`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': config.supabaseKey,
+            'Authorization': `Bearer ${config.supabaseKey}`
+          },
+          body: JSON.stringify({ p_email: email })
+        });
+        if (checkRes.ok) {
+          const checkData = await checkRes.json();
+          if (checkData && checkData.isPro) {
+            const creds = await IdentityService.getStoredCredentials();
+            if (creds.accessPin || creds.recoveryKey) {
+              const vRes = await IdentityService.verifyProAccess(config, email, creds.accessPin || creds.recoveryKey);
+              if (vRes.success) {
+                setProEmailEditingMode(false);
+                await updateProStatusUI(true);
+                showToast('Conta alterada e PRO verificado: ' + email);
+                return;
+              }
+            }
+            openVerifyProAccessModal(email);
+            return;
+          }
+        }
+      }
+    } catch (_) {}
+
     await IdentityService.setCustomProEmail(email);
     setProEmailEditingMode(false);
     await updateProStatusUI(true);
     showToast('Conta alterada para: ' + email);
   }));
+}
+
+// ── Handlers de Revelação e Cópia de Chaves de Acesso ──────
+if (btnToggleRevealPin && inputDisplayProPin) {
+  btnToggleRevealPin.addEventListener('click', () => {
+    const isRevealed = inputDisplayProPin.type === 'text';
+    inputDisplayProPin.type = isRevealed ? 'password' : 'text';
+    const val = inputDisplayProPin.dataset.secret || '';
+    inputDisplayProPin.value = isRevealed ? (val ? '••••••' : '------') : (val || '------');
+    btnToggleRevealPin.textContent = isRevealed ? 'Mostrar' : 'Ocultar';
+  });
+}
+if (btnCopyDisplayPin && inputDisplayProPin) {
+  btnCopyDisplayPin.addEventListener('click', () => {
+    const secret = inputDisplayProPin.dataset.secret || '';
+    if (!secret) {
+      showToast('Nenhum PIN disponível');
+      return;
+    }
+    navigator.clipboard.writeText(secret).then(() => {
+      showToast('✓ PIN de Acesso copiado!');
+    }).catch(() => showToast('Erro ao copiar'));
+  });
+}
+
+if (btnToggleRevealRecovery && inputDisplayProRecovery) {
+  btnToggleRevealRecovery.addEventListener('click', () => {
+    const isRevealed = inputDisplayProRecovery.type === 'text';
+    inputDisplayProRecovery.type = isRevealed ? 'password' : 'text';
+    const val = inputDisplayProRecovery.dataset.secret || '';
+    inputDisplayProRecovery.value = isRevealed ? (val ? '•••••••••••••••••••' : 'YK------') : (val || 'YK------');
+    btnToggleRevealRecovery.textContent = isRevealed ? 'Mostrar' : 'Ocultar';
+  });
+}
+if (btnCopyDisplayRecovery && inputDisplayProRecovery) {
+  btnCopyDisplayRecovery.addEventListener('click', () => {
+    const secret = inputDisplayProRecovery.dataset.secret || '';
+    if (!secret) {
+      showToast('Nenhuma Chave Mestra disponível');
+      return;
+    }
+    navigator.clipboard.writeText(secret).then(() => {
+      showToast('✓ Chave Mestra de Recuperação copiada!');
+    }).catch(() => showToast('Erro ao copiar'));
+  });
+}
+
+// Cópias no Step 3 de Sucesso
+if (btnCopySuccessPin && proSuccessPin) {
+  btnCopySuccessPin.addEventListener('click', () => {
+    if (proSuccessPin.value && proSuccessPin.value !== '------') {
+      navigator.clipboard.writeText(proSuccessPin.value).then(() => showToast('✓ PIN copiado!'));
+    }
+  });
+}
+if (btnCopySuccessRecovery && proSuccessRecovery) {
+  btnCopySuccessRecovery.addEventListener('click', () => {
+    if (proSuccessRecovery.value && proSuccessRecovery.value !== 'YK------') {
+      navigator.clipboard.writeText(proSuccessRecovery.value).then(() => showToast('✓ Chave Mestra copiada!'));
+    }
+  });
+}
+
+// ── Google Authenticator (TOTP) Opcional ───────────────────
+let currentTotpSetupSecret = '';
+if (proTotpAccordion) {
+  proTotpAccordion.addEventListener('toggle', async () => {
+    if (!proTotpAccordion.open) return;
+    const creds = await IdentityService.getStoredCredentials();
+    if (creds.totpEnabled) return;
+    const idInfo = await IdentityService.getIdentityInfo();
+    if (!currentTotpSetupSecret && idInfo.email) {
+      const totpData = await IdentityService.setupTotp(idInfo.email);
+      currentTotpSetupSecret = totpData.secret;
+      if (imgTotpQr) imgTotpQr.src = totpData.qrUrl;
+      if (inputTotpManualSecret) inputTotpManualSecret.value = totpData.secret;
+    }
+  });
+}
+
+if (btnCopyTotpSecret && inputTotpManualSecret) {
+  btnCopyTotpSecret.addEventListener('click', () => {
+    if (inputTotpManualSecret.value) {
+      navigator.clipboard.writeText(inputTotpManualSecret.value).then(() => showToast('✓ Chave manual 2FA copiada!'));
+    }
+  });
+}
+
+if (btnActivateTotp && inputTotpTestCode) {
+  btnActivateTotp.addEventListener('click', async () => {
+    const code = inputTotpTestCode.value.trim();
+    if (!/^\d{6}$/.test(code)) {
+      showToast('Digite o código de 6 dígitos gerado pelo app');
+      return;
+    }
+    const idInfo = await IdentityService.getIdentityInfo();
+    const config = { supabaseUrl: appSettings ? appSettings.supabaseUrl : '', supabaseKey: appSettings ? appSettings.supabaseKey : '' };
+    const res = await IdentityService.verifyAndEnableTotp(config, idInfo.email, currentTotpSetupSecret, code);
+    if (res.success) {
+      showToast('✓ ' + res.message);
+      inputTotpTestCode.value = '';
+      await updateProStatusUI(true);
+    } else {
+      showToast('⚠️ ' + res.error);
+    }
+  });
+}
+
+if (btnDisableTotp) {
+  btnDisableTotp.addEventListener('click', async () => {
+    await IdentityService.disableTotp();
+    currentTotpSetupSecret = '';
+    showToast('2FA desativado com sucesso.');
+    await updateProStatusUI(true);
+  });
 }
 
 // ── Helpers de Formatação e UI ────────────────────────────

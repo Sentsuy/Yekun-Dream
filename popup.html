@@ -254,6 +254,68 @@
                   </button>
                 </div>
 
+                <!-- Painel de Chaves de Acesso e Segurança (Exibido quando PRO estiver ativo) -->
+                <div class="pro-active-security-card hidden" id="proActiveSecurityCard">
+                  <div class="pro-security-header">
+                    <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    <span>Suas Chaves de Acesso PRO</span>
+                  </div>
+
+                  <div class="pro-security-field">
+                    <div class="pro-security-label-row">
+                      <span class="pro-security-label">PIN DE ACESSO (6 DÍGITOS)</span>
+                      <button type="button" class="btn-subtle-toggle" id="btnToggleRevealPin">Mostrar</button>
+                    </div>
+                    <div class="pro-security-input-row">
+                      <input type="password" class="field-input pro-secret-input" id="inputDisplayProPin" readonly value="••••••" />
+                      <button type="button" class="btn-copy-pix btn-copy-cred" id="btnCopyDisplayPin" title="Copiar PIN">
+                        <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        <span>Copiar</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="pro-security-field">
+                    <div class="pro-security-label-row">
+                      <span class="pro-security-label">CHAVE MESTRA DE RECUPERAÇÃO</span>
+                      <button type="button" class="btn-subtle-toggle" id="btnToggleRevealRecovery">Mostrar</button>
+                    </div>
+                    <div class="pro-security-input-row">
+                      <input type="password" class="field-input pro-secret-input" id="inputDisplayProRecovery" readonly value="•••••••••••••••••••" />
+                      <button type="button" class="btn-copy-pix btn-copy-cred" id="btnCopyDisplayRecovery" title="Copiar Chave Mestra">
+                        <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        <span>Copiar</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Google Authenticator (TOTP) Opcional -->
+                  <details class="pro-totp-accordion" id="proTotpAccordion">
+                    <summary class="pro-totp-summary">
+                      <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                      <span id="lblTotpStatus">Configurar Google Authenticator (2FA)</span>
+                    </summary>
+                    <div class="pro-totp-content" id="proTotpContent">
+                      <p class="pro-totp-desc">Escaneie o QR Code no app Google Authenticator / 1Password ou use a chave manual abaixo.</p>
+                      <div class="pro-totp-qr-wrap" id="proTotpQrWrap">
+                        <img id="imgTotpQr" class="pro-totp-qr-img" alt="QR Code Google Authenticator" src="" />
+                      </div>
+                      <div class="pro-totp-secret-row">
+                        <input type="text" class="field-input pro-totp-secret-input" id="inputTotpManualSecret" readonly />
+                        <button type="button" class="btn-copy-pix btn-copy-cred" id="btnCopyTotpSecret">Copiar</button>
+                      </div>
+                      <div class="pro-totp-verify-row" id="proTotpVerifyRow">
+                        <input type="text" class="field-input" id="inputTotpTestCode" maxlength="6" inputmode="numeric" placeholder="Código de 6 dígitos" />
+                        <button type="button" class="btn-save btn-sm" id="btnActivateTotp">Ativar 2FA</button>
+                      </div>
+                      <div class="pro-totp-active-row hidden" id="proTotpActiveRow">
+                        <span class="pro-totp-badge">✓ 2FA Ativo</span>
+                        <button type="button" class="btn-subtle-link" id="btnDisableTotp">Desativar 2FA</button>
+                      </div>
+                    </div>
+                  </details>
+                </div>
+
                 <!-- Código Opcional / Legado em Accordion Colapsado -->
                 <details class="pro-pin-accordion" id="proPinAccordion">
                   <summary class="pro-pin-summary">
@@ -859,6 +921,36 @@
           </div>
           <h4 class="pro-success-title">Bem-vindo ao Yekun PRO!</h4>
           <p class="pro-success-text">Sua assinatura está ativa até <strong id="proSuccessValidUntil">—</strong></p>
+
+          <div class="pro-credentials-box" id="proSuccessCredentialsBox">
+            <div class="pro-credential-item">
+              <span class="pro-cred-label">SEU PIN DE ACESSO (6 DÍGITOS)</span>
+              <div class="pro-cred-row">
+                <input type="text" class="field-input pro-cred-input" id="proSuccessPin" readonly value="------" />
+                <button type="button" class="btn-copy-pix btn-copy-cred" id="btnCopySuccessPin" title="Copiar PIN">
+                  <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                  <span>Copiar</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="pro-credential-item">
+              <span class="pro-cred-label">CHAVE MESTRA DE RECUPERAÇÃO</span>
+              <div class="pro-cred-row">
+                <input type="text" class="field-input pro-cred-input" id="proSuccessRecovery" readonly value="YK------" />
+                <button type="button" class="btn-copy-pix btn-copy-cred" id="btnCopySuccessRecovery" title="Copiar Chave Mestra">
+                  <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                  <span>Copiar</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="pro-cred-warning">
+              <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+              <span><strong>Guarde suas chaves com segurança.</strong> Em novos computadores, apenas o e-mail não será aceito sem o PIN ou a Chave Mestra.</span>
+            </div>
+          </div>
+
           <button class="btn-save" id="btnCloseSuccess" type="button">Começar a usar</button>
         </div>
 
@@ -873,6 +965,27 @@
 
         <div class="modal-actions">
           <button class="btn-modal-cancel" id="btnCloseProModal" type="button">Fechar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Autorização de Acesso PRO (Novo Dispositivo) -->
+    <div class="modal-overlay" id="modalVerifyProAccess">
+      <div class="modal-box modal-verify-box">
+        <div class="modal-icon" style="color: var(--accent);">
+          <svg class="svg-icon svg-lg" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        </div>
+        <h3 class="modal-title">Autorização Yekun PRO</h3>
+        <p class="modal-text text-xs" id="verifyProAccessEmailDesc">Esta conta possui assinatura PRO. Informe o PIN de 6 dígitos ou sua Chave Mestra de Recuperação para liberar o acesso neste dispositivo.</p>
+
+        <div class="field-group" style="margin-top: 12px; width: 100%;">
+          <label class="field-label">PIN (6 DÍGITOS) OU CHAVE MESTRA</label>
+          <input class="field-input text-center" id="inputVerifyProSecret" type="text" placeholder="ex: 839204 ou YK-XXXX…" autocomplete="off" />
+        </div>
+
+        <div class="modal-actions" style="margin-top: 14px;">
+          <button class="btn-modal-cancel" id="btnCancelVerifyPro" type="button">Cancelar</button>
+          <button class="btn-save" id="btnConfirmVerifyPro" type="button">Autorizar PRO</button>
         </div>
       </div>
     </div>
@@ -916,10 +1029,13 @@
           <h4 class="pro-terms-heading">7. Segurança e infraestrutura</h4>
           <p>Dados em trânsito via HTTPS/TLS. Armazenamento operado pelo <strong>Supabase</strong> (sub-processador). Jurisdição aplicável: República Federativa do Brasil, foro da comarca de residência do titular.</p>
 
-          <h4 class="pro-terms-heading">8. Idade mínima</h4>
+          <h4 class="pro-terms-heading">8. Guarda do PIN, Chave de Recuperação e 2FA</h4>
+          <p>A guarda e preservação do <strong>PIN de Acesso (6 dígitos)</strong>, da <strong>Chave Mestra de Recuperação</strong> e de eventuais credenciais de autenticação em dois fatores (ex: <strong>Google Authenticator</strong>) são de <strong>inteira e exclusiva responsabilidade do usuário</strong>. O usuário reconhece expressamente que a perda simultânea do PIN e da Chave de Recuperação impede a validação manual de sua conta PRO em novos dispositivos.</p>
+
+          <h4 class="pro-terms-heading">9. Idade mínima</h4>
           <p>18 anos, ou menor assistido/representado por responsável legal, nos termos do art. 14 da LGPD.</p>
 
-          <h4 class="pro-terms-heading">9. Alterações nestes termos</h4>
+          <h4 class="pro-terms-heading">10. Alterações nestes termos</h4>
           <p>Mudanças materiais exigem novo aceite. A versão vigente é mostrada no topo deste modal. Alterações menores (correção de erro de digitação, melhoria editorial) não exigem reaceite.</p>
         </div>
 

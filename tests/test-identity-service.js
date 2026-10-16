@@ -98,6 +98,33 @@ const { IdentityService } = require('../identity-service');
   assert.strictEqual(typeof swCtx.IdentityService, 'object');
   assert.strictEqual(typeof swCtx.IdentityService.checkProStatus, 'function');
 
+  console.log('Testing stored credentials management...');
+  await IdentityService.saveStoredCredentials({
+    accessPin: '839204',
+    recoveryKey: 'YK-ABCD-EF01-2345',
+    totpSecret: 'JBSWY3DPEHPK3PXP',
+    totpEnabled: true
+  });
+  const creds = await IdentityService.getStoredCredentials();
+  assert.strictEqual(creds.accessPin, '839204');
+  assert.strictEqual(creds.recoveryKey, 'YK-ABCD-EF01-2345');
+  assert.strictEqual(creds.totpSecret, 'JBSWY3DPEHPK3PXP');
+  assert.strictEqual(creds.totpEnabled, true);
+
+  await IdentityService.clearStoredCredentials();
+  const cleared = await IdentityService.getStoredCredentials();
+  assert.strictEqual(cleared.accessPin, '');
+  assert.strictEqual(cleared.recoveryKey, '');
+  assert.strictEqual(cleared.totpEnabled, false);
+
+  console.log('Testing TotpUtil secret generation and URL...');
+  const secret = IdentityService.Totp.generateSecret(16);
+  assert.strictEqual(secret.length, 16);
+  assert.ok(/^[A-Z2-7]+$/.test(secret), 'Secret must be valid Base32');
+  const otpUrl = IdentityService.Totp.getOtpAuthUrl('user@domain.com', secret);
+  assert.ok(otpUrl.includes('otpauth://totp/'));
+  assert.ok(otpUrl.includes(secret));
+
   console.log('✓ test-identity-service passed');
   process.exit(0);
 })();
