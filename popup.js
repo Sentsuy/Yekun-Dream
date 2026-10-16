@@ -2294,6 +2294,9 @@ async function openProModal() {
   }
   goToProStep(1);
   modalProPix.classList.add('open');
+  const modalBox = modalProPix.querySelector('.modal-pro-box');
+  if (modalBox) modalBox.scrollTop = 0;
+  modalProPix.scrollTop = 0;
 
   try {
     const idInfo = await IdentityService.getIdentityInfo();
@@ -2346,8 +2349,24 @@ if (btnOpenProModal) {
   btnOpenProModal.addEventListener('click', () => requireProTermsAccepted(() => openProModal()));
 }
 if (btnCloseProModal) btnCloseProModal.addEventListener('click', closeProModal);
+const btnCloseProModalHeader = document.getElementById('btnCloseProModalHeader');
+if (btnCloseProModalHeader) btnCloseProModalHeader.addEventListener('click', closeProModal);
 if (btnCloseSuccess)  btnCloseSuccess.addEventListener('click', closeProModal);
 if (btnCancelWaiting) btnCancelWaiting.addEventListener('click', () => { stopProPolling(); goToProStep(1); });
+
+if (modalProPix) {
+  modalProPix.addEventListener('click', (e) => {
+    if (e.target === modalProPix) closeProModal();
+  });
+}
+
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modalProPix && modalProPix.classList.contains('open')) {
+      closeProModal();
+    }
+  });
+}
 
 if (btnAlreadyPaid) {
   btnAlreadyPaid.addEventListener('click', () => {

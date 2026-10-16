@@ -783,6 +783,9 @@
             <span class="pro-price-main">R$ 20</span>
             <span class="pro-price-period">/ano</span>
           </div>
+          <button type="button" class="btn-close-pro-x" id="btnCloseProModalHeader" title="Fechar modal" aria-label="Fechar">
+            <svg class="svg-icon svg-sm" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
         </div>
 
         <!-- Benefícios -->
@@ -829,18 +832,15 @@
               <span class="devmode-notice-tag">🧪 MODO DE TESTE (SANDBOX)</span>
             </div>
             <p class="devmode-notice-text">
-              O app do seu banco dá <strong>"QR Code inválido"</strong> porque a chave atual da AbacatePay é de teste (<code>abc_dev_...</code>) e não movimenta dinheiro real no Banco Central.
+              O app do seu banco dá <strong>"QR Code inválido"</strong> porque a chave atual da AbacatePay é de teste (<code>abc_dev_...</code>) e não aceita pagamentos reais.
             </p>
-            <p class="devmode-notice-help">
-              Para validar o fluxo de ativação da extensão agora, use o botão de simular abaixo. Para aceitar pagamentos reais pelo app do banco, altere a chave para produção (<code>abc_live_...</code>).
-            </p>
+            <button class="btn-dev-simulate" id="btnSimulatePayment" type="button">⚡ Simular pagamento aprovado agora</button>
           </div>
 
           <button class="btn-save btn-already-paid" id="btnAlreadyPaid" type="button">
             <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
             <span>Já paguei, confirmar</span>
           </button>
-          <button class="btn-dev-simulate" id="btnSimulatePayment" type="button" style="display:none;">⚡ [TESTE] Simular pagamento aprovado</button>
         </div>
 
         <!-- Step 2: Aguardando -->
