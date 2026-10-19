@@ -42,7 +42,6 @@ const sortFilter         = document.getElementById('sortFilter');
 const btnClearSearch     = document.getElementById('btnClearSearch');
 const entriesList        = document.getElementById('entriesList');
 const emptyState         = document.getElementById('emptyState');
-const entryCount         = document.getElementById('entryCount');
 const toast              = document.getElementById('toast');
 const confirmDeleteModal = document.getElementById('confirmDeleteModal');
 const confirmDeleteText  = document.getElementById('confirmDeleteText');
@@ -2944,14 +2943,33 @@ if (btnConfirmVerifyPro) {
     }
     showToast('Validando autorização…');
     const config = getSupabaseConfig();
-    const res = await IdentityService.verifyProAccess(config, pendingVerifyEmail, secret);
+    const verifiedEmail = pendingVerifyEmail;
+    const res = await IdentityService.verifyProAccess(config, verifiedEmail, secret);
     if (res.success) {
       closeVerifyProAccessModal();
+      const lastDisconnected = await IdentityService.getLastDisconnectedEmail();
+      const isDifferentAccount = Boolean(lastDisconnected && lastDisconnected !== verifiedEmail);
+      await IdentityService.setCustomProEmail(verifiedEmail);
       setProEmailEditingMode(false);
       await updateProStatusUI(true);
       showToast('✓ PRO autorizado com sucesso neste dispositivo!');
+      if (isDifferentAccount) {
+        await IdentityService.clearLastDisconnectedEmail();
+        openSyncAccountPrompt(verifiedEmail);
+      }
     } else {
       showToast('⚠️ ' + (res.error || 'PIN ou Chave incorreta'));
+    }
+  });
+}
+
+if (inputVerifyProSecret) {
+  inputVerifyProSecret.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (btnConfirmVerifyPro) btnConfirmVerifyPro.click();
+    } else if (e.key === 'Escape') {
+      closeVerifyProAccessModal();
     }
   });
 }
@@ -2994,9 +3012,16 @@ if (btnSaveCustomProEmail && inputCustomProEmail) {
             if (creds.accessPin || creds.recoveryKey) {
               const vRes = await IdentityService.verifyProAccess(config, email, creds.accessPin || creds.recoveryKey);
               if (vRes.success) {
+                const lastDisconnected = await IdentityService.getLastDisconnectedEmail();
+                const isDifferentAccount = Boolean(lastDisconnected && lastDisconnected !== email);
+                await IdentityService.setCustomProEmail(email);
                 setProEmailEditingMode(false);
                 await updateProStatusUI(true);
                 showToast('Conta alterada e PRO verificado: ' + email);
+                if (isDifferentAccount) {
+                  await IdentityService.clearLastDisconnectedEmail();
+                  openSyncAccountPrompt(email);
+                }
                 return;
               }
             }
@@ -3114,10 +3139,6 @@ async function executeDisconnectAccount() {
 
   await updateProStatusUI(true);
   showToast('✓ Conta desconectada com sucesso. Suas obras locais foram preservadas!');
-}
-
-async function handleDisconnectAccount() {
-  promptDisconnectAccount();
 }
 
 if (btnCancelConfirmDisconnect) {
@@ -3295,7 +3316,9 @@ function renderTotpQr(totpData, email) {
                   (typeof qrcode !== 'undefined' ? qrcode : null);
     if (qrlib && totpData && (totpData.secret || currentTotpSetupSecret) && qrWrap) {
       const secret = totpData.secret || currentTotpSetupSecret;
-      const otpUrl = TotpUtil.getOtpAuthUrl(email, secret);
+      const otpUrl = (totpData && totpData.otpAuthUrl) ||
+                     (IdentityService.Totp && typeof IdentityService.Totp.getOtpAuthUrl === 'function' ? IdentityService.Totp.getOtpAuthUrl(email, secret) : '') ||
+                     `otpauth://totp/YekunDream:${encodeURIComponent(email)}?secret=${secret}&issuer=YekunDream`;
       const qr = qrlib(0, 'M');
       qr.addData(otpUrl);
       qr.make();
@@ -3390,7 +3413,18 @@ if (imgTotpQr) {
 if (btnCopyTotpSecret && inputTotpManualSecret) {
   btnCopyTotpSecret.addEventListener('click', () => {
     if (inputTotpManualSecret.value) {
-      navigator.clipboard.writeText(inputTotpManualSecret.value).then(() => showToast('✓ Chave manual 2FA copiada!'));
+      navigator.clipboard.writeText(inputTotpManualSecret.value)
+        .then(() => showToast('✓ Chave manual 2FA copiada!'))
+        .catch(() => showToast('Erro ao copiar chave'));
+    }
+  });
+}
+
+if (inputTotpTestCode) {
+  inputTotpTestCode.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (btnActivateTotp) btnActivateTotp.click();
     }
   });
 }
@@ -3616,7 +3650,6 @@ function renderList(
 ) {
   updateNavBadges();
   const list = filterWorks(allWorks, filter, category, sortBy, status);
-  if (entryCount) entryCount.textContent = list.length;
 
   entriesList.querySelectorAll('.entry-card').forEach(c => c.remove());
 

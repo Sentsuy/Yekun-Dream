@@ -909,7 +909,7 @@ const IdentityService = {
     if (!cleanEmail) {
       try {
         const idInfo = await this.getIdentityInfo();
-        cleanEmail = idInfo.email;
+        cleanEmail = (idInfo && idInfo.email) ? idInfo.email : '';
       } catch (_) {}
     }
 
@@ -959,7 +959,7 @@ const IdentityService = {
     // 1. Verifica no cache de credenciais locais
     const creds = await this.getStoredCredentials();
     if (creds.totpEnabled) {
-      if (!creds.totpEmail || creds.totpEmail.trim().toLowerCase() === cleanEmail) {
+      if (creds.totpEmail && creds.totpEmail.trim().toLowerCase() === cleanEmail) {
         return true;
       }
     }
@@ -1016,9 +1016,9 @@ const IdentityService = {
     const cleanEmail = this.normalizeEmail(email);
     const conf = this.resolveConfig(config);
 
-    // 1. Tenta validação local com o segredo se presente
+    // 1. Tenta validação local com o segredo se presente e pertencente ao mesmo e-mail
     const creds = await this.getStoredCredentials();
-    if (creds.totpSecret) {
+    if (creds.totpSecret && (!creds.totpEmail || creds.totpEmail.trim().toLowerCase() === cleanEmail)) {
       const valid = await TotpUtil.verifyToken(code, creds.totpSecret);
       if (valid) {
         return { success: true };

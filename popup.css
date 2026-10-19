@@ -3248,27 +3248,6 @@ input:checked + .slider::before {
   color: var(--text);
 }
 
-.pro-pin-section {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 8px 10px;
-  margin-bottom: 10px;
-}
-
-.pro-pin-label {
-  display: block;
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text);
-  margin-bottom: 6px;
-}
-
-.pro-pin-row {
-  display: flex;
-  gap: 6px;
-}
-
 .pro-pin-input {
   width: 90px;
   height: 32px;
@@ -3287,22 +3266,6 @@ input:checked + .slider::before {
 .pro-pin-input:focus {
   border-color: #ffd700;
   box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.15);
-}
-
-.btn-activate-pin {
-  flex: 1;
-  background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%);
-  color: #1a1a1a;
-  border: none;
-  border-radius: var(--radius);
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all var(--transition);
-}
-.btn-activate-pin:hover {
-  filter: brightness(1.1);
-  transform: translateY(-1px);
 }
 
 .pro-actions-row {
@@ -4244,36 +4207,6 @@ input:checked + .slider::before {
 
 .highlight-pulse {
   animation: highlightPulse 0.8s ease-in-out 2;
-}
-
-/* ── Discreto Accordion de PIN ───────────────────────────── */
-.pro-pin-accordion {
-  margin-top: 12px;
-  padding-top: 8px;
-  border-top: 1px dashed var(--border);
-}
-
-.pro-pin-summary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--muted);
-  cursor: pointer;
-  user-select: none;
-  list-style: none;
-}
-.pro-pin-summary::-webkit-details-marker {
-  display: none;
-}
-.pro-pin-summary:hover {
-  color: var(--text);
-}
-.pro-pin-summary .svg-icon {
-  width: 12px;
-  height: 12px;
-  stroke: currentColor;
 }
 
 .theme-pro-tag {
