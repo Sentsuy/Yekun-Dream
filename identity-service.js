@@ -317,6 +317,7 @@ const IdentityService = {
       await this.setLastDisconnectedEmail(current.email);
     }
     await this.clearCustomProEmail();
+    await this.clearStoredCredentials();
     await this.setUserSignedOut(true);
     try {
       if (typeof chrome !== 'undefined' && chrome.identity && typeof chrome.identity.clearAllCachedAuthTokens === 'function') {
@@ -595,11 +596,12 @@ const IdentityService = {
         };
       }
 
-      if ((result.access_pin && !creds.accessPin) || (result.recovery_key && !creds.recoveryKey)) {
+      if ((result.access_pin && !creds.accessPin) || (result.recovery_key && !creds.recoveryKey) || (result.totp_enabled !== undefined && !creds.totpEnabled && result.totp_enabled)) {
         await this.saveStoredCredentials({
           accessPin: creds.accessPin || result.access_pin || '',
           recoveryKey: creds.recoveryKey || result.recovery_key || '',
-          totpEnabled: creds.totpEnabled || !!result.totp_enabled
+          totpEnabled: creds.totpEnabled || !!result.totp_enabled,
+          totpEmail: creds.totpEmail || email
         });
       }
 
@@ -845,15 +847,77 @@ const IdentityService = {
     if (!valid) {
       return { success: false, error: 'Código de 6 dígitos inválido ou expirado. Verifique o relógio do seu celular.' };
     }
+    const cleanEmail = this.normalizeEmail(email);
+
+    if (config && config.supabaseUrl && config.supabaseKey && cleanEmail) {
+      try {
+        const url = `${config.supabaseUrl}/rest/v1/rpc/set_totp_security`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': config.supabaseKey,
+            'Authorization': `Bearer ${config.supabaseKey}`
+          },
+          body: JSON.stringify({
+            p_email: cleanEmail,
+            p_secret: secret,
+            p_enabled: true
+          })
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          console.debug('[IdentityService] Falha ao persistir 2FA no Supabase:', res.status, errText);
+        }
+      } catch (err) {
+        console.debug('[IdentityService] Erro ao sincronizar 2FA:', err.message);
+      }
+    }
+
     await this.saveStoredCredentials({
       totpSecret: secret,
       totpEnabled: true,
-      totpEmail: email || ''
+      totpEmail: cleanEmail || ''
     });
     return { success: true, message: 'Google Authenticator ativado com sucesso!' };
   },
 
-  async disableTotp() {
+  async disableTotp(config, email) {
+    let cleanEmail = '';
+    if (typeof config === 'string') {
+      cleanEmail = this.normalizeEmail(config);
+      config = null;
+    } else if (email) {
+      cleanEmail = this.normalizeEmail(email);
+    }
+    if (!cleanEmail) {
+      try {
+        const idInfo = await this.getIdentityInfo();
+        cleanEmail = idInfo.email;
+      } catch (_) {}
+    }
+
+    if (config && config.supabaseUrl && config.supabaseKey && cleanEmail) {
+      try {
+        const url = `${config.supabaseUrl}/rest/v1/rpc/set_totp_security`;
+        await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': config.supabaseKey,
+            'Authorization': `Bearer ${config.supabaseKey}`
+          },
+          body: JSON.stringify({
+            p_email: cleanEmail,
+            p_secret: '',
+            p_enabled: false
+          })
+        });
+      } catch (err) {
+        console.debug('[IdentityService] Erro ao desativar 2FA no Supabase:', err.message);
+      }
+    }
+
     await this.saveStoredCredentials({
       totpSecret: '',
       totpEnabled: false,
@@ -862,26 +926,135 @@ const IdentityService = {
     return { success: true };
   },
 
-  async isTotpRequiredForEmail(email) {
-    if (!email) return false;
-    const creds = await this.getStoredCredentials();
-    if (!creds.totpEnabled || !creds.totpSecret) return false;
-    if (creds.totpEmail) {
-      return creds.totpEmail.trim().toLowerCase() === String(email).trim().toLowerCase();
+  async isTotpRequiredForEmail(configOrEmail, maybeEmail) {
+    let config = null;
+    let email = '';
+    if (typeof configOrEmail === 'string') {
+      email = configOrEmail;
+      config = null;
+    } else if (configOrEmail && typeof configOrEmail === 'object') {
+      config = configOrEmail;
+      email = maybeEmail || '';
     }
-    return true;
+    const cleanEmail = this.normalizeEmail(email);
+    if (!cleanEmail) return false;
+
+    const creds = await this.getStoredCredentials();
+    if (creds.totpEnabled) {
+      if (!creds.totpEmail || creds.totpEmail.trim().toLowerCase() === cleanEmail) {
+        return true;
+      }
+    }
+
+    if (config && config.supabaseUrl && config.supabaseKey) {
+      try {
+        const url = `${config.supabaseUrl}/rest/v1/rpc/check_pro_status`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': config.supabaseKey,
+            'Authorization': `Bearer ${config.supabaseKey}`
+          },
+          body: JSON.stringify({ p_email: cleanEmail })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.totp_enabled) {
+            return true;
+          }
+        }
+      } catch (err) {
+        console.debug('[IdentityService] Erro ao checar 2FA no Supabase:', err.message);
+      }
+    }
+
+    return false;
   },
 
-  async verifyTotpLogin(code) {
+  async verifyTotpLogin(arg1, arg2, arg3) {
+    let config = null;
+    let email = '';
+    let code = '';
+
+    if (arg3 !== undefined) {
+      config = arg1;
+      email = arg2;
+      code = String(arg3 || '').trim();
+    } else if (arg2 !== undefined) {
+      if (typeof arg1 === 'string' && /@/.test(arg1)) {
+        email = arg1;
+        code = String(arg2 || '').trim();
+      } else {
+        config = arg1;
+        code = String(arg2 || '').trim();
+      }
+    } else {
+      code = String(arg1 || '').trim();
+    }
+
+    const cleanEmail = this.normalizeEmail(email);
+
+    // 1. Tenta validação local com o segredo se presente
     const creds = await this.getStoredCredentials();
-    if (!creds.totpEnabled || !creds.totpSecret) {
+    if (creds.totpSecret) {
+      const valid = await TotpUtil.verifyToken(code, creds.totpSecret);
+      if (valid) {
+        return { success: true };
+      }
+      if (!config || !config.supabaseUrl || !config.supabaseKey || !cleanEmail) {
+        return { success: false, error: 'Código 2FA inválido ou expirado. Verifique o relógio do seu celular.' };
+      }
+    }
+
+    // 2. Validação remota no Supabase via RPC verify_totp_login
+    if (config && config.supabaseUrl && config.supabaseKey && cleanEmail) {
+      try {
+        const url = `${config.supabaseUrl}/rest/v1/rpc/verify_totp_login`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': config.supabaseKey,
+            'Authorization': `Bearer ${config.supabaseKey}`
+          },
+          body: JSON.stringify({
+            p_email: cleanEmail,
+            p_code: code
+          })
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          return { success: false, error: `Falha na verificação 2FA (${res.status}): ${errText}` };
+        }
+
+        const data = await res.json();
+        if (data && data.success) {
+          await this.saveStoredCredentials({
+            totpSecret: data.totp_secret || creds.totpSecret || '',
+            totpEnabled: true,
+            totpEmail: cleanEmail,
+            accessPin: data.access_pin || creds.accessPin || '',
+            recoveryKey: data.recovery_key || creds.recoveryKey || ''
+          });
+          return { success: true };
+        } else {
+          return {
+            success: false,
+            error: (data && data.error) || 'Código 2FA incorreto ou expirado.'
+          };
+        }
+      } catch (err) {
+        return { success: false, error: `Erro de conexão 2FA: ${err.message}` };
+      }
+    }
+
+    if (!creds.totpEnabled && !creds.totpSecret) {
       return { success: true };
     }
-    const valid = await TotpUtil.verifyToken(code, creds.totpSecret);
-    if (!valid) {
-      return { success: false, error: 'Código 2FA inválido ou expirado. Verifique o relógio do seu celular.' };
-    }
-    return { success: true };
+
+    return { success: false, error: 'Código 2FA inválido ou expirado.' };
   },
 
   async getCachedProStatus(email, ignoreTtl = false) {

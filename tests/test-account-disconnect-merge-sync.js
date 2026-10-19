@@ -224,32 +224,81 @@ global.chrome = {
   assert.ok(popupCss.includes('.pro-totp-qr-hint'), 'popup.css deve estilizar .pro-totp-qr-hint');
   assert.ok(popupCss.includes('.pro-totp-qr-wrap svg'), 'popup.css deve conter estilos para SVG vetorial em .pro-totp-qr-wrap');
 
-  // Ativação opcional com verificação de token
+  // Ativação opcional com verificação de token e persistência no Supabase
+  const testConfig = { supabaseUrl: 'https://mock.supabase.co', supabaseKey: 'test-key' };
+  let supabaseCalls = [];
+  const totpFetch = async (url, options = {}) => {
+    const body = options.body ? JSON.parse(options.body) : {};
+    supabaseCalls.push({ url, body });
+    if (url.includes('/rest/v1/rpc/set_totp_security')) {
+      return { ok: true, json: async () => ({ success: true, email: body.p_email, totp_enabled: body.p_enabled }) };
+    }
+    if (url.includes('/rest/v1/rpc/check_pro_status')) {
+      const isKnown = body.p_email === 'leitor@gmail.com';
+      return { ok: true, json: async () => ({ isPro: isKnown, validUntil: Date.now() + 86400000, plan: 'annual', totp_enabled: isKnown }) };
+    }
+    if (url.includes('/rest/v1/rpc/verify_totp_login')) {
+      if (body.p_code === '000000') {
+        return { ok: true, json: async () => ({ success: false, error: 'Código 2FA incorreto ou expirado.' }) };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          email: body.p_email,
+          totp_enabled: true,
+          totp_secret: totpSetup.secret,
+          access_pin: '123456',
+          recovery_key: 'YK-ABCD-EFGH-IJKL'
+        })
+      };
+    }
+    return { ok: true, json: async () => ({}) };
+  };
+
+  const savedFetch = global.fetch;
+  global.fetch = totpFetch;
+
   const validToken = await IdentityService.Totp.generateToken(totpSetup.secret);
-  const enableRes = await IdentityService.verifyAndEnableTotp({}, 'leitor@gmail.com', totpSetup.secret, validToken);
+  const enableRes = await IdentityService.verifyAndEnableTotp(testConfig, 'leitor@gmail.com', totpSetup.secret, validToken);
   assert.strictEqual(enableRes.success, true);
   const credsWithTotp = await IdentityService.getStoredCredentials();
   assert.strictEqual(credsWithTotp.totpEnabled, true);
+  assert.ok(supabaseCalls.some(c => c.url.includes('set_totp_security') && c.body.p_enabled === true), 'Deve chamar set_totp_security no Supabase com p_enabled=true');
 
-  // Verifica desafio de 2FA obrigatório no login
-  const isReq1 = await IdentityService.isTotpRequiredForEmail('leitor@gmail.com');
+  // Verifica desafio de 2FA obrigatório no login (local e remoto)
+  const isReq1 = await IdentityService.isTotpRequiredForEmail(testConfig, 'leitor@gmail.com');
   assert.strictEqual(isReq1, true, 'isTotpRequiredForEmail deve ser true para conta com 2FA ativado');
-  const isReq2 = await IdentityService.isTotpRequiredForEmail('desconhecido@gmail.com');
+  const isReq2 = await IdentityService.isTotpRequiredForEmail(testConfig, 'desconhecido@gmail.com');
   assert.strictEqual(isReq2, false, 'isTotpRequiredForEmail deve ser false para conta diferente');
 
-  // Validação do token de login
-  const loginToken = await IdentityService.Totp.generateToken(totpSetup.secret);
-  const loginRes = await IdentityService.verifyTotpLogin(loginToken);
-  assert.strictEqual(loginRes.success, true, 'verifyTotpLogin deve ter sucesso com token válido');
-  const badLoginRes = await IdentityService.verifyTotpLogin('000000');
+  // Simula desconexão: limpa credenciais locais
+  await IdentityService.clearStoredCredentials();
+  const clearedCreds = await IdentityService.getStoredCredentials();
+  assert.strictEqual(clearedCreds.totpEnabled, false);
+  assert.strictEqual(clearedCreds.totpSecret, '');
+
+  // Mesmo com credenciais locais limpas, isTotpRequiredForEmail consulta o Supabase e detecta 2FA ativo no banco
+  const isReqRemote = await IdentityService.isTotpRequiredForEmail(testConfig, 'leitor@gmail.com');
+  assert.strictEqual(isReqRemote, true, 'isTotpRequiredForEmail deve consultar banco e identificar 2FA ativo após desconexão');
+
+  // Validação remota do token de login restaura credenciais
+  const remoteLoginRes = await IdentityService.verifyTotpLogin(testConfig, 'leitor@gmail.com', validToken);
+  assert.strictEqual(remoteLoginRes.success, true, 'verifyTotpLogin deve autenticar via Supabase e restaurar credenciais');
+  const restoredCreds = await IdentityService.getStoredCredentials();
+  assert.strictEqual(restoredCreds.totpEnabled, true, 'Credencial totpEnabled deve ser restaurada após login');
+  assert.strictEqual(restoredCreds.totpSecret, totpSetup.secret, 'totpSecret deve ser restaurado após login');
+
+  const badLoginRes = await IdentityService.verifyTotpLogin(testConfig, 'leitor@gmail.com', '000000');
   assert.strictEqual(badLoginRes.success, false, 'verifyTotpLogin deve falhar com token incorreto');
 
-  // Desativação
-  await IdentityService.disableTotp();
+  // Desativação sincroniza com Supabase
+  await IdentityService.disableTotp(testConfig, 'leitor@gmail.com');
   const credsDisabled = await IdentityService.getStoredCredentials();
   assert.strictEqual(credsDisabled.totpEnabled, false);
-  const isReqAfterDisable = await IdentityService.isTotpRequiredForEmail('leitor@gmail.com');
-  assert.strictEqual(isReqAfterDisable, false, 'isTotpRequiredForEmail deve ser false após desativar 2FA');
+  assert.ok(supabaseCalls.some(c => c.url.includes('set_totp_security') && c.body.p_enabled === false), 'Deve chamar set_totp_security no Supabase com p_enabled=false');
+
+  global.fetch = savedFetch;
 
   // Verifica modalTotpLogin no HTML e remoção do código de ativação legado
   assert.ok(popupHtml.includes('id="modalTotpLogin"'), 'popup.html deve conter #modalTotpLogin');

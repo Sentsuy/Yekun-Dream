@@ -350,7 +350,239 @@ BEGIN
 END;
 $$;
 
--- ── 7. Permissões e Segurança de Execução (GRANTS & REVOKES) ──────────────
+-- ── 7. Helpers Internos de Decodificação Base32 e HMAC para 2FA ───────────
+CREATE OR REPLACE FUNCTION _base32_decode(p_b32 TEXT)
+RETURNS BYTEA
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+DECLARE
+    v_clean TEXT := upper(regexp_replace(coalesce(p_b32, ''), '[^A-Z2-7]', '', 'g'));
+    v_len   INT := length(v_clean);
+    v_bytes BYTEA := '';
+    v_buffer INT := 0;
+    v_bits  INT := 0;
+    v_char  CHAR;
+    v_val   INT;
+    i       INT;
+BEGIN
+    FOR i IN 1..v_len LOOP
+        v_char := substr(v_clean, i, 1);
+        IF v_char >= 'A' AND v_char <= 'Z' THEN
+            v_val := ascii(v_char) - 65;
+        ELSIF v_char >= '2' AND v_char <= '7' THEN
+            v_val := ascii(v_char) - 50 + 26;
+        ELSE
+            CONTINUE;
+        END IF;
+
+        v_buffer := (v_buffer << 5) | v_val;
+        v_bits := v_bits + 5;
+
+        IF v_bits >= 8 THEN
+            v_bits := v_bits - 8;
+            v_bytes := v_bytes || set_byte('\x00'::bytea, 0, (v_buffer >> v_bits) & 255);
+        END IF;
+    END LOOP;
+    RETURN v_bytes;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION _int_to_big_endian_8bytes(p_val BIGINT)
+RETURNS BYTEA
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+DECLARE
+    v_b BYTEA := '\x0000000000000000'::bytea;
+    v_tmp BIGINT := p_val;
+    i INT;
+BEGIN
+    FOR i IN REVERSE 7..0 LOOP
+        v_b := set_byte(v_b, i, (v_tmp & 255)::int);
+        v_tmp := v_tmp >> 8;
+    END LOOP;
+    RETURN v_b;
+END;
+$$;
+
+-- ── 8. RPC set_totp_security: ativação / desativação do 2FA no Supabase ────
+CREATE OR REPLACE FUNCTION set_totp_security(
+    p_email   TEXT,
+    p_secret  TEXT,
+    p_enabled BOOLEAN
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_email TEXT;
+    v_now   BIGINT;
+BEGIN
+    v_email := lower(trim(coalesce(p_email, '')));
+    v_now   := (extract(epoch from now()) * 1000)::bigint;
+
+    IF v_email = '' OR v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]{2,}$' THEN
+        RETURN jsonb_build_object('success', false, 'error', 'E-mail inválido.');
+    END IF;
+
+    UPDATE subscriptions
+    SET totp_secret  = CASE WHEN p_enabled THEN trim(p_secret) ELSE NULL END,
+        totp_enabled = coalesce(p_enabled, false),
+        updated_at   = v_now
+    WHERE email = v_email;
+
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Nenhuma assinatura encontrada para este e-mail.');
+    END IF;
+
+    RETURN jsonb_build_object(
+        'success',      true,
+        'email',        v_email,
+        'totp_enabled', coalesce(p_enabled, false)
+    );
+END;
+$$;
+
+-- ── 9. RPC verify_totp_login: validação de token do Google Authenticator ───
+CREATE OR REPLACE FUNCTION verify_totp_login(
+    p_email TEXT,
+    p_code  TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_email        TEXT;
+    v_code         TEXT;
+    v_sub          RECORD;
+    v_now          BIGINT;
+    v_recent_tries INT;
+    v_counter      BIGINT;
+    v_secret_bytes BYTEA;
+    v_data_bytes   BYTEA;
+    v_hmac         BYTEA;
+    v_offset       INT;
+    v_bin_code     BIGINT;
+    v_expected     TEXT;
+    v_step         BIGINT;
+    v_matched      BOOLEAN := FALSE;
+BEGIN
+    v_now   := (extract(epoch from now()) * 1000)::bigint;
+    v_email := lower(trim(coalesce(p_email, '')));
+    v_code  := regexp_replace(coalesce(p_code, ''), '\s+', '', 'g');
+
+    IF v_email = '' OR v_code = '' OR length(v_code) != 6 THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Informe o e-mail e o código de 6 dígitos.');
+    END IF;
+
+    -- Rate limiting: máx 5 tentativas a cada 10 min
+    SELECT count(*) INTO v_recent_tries
+    FROM   pin_attempts
+    WHERE  identifier = v_email
+      AND  attempted_at > (v_now - 10 * 60 * 1000);
+
+    IF v_recent_tries >= 5 THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error',   'Muitas tentativas incorretas. Aguarde 10 minutos por segurança.'
+        );
+    END IF;
+
+    INSERT INTO pin_attempts (identifier, attempted_at) VALUES (v_email, v_now);
+
+    SELECT * INTO v_sub
+    FROM subscriptions
+    WHERE email = v_email
+      AND status = 'active'
+      AND valid_until > v_now;
+
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Nenhuma assinatura ativa encontrada.');
+    END IF;
+
+    IF coalesce(v_sub.totp_enabled, false) = false OR v_sub.totp_secret IS NULL OR trim(v_sub.totp_secret) = '' THEN
+        DELETE FROM pin_attempts WHERE identifier = v_email;
+        RETURN jsonb_build_object('success', true, 'totp_enabled', false);
+    END IF;
+
+    -- Validação do TOTP usando HMAC-SHA1 com janela de ±1 passo (30s)
+    v_secret_bytes := _base32_decode(v_sub.totp_secret);
+    v_counter      := floor((v_now / 1000) / 30)::bigint;
+
+    FOR v_step IN (v_counter - 1)..(v_counter + 1) LOOP
+        v_data_bytes := _int_to_big_endian_8bytes(v_step);
+        v_hmac       := hmac(v_data_bytes, v_secret_bytes, 'sha1');
+        v_offset     := (get_byte(v_hmac, 19) & 15);
+        v_bin_code   := ((get_byte(v_hmac, v_offset) & 127) << 24)
+                      | ((get_byte(v_hmac, v_offset + 1) & 255) << 16)
+                      | ((get_byte(v_hmac, v_offset + 2) & 255) << 8)
+                      | (get_byte(v_hmac, v_offset + 3) & 255);
+        v_expected   := lpad((v_bin_code % 1000000)::text, 6, '0');
+
+        IF v_expected = v_code THEN
+            v_matched := TRUE;
+            EXIT;
+        END IF;
+    END LOOP;
+
+    IF v_matched THEN
+        DELETE FROM pin_attempts WHERE identifier = v_email;
+        RETURN jsonb_build_object(
+            'success',      true,
+            'email',        v_sub.email,
+            'totp_enabled', true,
+            'totp_secret',  v_sub.totp_secret,
+            'access_pin',   v_sub.access_pin,
+            'recovery_key', v_sub.recovery_key
+        );
+    END IF;
+
+    RETURN jsonb_build_object('success', false, 'error', 'Código 2FA incorreto ou expirado.');
+END;
+$$;
+
+-- ── 10. RPC check_pro_status com suporte a totp_enabled ───────────────────
+CREATE OR REPLACE FUNCTION check_pro_status(p_email TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_sub      RECORD;
+    v_now      BIGINT;
+    v_email    TEXT;
+BEGIN
+    v_now   := (extract(epoch from now()) * 1000)::bigint;
+    v_email := lower(trim(coalesce(p_email, '')));
+
+    IF v_email = '' OR v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]{2,}$' THEN
+        RETURN jsonb_build_object('isPro', false, 'error', 'E-mail inválido.');
+    END IF;
+
+    SELECT status, valid_until, plan, totp_enabled
+    INTO   v_sub
+    FROM   subscriptions
+    WHERE  email = v_email
+      AND  status = 'active'
+      AND  valid_until > v_now;
+
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('isPro', false, 'validUntil', 0, 'plan', 'none', 'totp_enabled', false);
+    END IF;
+
+    RETURN jsonb_build_object(
+        'isPro',        true,
+        'validUntil',   v_sub.valid_until,
+        'plan',         v_sub.plan,
+        'totp_enabled', coalesce(v_sub.totp_enabled, false)
+    );
+END;
+$$;
+
+-- ── 11. Permissões e Segurança de Execução (GRANTS & REVOKES) ─────────────
 
 -- SEGURANÇA MÁXIMA: Fecha a brecha que permitia aprovar pagamentos pelo front
 REVOKE EXECUTE ON FUNCTION approve_from_gateway(TEXT, TEXT, NUMERIC, TEXT) FROM anon;
@@ -366,3 +598,5 @@ GRANT EXECUTE ON FUNCTION simulate_dev_payment(TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION expire_old_requests() TO anon;
 GRANT EXECUTE ON FUNCTION check_pro_status(TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION redeem_activation_pin(TEXT, TEXT) TO anon;
+GRANT EXECUTE ON FUNCTION set_totp_security(TEXT, TEXT, BOOLEAN) TO anon;
+GRANT EXECUTE ON FUNCTION verify_totp_login(TEXT, TEXT) TO anon;

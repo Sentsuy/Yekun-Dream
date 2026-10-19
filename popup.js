@@ -1239,7 +1239,8 @@ async function updateProStatusUI(forceRefresh = false) {
         }
 
         // TOTP status
-        if (creds.totpEnabled) {
+        const isTotpActive = Boolean(creds.totpEnabled || (status && status.totpEnabled));
+        if (isTotpActive) {
           if (lblTotpStatus) lblTotpStatus.textContent = 'Google Authenticator (2FA Ativo)';
           if (proTotpActiveRow) proTotpActiveRow.classList.remove('hidden');
           if (proTotpVerifyRow) proTotpVerifyRow.classList.add('hidden');
@@ -2371,10 +2372,12 @@ btnSyncNow.addEventListener('click', () => requireProTermsAccepted(async () => {
 
 // ── Modal de Verificação 2FA (TOTP) no Login ──────────────
 let pendingTotpLoginResolve = null;
+let pendingTotpLoginEmail = '';
 
 function openTotpLoginModal(email) {
   return new Promise(resolve => {
     pendingTotpLoginResolve = resolve;
+    pendingTotpLoginEmail = email || '';
     if (totpLoginDesc) {
       totpLoginDesc.innerHTML = `Esta conta possui proteção 2FA ativa. Digite o código de 6 dígitos gerado no <strong>Google Authenticator</strong> para autorizar o login de <strong>${email}</strong>.`;
     }
@@ -2416,7 +2419,11 @@ if (btnConfirmTotpLogin) {
       if (inputTotpLoginCode) inputTotpLoginCode.focus();
       return;
     }
-    const res = await IdentityService.verifyTotpLogin(code);
+    const config = {
+      supabaseUrl: appSettings ? appSettings.supabaseUrl : '',
+      supabaseKey: appSettings ? appSettings.supabaseKey : ''
+    };
+    const res = await IdentityService.verifyTotpLogin(config, pendingTotpLoginEmail, code);
     if (res && res.success) {
       showToast('✓ 2FA verificado com sucesso!');
       closeTotpLoginModal(true);
@@ -2454,11 +2461,16 @@ if (btnConnectGoogle) {
       }
 
       if (res && res.success && res.email) {
+        const config = {
+          supabaseUrl: appSettings ? appSettings.supabaseUrl : '',
+          supabaseKey: appSettings ? appSettings.supabaseKey : ''
+        };
         // Se a conta tem 2FA ativado, exige validação antes de autenticar
-        const needsTotp = await IdentityService.isTotpRequiredForEmail(res.email);
+        const needsTotp = await IdentityService.isTotpRequiredForEmail(config, res.email);
         if (needsTotp) {
           const authorized = await openTotpLoginModal(res.email);
           if (!authorized) {
+            await IdentityService.signOutGoogle();
             showToast('Login cancelado: 2FA não confirmado');
             return;
           }
@@ -2474,10 +2486,6 @@ if (btnConnectGoogle) {
 
         await IdentityService.setCustomProEmail(res.email, 'google');
 
-        const config = {
-          supabaseUrl: appSettings ? appSettings.supabaseUrl : '',
-          supabaseKey: appSettings ? appSettings.supabaseKey : ''
-        };
         const status = await IdentityService.checkProStatus(config, true);
         await updateProStatusUI(true);
         showToast('✓ Conectado como ' + res.email + (status && status.isPro ? ' (PRO Ativo)' : ''));
@@ -2937,7 +2945,8 @@ if (btnSaveCustomProEmail && inputCustomProEmail) {
       return;
     }
 
-    const needsTotp = await IdentityService.isTotpRequiredForEmail(email);
+    const config = { supabaseUrl: appSettings ? appSettings.supabaseUrl : '', supabaseKey: appSettings ? appSettings.supabaseKey : '' };
+    const needsTotp = await IdentityService.isTotpRequiredForEmail(config, email);
     if (needsTotp) {
       const authorized = await openTotpLoginModal(email);
       if (!authorized) {
@@ -2947,7 +2956,6 @@ if (btnSaveCustomProEmail && inputCustomProEmail) {
     }
 
     showToast('Verificando conta…');
-    const config = { supabaseUrl: appSettings ? appSettings.supabaseUrl : '', supabaseKey: appSettings ? appSettings.supabaseKey : '' };
 
     try {
       if (config.supabaseUrl && config.supabaseKey) {
@@ -3305,9 +3313,11 @@ if (proTotpAccordion) {
   proTotpAccordion.addEventListener('toggle', async () => {
     if (!proTotpAccordion.open) return;
     const creds = await IdentityService.getStoredCredentials();
-    if (creds.totpEnabled) return;
     const idInfo = await IdentityService.getIdentityInfo();
     const email = idInfo && idInfo.email;
+    const config = { supabaseUrl: appSettings ? appSettings.supabaseUrl : '', supabaseKey: appSettings ? appSettings.supabaseKey : '' };
+    const isRequired = creds.totpEnabled || (email ? await IdentityService.isTotpRequiredForEmail(config, email) : false);
+    if (isRequired) return;
     if (email) {
       if (!currentTotpSetupSecret) {
         const totpData = await IdentityService.setupTotp(email);
@@ -3375,7 +3385,9 @@ if (btnActivateTotp && inputTotpTestCode) {
 
 if (btnDisableTotp) {
   btnDisableTotp.addEventListener('click', async () => {
-    await IdentityService.disableTotp();
+    const config = { supabaseUrl: appSettings ? appSettings.supabaseUrl : '', supabaseKey: appSettings ? appSettings.supabaseKey : '' };
+    const idInfo = await IdentityService.getIdentityInfo();
+    await IdentityService.disableTotp(config, idInfo.email);
     currentTotpSetupSecret = '';
     showToast('2FA desativado com sucesso.');
     await updateProStatusUI(true);
