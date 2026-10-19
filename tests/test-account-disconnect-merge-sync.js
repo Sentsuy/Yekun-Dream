@@ -210,7 +210,7 @@ global.chrome = {
   // Verifica setupTotp
   const totpSetup = await IdentityService.setupTotp('leitor@gmail.com');
   assert.strictEqual(totpSetup.secret.length, 16);
-  assert.ok(totpSetup.qrUrl.includes(encodeURIComponent(totpSetup.otpAuthUrl)));
+  assert.ok(totpSetup.qrUrl.startsWith('data:image/') || totpSetup.qrUrl.includes('api.qrserver.com'), 'Deve gerar Data URI ou URL para o QR Code');
 
   // Ativação opcional com verificação de token
   const validToken = await IdentityService.Totp.generateToken(totpSetup.secret);
@@ -223,7 +223,19 @@ global.chrome = {
   await IdentityService.disableTotp();
   const credsDisabled = await IdentityService.getStoredCredentials();
   assert.strictEqual(credsDisabled.totpEnabled, false);
-  console.log('  ✓ Botão do cabeçalho e fluxo 2FA opcional validados com sucesso!');
+
+  // Verifica modalConfirmDisconnect no HTML
+  assert.ok(popupHtml.includes('id="modalConfirmDisconnect"'), 'popup.html deve conter #modalConfirmDisconnect');
+  assert.ok(popupHtml.includes('id="btnConfirmDisconnectAccount"'), 'popup.html deve conter #btnConfirmDisconnectAccount');
+
+  // Verifica persistência de desconexão (isUserSignedOut / setUserSignedOut)
+  await IdentityService.setUserSignedOut(true);
+  const signedOut = await IdentityService.isUserSignedOut();
+  assert.strictEqual(signedOut, true, 'isUserSignedOut deve ser true');
+  const emptyInfo = await IdentityService.getIdentityInfo();
+  assert.strictEqual(emptyInfo.email, '', 'getIdentityInfo deve permanecer vazio quando desconectado');
+
+  console.log('  ✓ Botão do cabeçalho, modal de confirmação e fluxo 2FA opcional validados com sucesso!');
 
   console.log('✓ All Account Disconnect, Anti-Duplication & Header 2FA tests passed successfully!');
   process.exit(0);

@@ -178,11 +178,16 @@ const btnConfirmVerifyPro      = document.getElementById('btnConfirmVerifyPro');
 const btnHeaderAuth              = document.getElementById('btnHeaderAuth');
 const btnDisconnectAccount       = document.getElementById('btnDisconnectAccount');
 const btnDisconnectAccountHeader = document.getElementById('btnDisconnectAccountHeader');
+const modalConfirmDisconnect      = document.getElementById('modalConfirmDisconnect');
+const confirmDisconnectDesc       = document.getElementById('confirmDisconnectDesc');
+const btnCancelConfirmDisconnect  = document.getElementById('btnCancelConfirmDisconnect');
+const btnConfirmDisconnectAccount = document.getElementById('btnConfirmDisconnectAccount');
 const modalSyncAccountPrompt     = document.getElementById('modalSyncAccountPrompt');
 const lblNewSyncEmail            = document.getElementById('lblNewSyncEmail');
 const btnConfirmSyncNewAccount   = document.getElementById('btnConfirmSyncNewAccount');
 const btnCancelSyncNewAccount    = document.getElementById('btnCancelSyncNewAccount');
 const verifyProAccessEmailDesc = document.getElementById('verifyProAccessEmailDesc');
+const qrLoadingSpinner            = document.getElementById('qrLoadingSpinner');
 
 // Feedback & Community Feed DOM refs
 const btnQuickReportSite        = document.getElementById('btnQuickReportSite');
@@ -2618,8 +2623,17 @@ async function openProModal() {
           currentChargeId = data.chargeId || null;
           currentBrCode = data.brCode || '';
           if (proPixBrCode) proPixBrCode.value = data.brCode;
-          if (proPixQrImg && data.brCodeBase64) {
-            proPixQrImg.src = data.brCodeBase64;
+          if (proPixQrImg) {
+            if (data.brCodeBase64) {
+              proPixQrImg.src = data.brCodeBase64.startsWith('data:') ? data.brCodeBase64 : `data:image/png;base64,${data.brCodeBase64}`;
+            } else if (data.brCode && typeof qrcode !== 'undefined') {
+              try {
+                const qr = qrcode(0, 'M');
+                qr.addData(data.brCode);
+                qr.make();
+                proPixQrImg.src = qr.createDataURL(4, 4);
+              } catch (_) {}
+            }
           }
 
           const isDev = data.brCode.includes('devmode') || isProDevMode();
@@ -2964,31 +2978,87 @@ function openLoginView() {
   }
 }
 
-async function handleDisconnectAccount() {
+function promptDisconnectAccount() {
+  if (modalConfirmDisconnect) {
+    const email = (inputCustomProEmail && inputCustomProEmail.value) || '';
+    if (confirmDisconnectDesc) {
+      confirmDisconnectDesc.textContent = email
+        ? `Deseja realmente desconectar a conta ${email}?`
+        : 'Deseja realmente desconectar sua conta?';
+    }
+    modalConfirmDisconnect.classList.add('open');
+  } else if (confirm('Deseja realmente desconectar sua conta? Suas obras locais continuarão salvas.')) {
+    executeDisconnectAccount();
+  }
+}
+
+function closeConfirmDisconnectModal() {
+  if (modalConfirmDisconnect) {
+    modalConfirmDisconnect.classList.remove('open');
+  }
+}
+
+async function executeDisconnectAccount() {
+  closeConfirmDisconnectModal();
   await IdentityService.signOutGoogle();
+
+  // Reverte tema Cyber Neon (exclusivo PRO) para Escuro por padrão ao desconectar
+  if (appSettings && appSettings.theme === 'neon') {
+    appSettings.theme = 'dark';
+    applyTheme('dark', true);
+    await StorageLocal.saveSettings(appSettings);
+    broadcastSettingsToTabs(appSettings);
+    const themeBtns = document.querySelectorAll('.theme-btn');
+    themeBtns.forEach(b => {
+      b.classList.toggle('active', b.dataset.theme === 'dark');
+    });
+    showToast('Tema Cyber Neon desativado (exclusivo PRO). Retornado ao tema Escuro.');
+  }
+
   currentTotpSetupSecret = '';
-  if (imgTotpQr) imgTotpQr.src = '';
+  if (imgTotpQr) {
+    imgTotpQr.src = '';
+    imgTotpQr.style.display = 'none';
+  }
+  if (qrLoadingSpinner) qrLoadingSpinner.style.display = 'flex';
   if (inputTotpManualSecret) inputTotpManualSecret.value = '';
   if (inputTotpTestCode) inputTotpTestCode.value = '';
+
   await updateProStatusUI(true);
-  showToast('✓ Conta desconectada. Suas obras locais foram preservadas!');
+  showToast('✓ Conta desconectada com sucesso. Suas obras locais foram preservadas!');
+}
+
+async function handleDisconnectAccount() {
+  promptDisconnectAccount();
+}
+
+if (btnCancelConfirmDisconnect) {
+  btnCancelConfirmDisconnect.addEventListener('click', closeConfirmDisconnectModal);
+}
+if (btnConfirmDisconnectAccount) {
+  btnConfirmDisconnectAccount.addEventListener('click', executeDisconnectAccount);
+}
+if (modalConfirmDisconnect) {
+  modalConfirmDisconnect.addEventListener('click', (e) => {
+    if (e.target === modalConfirmDisconnect) closeConfirmDisconnectModal();
+  });
 }
 
 if (btnHeaderAuth) {
   btnHeaderAuth.addEventListener('click', () => {
     const action = btnHeaderAuth.dataset.action;
     if (action === 'disconnect') {
-      handleDisconnectAccount();
+      promptDisconnectAccount();
     } else {
       openLoginView();
     }
   });
 }
 if (btnDisconnectAccount) {
-  btnDisconnectAccount.addEventListener('click', handleDisconnectAccount);
+  btnDisconnectAccount.addEventListener('click', promptDisconnectAccount);
 }
 if (btnDisconnectAccountHeader) {
-  btnDisconnectAccountHeader.addEventListener('click', handleDisconnectAccount);
+  btnDisconnectAccountHeader.addEventListener('click', promptDisconnectAccount);
 }
 
 // ── Modal de Confirmação de Sincronização ao Conectar Nova Conta ──
@@ -3105,20 +3175,43 @@ if (proTotpAccordion) {
     if (creds.totpEnabled) return;
     const idInfo = await IdentityService.getIdentityInfo();
     const email = idInfo && idInfo.email;
-    if (!currentTotpSetupSecret && email) {
-      const totpData = await IdentityService.setupTotp(email);
-      currentTotpSetupSecret = totpData.secret;
-      if (imgTotpQr) {
-        imgTotpQr.src = totpData.qrUrl;
-        imgTotpQr.alt = `QR Code Google Authenticator para ${email}`;
+    if (email) {
+      if (!currentTotpSetupSecret) {
+        const totpData = await IdentityService.setupTotp(email);
+        currentTotpSetupSecret = totpData.secret;
+        if (imgTotpQr) {
+          imgTotpQr.onload = () => {
+            imgTotpQr.style.display = 'block';
+            if (qrLoadingSpinner) qrLoadingSpinner.style.display = 'none';
+          };
+          imgTotpQr.src = totpData.qrUrl;
+          imgTotpQr.alt = `QR Code Google Authenticator para ${email}`;
+        }
+        if (inputTotpManualSecret) inputTotpManualSecret.value = totpData.secret;
+      } else if (imgTotpQr && (!imgTotpQr.src || imgTotpQr.style.display === 'none')) {
+        try {
+          const qrlib = (typeof qrcode !== 'undefined') ? qrcode : null;
+          if (qrlib) {
+            const otpUrl = TotpUtil.getOtpAuthUrl(email, currentTotpSetupSecret);
+            const qr = qrlib(0, 'M');
+            qr.addData(otpUrl);
+            qr.make();
+            imgTotpQr.onload = () => {
+              imgTotpQr.style.display = 'block';
+              if (qrLoadingSpinner) qrLoadingSpinner.style.display = 'none';
+            };
+            imgTotpQr.src = qr.createDataURL(4, 4);
+          }
+        } catch (_) {}
       }
-      if (inputTotpManualSecret) inputTotpManualSecret.value = totpData.secret;
     }
   });
 }
 
 if (imgTotpQr) {
   imgTotpQr.addEventListener('error', () => {
+    if (!imgTotpQr.src) return;
+    if (qrLoadingSpinner) qrLoadingSpinner.style.display = 'none';
     const qrWrap = document.getElementById('proTotpQrWrap');
     if (qrWrap && !qrWrap.querySelector('.qr-offline-hint')) {
       const hint = document.createElement('div');

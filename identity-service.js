@@ -115,14 +115,21 @@ const IdentityService = {
 
   async getIdentityInfo() {
     return new Promise(resolve => {
-      // 1. Prioridade: se o usuário configurou um e-mail manual, usa ele
-      IdentityService.getFallbackEmail().then(fallback => {
-        if (fallback && fallback.email) {
-          return resolve(fallback);
+      // 1. Se o usuário desconectou explicitamente, mantém desconectado e não busca no navegador
+      IdentityService.isUserSignedOut().then(isSignedOut => {
+        if (isSignedOut) {
+          return resolve({ email: '', source: 'none', id: '' });
         }
 
-        // 2. Se não houver e-mail manual, tenta obter via conta Google do Chrome
-        IdentityService.getGoogleIdentityInfo().then(resolve);
+        // 2. Prioridade: se o usuário configurou um e-mail / conectou conta salva no storage
+        IdentityService.getFallbackEmail().then(fallback => {
+          if (fallback && fallback.email) {
+            return resolve(fallback);
+          }
+
+          // 3. Se não houver e-mail manual nem desconexão ativa, tenta obter via conta Google do Chrome
+          IdentityService.getGoogleIdentityInfo().then(resolve);
+        });
       });
     });
   },
@@ -274,12 +281,48 @@ const IdentityService = {
     });
   },
 
+  async isUserSignedOut() {
+    return new Promise(resolve => {
+      try {
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+          chrome.storage.local.get(['userSignedOut'], res => {
+            resolve(Boolean(res && res.userSignedOut));
+          });
+          return;
+        }
+      } catch (_) {}
+      resolve(false);
+    });
+  },
+
+  async setUserSignedOut(signedOut = true) {
+    return new Promise(resolve => {
+      try {
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+          if (signedOut) {
+            chrome.storage.local.set({ userSignedOut: true }, resolve);
+          } else {
+            chrome.storage.local.remove(['userSignedOut'], resolve);
+          }
+          return;
+        }
+      } catch (_) {}
+      resolve();
+    });
+  },
+
   async signOutGoogle() {
     const current = await this.getIdentityInfo();
     if (current && current.email) {
       await this.setLastDisconnectedEmail(current.email);
     }
     await this.clearCustomProEmail();
+    await this.setUserSignedOut(true);
+    try {
+      if (typeof chrome !== 'undefined' && chrome.identity && typeof chrome.identity.clearAllCachedAuthTokens === 'function') {
+        chrome.identity.clearAllCachedAuthTokens(() => {});
+      }
+    } catch (_) {}
     return { success: true };
   },
 
@@ -371,6 +414,7 @@ const IdentityService = {
     if (!clean || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(clean) || clean.length > 254) {
       return '';
     }
+    await this.setUserSignedOut(false);
     return new Promise(resolve => {
       try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
@@ -763,10 +807,24 @@ const IdentityService = {
   async setupTotp(email) {
     const secret = TotpUtil.generateSecret(16);
     const otpAuthUrl = TotpUtil.getOtpAuthUrl(email, secret);
+    let localQrUrl = '';
+    try {
+      let qrlib = (typeof qrcode !== 'undefined') ? qrcode : null;
+      if (!qrlib && typeof require !== 'undefined') {
+        try { qrlib = require('./qrcode.js'); } catch (_) {}
+      }
+      if (qrlib) {
+        const qr = qrlib(0, 'M');
+        qr.addData(otpAuthUrl);
+        qr.make();
+        localQrUrl = qr.createDataURL(4, 4);
+      }
+    } catch (_) {}
+
     return {
       secret,
       otpAuthUrl,
-      qrUrl: `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(otpAuthUrl)}&size=160x160`
+      qrUrl: localQrUrl || `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(otpAuthUrl)}&size=160x160`
     };
   },
 

@@ -22,6 +22,8 @@ const requiredFiles = [
   'background.js',
   'content.js',
   'identity-service.js',
+  'feedback-service.js',
+  'qrcode.js',
   'storage-local.js',
   'canonical-resolver.js',
   'alias-crowd-service.js',
