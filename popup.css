@@ -416,6 +416,21 @@ body {
   gap: 6px;
 }
 
+.header-auth-btn {
+  position: relative;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.header-auth-btn.is-connected {
+  color: var(--accent);
+}
+
+.header-auth-btn.is-connected:hover {
+  color: #ff4d4f;
+  background: rgba(255, 77, 79, 0.12);
+  border-color: rgba(255, 77, 79, 0.4);
+}
+
 /* ─── Theme Switcher ─────────────────────────────────────────── */
 .theme-switcher {
   display: flex;

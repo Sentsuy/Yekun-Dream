@@ -175,6 +175,7 @@ const btnCancelVerifyPro       = document.getElementById('btnCancelVerifyPro');
 const btnConfirmVerifyPro      = document.getElementById('btnConfirmVerifyPro');
 
 // Desconexão e Troca Segura de Conta DOM refs
+const btnHeaderAuth              = document.getElementById('btnHeaderAuth');
 const btnDisconnectAccount       = document.getElementById('btnDisconnectAccount');
 const btnDisconnectAccountHeader = document.getElementById('btnDisconnectAccountHeader');
 const modalSyncAccountPrompt     = document.getElementById('modalSyncAccountPrompt');
@@ -1164,48 +1165,8 @@ async function updateProStatusUI(forceRefresh = false) {
       if (proSyncControls) {
         proSyncControls.forEach(el => el.classList.remove('is-locked'));
       }
-
-      // Painel de Chaves de Acesso e Segurança
-      if (proActiveSecurityCard) {
-        proActiveSecurityCard.classList.remove('hidden');
-        const creds = await IdentityService.getStoredCredentials();
-        const accessPin = creds.accessPin || status.accessPin || '';
-        const recoveryKey = creds.recoveryKey || status.recoveryKey || '';
-
-        if (inputDisplayProPin) {
-          inputDisplayProPin.dataset.secret = accessPin;
-          if (inputDisplayProPin.type === 'text') {
-            inputDisplayProPin.value = accessPin || '------';
-          } else {
-            inputDisplayProPin.value = accessPin ? '••••••' : '------';
-          }
-        }
-
-        if (inputDisplayProRecovery) {
-          inputDisplayProRecovery.dataset.secret = recoveryKey;
-          if (inputDisplayProRecovery.type === 'text') {
-            inputDisplayProRecovery.value = recoveryKey || 'YK------';
-          } else {
-            inputDisplayProRecovery.value = recoveryKey ? '•••••••••••••••••••' : 'YK------';
-          }
-        }
-
-        // TOTP status
-        if (creds.totpEnabled) {
-          if (lblTotpStatus) lblTotpStatus.textContent = 'Google Authenticator (2FA Ativo)';
-          if (proTotpActiveRow) proTotpActiveRow.classList.remove('hidden');
-          if (proTotpVerifyRow) proTotpVerifyRow.classList.add('hidden');
-        } else {
-          if (lblTotpStatus) lblTotpStatus.textContent = 'Configurar Google Authenticator (2FA)';
-          if (proTotpActiveRow) proTotpActiveRow.classList.add('hidden');
-          if (proTotpVerifyRow) proTotpVerifyRow.classList.remove('hidden');
-        }
-      }
     } else {
       proStatusCard.classList.remove('is-pro');
-      if (proActiveSecurityCard) {
-        proActiveSecurityCard.classList.add('hidden');
-      }
       if (proBadgeLabel) {
         proBadgeLabel.className = 'pro-badge';
         proBadgeLabel.textContent = 'FREE';
@@ -1238,9 +1199,70 @@ async function updateProStatusUI(forceRefresh = false) {
       }
     }
 
-    // Atualiza estado de conexão Google e liberação do checkout PRO
+    // Atualiza estado de conexão Google, botão do cabeçalho e liberação do 2FA
     const hasEmail = Boolean(status && status.email);
     const proAuthHelper = document.getElementById('proAuthHelper');
+
+    // 1. Painel de Segurança (2FA Opcional) - Exibido SOMENTE após conectar
+    if (proActiveSecurityCard) {
+      if (hasEmail) {
+        proActiveSecurityCard.classList.remove('hidden');
+        const creds = await IdentityService.getStoredCredentials();
+        const accessPin = creds.accessPin || status.accessPin || '';
+        const recoveryKey = creds.recoveryKey || status.recoveryKey || '';
+
+        if (inputDisplayProPin) {
+          inputDisplayProPin.dataset.secret = accessPin;
+          if (inputDisplayProPin.type === 'text') {
+            inputDisplayProPin.value = accessPin || '------';
+          } else {
+            inputDisplayProPin.value = accessPin ? '••••••' : '------';
+          }
+        }
+
+        if (inputDisplayProRecovery) {
+          inputDisplayProRecovery.dataset.secret = recoveryKey;
+          if (inputDisplayProRecovery.type === 'text') {
+            inputDisplayProRecovery.value = recoveryKey || 'YK------';
+          } else {
+            inputDisplayProRecovery.value = recoveryKey ? '•••••••••••••••••••' : 'YK------';
+          }
+        }
+
+        // TOTP status
+        if (creds.totpEnabled) {
+          if (lblTotpStatus) lblTotpStatus.textContent = 'Google Authenticator (2FA Ativo)';
+          if (proTotpActiveRow) proTotpActiveRow.classList.remove('hidden');
+          if (proTotpVerifyRow) proTotpVerifyRow.classList.add('hidden');
+        } else {
+          if (lblTotpStatus) lblTotpStatus.textContent = 'Configurar Google Authenticator (2FA Opcional)';
+          if (proTotpActiveRow) proTotpActiveRow.classList.add('hidden');
+          if (proTotpVerifyRow) proTotpVerifyRow.classList.remove('hidden');
+        }
+      } else {
+        proActiveSecurityCard.classList.add('hidden');
+        if (proTotpAccordion) proTotpAccordion.removeAttribute('open');
+      }
+    }
+
+    // 2. Botão Dinâmico no Cabeçalho (Login ↔ Desconectar à esquerda do sino)
+    if (btnHeaderAuth) {
+      const svgLogin = btnHeaderAuth.querySelector('.svg-auth-login');
+      const svgLogout = btnHeaderAuth.querySelector('.svg-auth-logout');
+      if (hasEmail) {
+        btnHeaderAuth.dataset.action = 'disconnect';
+        btnHeaderAuth.title = `Desconectar conta (${status.email})`;
+        btnHeaderAuth.classList.add('is-connected');
+        if (svgLogin) svgLogin.classList.add('hidden');
+        if (svgLogout) svgLogout.classList.remove('hidden');
+      } else {
+        btnHeaderAuth.dataset.action = 'login';
+        btnHeaderAuth.title = 'Fazer Login / Conectar Conta';
+        btnHeaderAuth.classList.remove('is-connected');
+        if (svgLogin) svgLogin.classList.remove('hidden');
+        if (svgLogout) svgLogout.classList.add('hidden');
+      }
+    }
 
     if (hasEmail) {
       if (btnDisconnectAccount) btnDisconnectAccount.classList.remove('hidden');
@@ -2909,11 +2931,58 @@ if (btnSaveCustomProEmail && inputCustomProEmail) {
   }));
 }
 
-// ── Desconexão e Troca Segura de Conta ─────────────────────
+// ── Acesso Dinâmico & Desconexão Segura de Conta ───────────
+function openLoginView() {
+  if (formPanel) formPanel.classList.remove('open');
+  if (aboutPanel) {
+    aboutPanel.classList.remove('open');
+    if (btnAbout) btnAbout.classList.remove('active');
+  }
+  if (notificationsPanel) {
+    notificationsPanel.classList.remove('open');
+    if (btnNotifications) btnNotifications.classList.remove('active');
+  }
+  if (settingsPanel) {
+    settingsPanel.classList.add('open');
+    if (btnSettings) btnSettings.classList.add('active');
+  }
+  syncBottomNavVisibility();
+  if (typeof updateStorageStatsUI === 'function') updateStorageStatsUI();
+  if (typeof updateCurrentSiteToggleUI === 'function') updateCurrentSiteToggleUI();
+  if (typeof updateProStatusUI === 'function') updateProStatusUI();
+
+  // Seleciona a aba PRO nas configurações caso exista navegação por abas
+  const tabBtnPro = document.querySelector('.settings-tab-btn[data-tab="pro"]');
+  if (tabBtnPro) {
+    tabBtnPro.click();
+  }
+
+  // Rola suavemente até o card PRO de login
+  const proCard = document.getElementById('cardProSection') || document.getElementById('proCardBody');
+  if (proCard) {
+    proCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
 async function handleDisconnectAccount() {
   await IdentityService.signOutGoogle();
+  currentTotpSetupSecret = '';
+  if (imgTotpQr) imgTotpQr.src = '';
+  if (inputTotpManualSecret) inputTotpManualSecret.value = '';
+  if (inputTotpTestCode) inputTotpTestCode.value = '';
   await updateProStatusUI(true);
   showToast('✓ Conta desconectada. Suas obras locais foram preservadas!');
+}
+
+if (btnHeaderAuth) {
+  btnHeaderAuth.addEventListener('click', () => {
+    const action = btnHeaderAuth.dataset.action;
+    if (action === 'disconnect') {
+      handleDisconnectAccount();
+    } else {
+      openLoginView();
+    }
+  });
 }
 if (btnDisconnectAccount) {
   btnDisconnectAccount.addEventListener('click', handleDisconnectAccount);
@@ -3035,11 +3104,27 @@ if (proTotpAccordion) {
     const creds = await IdentityService.getStoredCredentials();
     if (creds.totpEnabled) return;
     const idInfo = await IdentityService.getIdentityInfo();
-    if (!currentTotpSetupSecret && idInfo.email) {
-      const totpData = await IdentityService.setupTotp(idInfo.email);
+    const email = idInfo && idInfo.email;
+    if (!currentTotpSetupSecret && email) {
+      const totpData = await IdentityService.setupTotp(email);
       currentTotpSetupSecret = totpData.secret;
-      if (imgTotpQr) imgTotpQr.src = totpData.qrUrl;
+      if (imgTotpQr) {
+        imgTotpQr.src = totpData.qrUrl;
+        imgTotpQr.alt = `QR Code Google Authenticator para ${email}`;
+      }
       if (inputTotpManualSecret) inputTotpManualSecret.value = totpData.secret;
+    }
+  });
+}
+
+if (imgTotpQr) {
+  imgTotpQr.addEventListener('error', () => {
+    const qrWrap = document.getElementById('proTotpQrWrap');
+    if (qrWrap && !qrWrap.querySelector('.qr-offline-hint')) {
+      const hint = document.createElement('div');
+      hint.className = 'qr-offline-hint';
+      hint.textContent = 'Sem rede para QR: use a chave de 16 caracteres abaixo';
+      qrWrap.appendChild(hint);
     }
   });
 }

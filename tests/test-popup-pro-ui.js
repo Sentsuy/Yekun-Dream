@@ -31,8 +31,15 @@ assert.ok(html.includes('btn-icon-subtle') && html.includes('id="btnEditProEmail
 
 assert.ok(html.includes('id="proAuthHelper"'), 'popup.html deve conter status helper #proAuthHelper');
 
+assert.ok(html.includes('id="btnHeaderAuth"'), 'popup.html deve conter botão dinâmico #btnHeaderAuth no cabeçalho antes do sino');
+assert.ok(html.includes('svg-auth-login') && html.includes('svg-auth-logout'), 'popup.html deve conter ícones de login e logout no botão de cabeçalho');
+assert.ok(html.includes('id="proTotpAccordion"'), 'popup.html deve conter #proTotpAccordion para 2FA opcional');
+assert.ok(html.includes('id="imgTotpQr"'), 'popup.html deve conter #imgTotpQr para QR Code do Google Authenticator');
+
 console.log('Testing PRO CSS styles in popup.css...');
 assert.ok(css.includes('.pro-status-card'), 'popup.css deve conter estilos para .pro-status-card');
+assert.ok(css.includes('.header-auth-btn'), 'popup.css deve conter estilos para .header-auth-btn');
+assert.ok(css.includes('.header-auth-btn.is-connected'), 'popup.css deve conter estilos de hover conectado para .header-auth-btn');
 assert.ok(css.includes('.pro-pin-input'), 'popup.css deve conter estilos para .pro-pin-input');
 assert.ok(css.includes('.pro-badge-active'), 'popup.css deve conter estilos para .pro-badge-active');
 assert.ok(css.includes('.settings-tabs-nav'), 'popup.css deve conter estilos para .settings-tabs-nav');
@@ -46,6 +53,8 @@ assert.ok(css.includes('.hidden'), 'popup.css deve conter estilos para .hidden')
 
 console.log('Testing PRO JS logic in popup.js...');
 assert.ok(js.includes('updateProStatusUI'), 'popup.js deve conter função updateProStatusUI');
+assert.ok(js.includes('btnHeaderAuth'), 'popup.js deve gerenciar btnHeaderAuth');
+assert.ok(js.includes('openLoginView'), 'popup.js deve conter função openLoginView');
 assert.ok(js.includes('btnRedeemPin'), 'popup.js deve conter evento para btnRedeemPin');
 assert.ok(js.includes('IdentityService.redeemPin'), 'popup.js deve chamar IdentityService.redeemPin');
 assert.ok(js.includes("appSettings.theme === 'neon'") && js.includes("applyTheme('dark')"), 'popup.js deve reverter tema neon para dark se a conta for FREE');

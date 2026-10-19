@@ -47,7 +47,7 @@ const TotpUtil = {
   },
 
   getOtpAuthUrl(email, secret, issuer = 'Yekun Dream') {
-    const label = encodeURIComponent(`${issuer}:${email}`);
+    const label = `${encodeURIComponent(issuer)}:${encodeURIComponent(email)}`;
     const iss = encodeURIComponent(issuer);
     return `otpauth://totp/${label}?secret=${secret}&issuer=${iss}&algorithm=SHA1&digits=6&period=30`;
   },

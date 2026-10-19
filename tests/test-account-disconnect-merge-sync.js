@@ -187,6 +187,44 @@ global.chrome = {
   global.fetch = originalFetch;
   console.log('  ✓ pullRemote evitou duplicação e mesclou fontes e capítulos com perfeição!');
 
-  console.log('✓ All Account Disconnect & Anti-Duplication Sync tests passed successfully!');
+  // ── 5. Teste de Botão de Cabeçalho e 2FA Google Authenticator Opcional ──
+  console.log('5. Testing Header Auth Button & Google Authenticator 2FA...');
+  const fs = require('fs');
+  const path = require('path');
+  const popupHtml = fs.readFileSync(path.resolve(__dirname, '../popup.html'), 'utf8');
+
+  // Verifica que o botão #btnHeaderAuth está localizado antes do sino #btnNotifications no header
+  const headerIdx = popupHtml.indexOf('class="header-actions"');
+  const btnHeaderAuthIdx = popupHtml.indexOf('id="btnHeaderAuth"', headerIdx);
+  const btnNotifIdx = popupHtml.indexOf('id="btnNotifications"', headerIdx);
+  assert.ok(btnHeaderAuthIdx !== -1 && btnNotifIdx !== -1, 'Ambos os botões devem existir no header');
+  assert.ok(btnHeaderAuthIdx < btnNotifIdx, '#btnHeaderAuth deve vir antes (à esquerda) de #btnNotifications');
+
+  // Verifica URL do Google Authenticator formatada com padrão otpauth://
+  const testTotpUrl = IdentityService.Totp.getOtpAuthUrl('leitor@gmail.com', 'JBSWY3DPEHPK3PXP');
+  assert.ok(testTotpUrl.startsWith('otpauth://totp/'), 'Deve iniciar com protocolo otpauth://totp/');
+  assert.ok(testTotpUrl.includes('secret=JBSWY3DPEHPK3PXP'), 'Deve incluir o secret base32');
+  assert.ok(testTotpUrl.includes('issuer=Yekun%20Dream'), 'Deve definir Yekun Dream como issuer');
+  assert.ok(testTotpUrl.includes('leitor%40gmail.com'), 'Deve conter e-mail codificado');
+
+  // Verifica setupTotp
+  const totpSetup = await IdentityService.setupTotp('leitor@gmail.com');
+  assert.strictEqual(totpSetup.secret.length, 16);
+  assert.ok(totpSetup.qrUrl.includes(encodeURIComponent(totpSetup.otpAuthUrl)));
+
+  // Ativação opcional com verificação de token
+  const validToken = await IdentityService.Totp.generateToken(totpSetup.secret);
+  const enableRes = await IdentityService.verifyAndEnableTotp({}, 'leitor@gmail.com', totpSetup.secret, validToken);
+  assert.strictEqual(enableRes.success, true);
+  const credsWithTotp = await IdentityService.getStoredCredentials();
+  assert.strictEqual(credsWithTotp.totpEnabled, true);
+
+  // Desativação
+  await IdentityService.disableTotp();
+  const credsDisabled = await IdentityService.getStoredCredentials();
+  assert.strictEqual(credsDisabled.totpEnabled, false);
+  console.log('  ✓ Botão do cabeçalho e fluxo 2FA opcional validados com sucesso!');
+
+  console.log('✓ All Account Disconnect, Anti-Duplication & Header 2FA tests passed successfully!');
   process.exit(0);
 })();
