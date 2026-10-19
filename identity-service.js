@@ -327,6 +327,15 @@ const IdentityService = {
     return { success: true };
   },
 
+  resolveConfig(config) {
+    const defaultUrl = 'https://wbappdsgstzintgznikb.supabase.co';
+    const defaultKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndiYXBwZHNnc3R6aW50Z3puaWtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MTgyMDgsImV4cCI6MjEwNzQ5NDIwOH0.6Wc7YDcKpMCq_IWeo54f3U_14giEfjOAH3f5B019vfE';
+    return {
+      supabaseUrl: (config && config.supabaseUrl && String(config.supabaseUrl).trim()) ? String(config.supabaseUrl).trim() : defaultUrl,
+      supabaseKey: (config && config.supabaseKey && String(config.supabaseKey).trim()) ? String(config.supabaseKey).trim() : defaultKey
+    };
+  },
+
   Totp: TotpUtil,
 
   async getStoredCredentials() {
@@ -848,16 +857,17 @@ const IdentityService = {
       return { success: false, error: 'Código de 6 dígitos inválido ou expirado. Verifique o relógio do seu celular.' };
     }
     const cleanEmail = this.normalizeEmail(email);
+    const conf = this.resolveConfig(config);
 
-    if (config && config.supabaseUrl && config.supabaseKey && cleanEmail) {
+    if (conf.supabaseUrl && conf.supabaseKey && cleanEmail) {
       try {
-        const url = `${config.supabaseUrl}/rest/v1/rpc/set_totp_security`;
+        const url = `${conf.supabaseUrl}/rest/v1/rpc/set_totp_security`;
         const res = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'apikey': config.supabaseKey,
-            'Authorization': `Bearer ${config.supabaseKey}`
+            'apikey': conf.supabaseKey,
+            'Authorization': `Bearer ${conf.supabaseKey}`
           },
           body: JSON.stringify({
             p_email: cleanEmail,
@@ -867,10 +877,16 @@ const IdentityService = {
         });
         if (!res.ok) {
           const errText = await res.text();
-          console.debug('[IdentityService] Falha ao persistir 2FA no Supabase:', res.status, errText);
+          console.error('[IdentityService] Falha ao persistir 2FA no Supabase:', res.status, errText);
+          return { success: false, error: `Falha ao salvar 2FA na nuvem (${res.status}): ${errText}` };
+        }
+        const data = await res.json();
+        if (data && data.success === false) {
+          return { success: false, error: data.error || 'Erro ao registrar 2FA no banco de dados.' };
         }
       } catch (err) {
-        console.debug('[IdentityService] Erro ao sincronizar 2FA:', err.message);
+        console.error('[IdentityService] Erro ao sincronizar 2FA:', err.message);
+        return { success: false, error: `Erro de conexão com o banco de dados: ${err.message}` };
       }
     }
 
@@ -897,15 +913,16 @@ const IdentityService = {
       } catch (_) {}
     }
 
-    if (config && config.supabaseUrl && config.supabaseKey && cleanEmail) {
+    const conf = this.resolveConfig(config);
+    if (conf.supabaseUrl && conf.supabaseKey && cleanEmail) {
       try {
-        const url = `${config.supabaseUrl}/rest/v1/rpc/set_totp_security`;
+        const url = `${conf.supabaseUrl}/rest/v1/rpc/set_totp_security`;
         await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'apikey': config.supabaseKey,
-            'Authorization': `Bearer ${config.supabaseKey}`
+            'apikey': conf.supabaseKey,
+            'Authorization': `Bearer ${conf.supabaseKey}`
           },
           body: JSON.stringify({
             p_email: cleanEmail,
@@ -939,6 +956,7 @@ const IdentityService = {
     const cleanEmail = this.normalizeEmail(email);
     if (!cleanEmail) return false;
 
+    // 1. Verifica no cache de credenciais locais
     const creds = await this.getStoredCredentials();
     if (creds.totpEnabled) {
       if (!creds.totpEmail || creds.totpEmail.trim().toLowerCase() === cleanEmail) {
@@ -946,15 +964,17 @@ const IdentityService = {
       }
     }
 
-    if (config && config.supabaseUrl && config.supabaseKey) {
+    // 2. Se não estiver ativo localmente, consulta status no Supabase
+    const conf = this.resolveConfig(config);
+    if (conf.supabaseUrl && conf.supabaseKey) {
       try {
-        const url = `${config.supabaseUrl}/rest/v1/rpc/check_pro_status`;
+        const url = `${conf.supabaseUrl}/rest/v1/rpc/check_pro_status`;
         const res = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'apikey': config.supabaseKey,
-            'Authorization': `Bearer ${config.supabaseKey}`
+            'apikey': conf.supabaseKey,
+            'Authorization': `Bearer ${conf.supabaseKey}`
           },
           body: JSON.stringify({ p_email: cleanEmail })
         });
@@ -994,6 +1014,7 @@ const IdentityService = {
     }
 
     const cleanEmail = this.normalizeEmail(email);
+    const conf = this.resolveConfig(config);
 
     // 1. Tenta validação local com o segredo se presente
     const creds = await this.getStoredCredentials();
@@ -1002,21 +1023,21 @@ const IdentityService = {
       if (valid) {
         return { success: true };
       }
-      if (!config || !config.supabaseUrl || !config.supabaseKey || !cleanEmail) {
+      if (!cleanEmail) {
         return { success: false, error: 'Código 2FA inválido ou expirado. Verifique o relógio do seu celular.' };
       }
     }
 
     // 2. Validação remota no Supabase via RPC verify_totp_login
-    if (config && config.supabaseUrl && config.supabaseKey && cleanEmail) {
+    if (conf.supabaseUrl && conf.supabaseKey && cleanEmail) {
       try {
-        const url = `${config.supabaseUrl}/rest/v1/rpc/verify_totp_login`;
+        const url = `${conf.supabaseUrl}/rest/v1/rpc/verify_totp_login`;
         const res = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'apikey': config.supabaseKey,
-            'Authorization': `Bearer ${config.supabaseKey}`
+            'apikey': conf.supabaseKey,
+            'Authorization': `Bearer ${conf.supabaseKey}`
           },
           body: JSON.stringify({
             p_email: cleanEmail,

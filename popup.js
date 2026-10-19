@@ -1137,13 +1137,19 @@ function fallbackStorageSizeCalc(works, statSizeEl) {
   }
 }
 
+function getSupabaseConfig() {
+  const defaultUrl = 'https://wbappdsgstzintgznikb.supabase.co';
+  const defaultKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndiYXBwZHNnc3R6aW50Z3puaWtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MTgyMDgsImV4cCI6MjEwNzQ5NDIwOH0.6Wc7YDcKpMCq_IWeo54f3U_14giEfjOAH3f5B019vfE';
+  return {
+    supabaseUrl: (appSettings && appSettings.supabaseUrl && String(appSettings.supabaseUrl).trim()) ? String(appSettings.supabaseUrl).trim() : defaultUrl,
+    supabaseKey: (appSettings && appSettings.supabaseKey && String(appSettings.supabaseKey).trim()) ? String(appSettings.supabaseKey).trim() : defaultKey
+  };
+}
+
 async function updateProStatusUI(forceRefresh = false) {
   if (typeof IdentityService === 'undefined' || !proStatusCard) return;
   try {
-    const config = {
-      supabaseUrl: appSettings ? appSettings.supabaseUrl : '',
-      supabaseKey: appSettings ? appSettings.supabaseKey : ''
-    };
+    const config = getSupabaseConfig();
     const status = await IdentityService.checkProStatus(config, forceRefresh);
 
     if (proAccountEmail) {
@@ -2419,10 +2425,7 @@ if (btnConfirmTotpLogin) {
       if (inputTotpLoginCode) inputTotpLoginCode.focus();
       return;
     }
-    const config = {
-      supabaseUrl: appSettings ? appSettings.supabaseUrl : '',
-      supabaseKey: appSettings ? appSettings.supabaseKey : ''
-    };
+    const config = getSupabaseConfig();
     const res = await IdentityService.verifyTotpLogin(config, pendingTotpLoginEmail, code);
     if (res && res.success) {
       showToast('✓ 2FA verificado com sucesso!');
@@ -2461,10 +2464,7 @@ if (btnConnectGoogle) {
       }
 
       if (res && res.success && res.email) {
-        const config = {
-          supabaseUrl: appSettings ? appSettings.supabaseUrl : '',
-          supabaseKey: appSettings ? appSettings.supabaseKey : ''
-        };
+        const config = getSupabaseConfig();
         // Se a conta tem 2FA ativado, exige validação antes de autenticar
         const needsTotp = await IdentityService.isTotpRequiredForEmail(config, res.email);
         if (needsTotp) {
@@ -2924,7 +2924,7 @@ if (btnConfirmVerifyPro) {
       return;
     }
     showToast('Validando autorização…');
-    const config = { supabaseUrl: appSettings ? appSettings.supabaseUrl : '', supabaseKey: appSettings ? appSettings.supabaseKey : '' };
+    const config = getSupabaseConfig();
     const res = await IdentityService.verifyProAccess(config, pendingVerifyEmail, secret);
     if (res.success) {
       closeVerifyProAccessModal();
@@ -2945,7 +2945,7 @@ if (btnSaveCustomProEmail && inputCustomProEmail) {
       return;
     }
 
-    const config = { supabaseUrl: appSettings ? appSettings.supabaseUrl : '', supabaseKey: appSettings ? appSettings.supabaseKey : '' };
+    const config = getSupabaseConfig();
     const needsTotp = await IdentityService.isTotpRequiredForEmail(config, email);
     if (needsTotp) {
       const authorized = await openTotpLoginModal(email);
@@ -3315,7 +3315,7 @@ if (proTotpAccordion) {
     const creds = await IdentityService.getStoredCredentials();
     const idInfo = await IdentityService.getIdentityInfo();
     const email = idInfo && idInfo.email;
-    const config = { supabaseUrl: appSettings ? appSettings.supabaseUrl : '', supabaseKey: appSettings ? appSettings.supabaseKey : '' };
+    const config = getSupabaseConfig();
     const isRequired = creds.totpEnabled || (email ? await IdentityService.isTotpRequiredForEmail(config, email) : false);
     if (isRequired) return;
     if (email) {
@@ -3371,7 +3371,7 @@ if (btnActivateTotp && inputTotpTestCode) {
       return;
     }
     const idInfo = await IdentityService.getIdentityInfo();
-    const config = { supabaseUrl: appSettings ? appSettings.supabaseUrl : '', supabaseKey: appSettings ? appSettings.supabaseKey : '' };
+    const config = getSupabaseConfig();
     const res = await IdentityService.verifyAndEnableTotp(config, idInfo.email, currentTotpSetupSecret, code);
     if (res.success) {
       showToast('✓ ' + res.message);
@@ -3385,7 +3385,7 @@ if (btnActivateTotp && inputTotpTestCode) {
 
 if (btnDisableTotp) {
   btnDisableTotp.addEventListener('click', async () => {
-    const config = { supabaseUrl: appSettings ? appSettings.supabaseUrl : '', supabaseKey: appSettings ? appSettings.supabaseKey : '' };
+    const config = getSupabaseConfig();
     const idInfo = await IdentityService.getIdentityInfo();
     await IdentityService.disableTotp(config, idInfo.email);
     currentTotpSetupSecret = '';
