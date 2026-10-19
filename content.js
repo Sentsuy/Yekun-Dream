@@ -1234,10 +1234,6 @@ if (typeof window !== 'undefined') {
     return { title: cleanTitle, chapter, aliases: combinedAliases };
   }
 
-  function normalize(s) {
-    return (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
-  }
-
   // ── Atualiza badge com total de obras ────────────────────
   function updateBadge(works) {
     if (!appSettings.enableBadgeCount) {

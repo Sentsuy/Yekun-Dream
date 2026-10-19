@@ -124,7 +124,6 @@ const proStatusCard        = document.getElementById('proStatusCard');
 const proBadgeLabel        = document.getElementById('proBadgeLabel');
 const proAccountEmail      = document.getElementById('proAccountEmail');
 const btnEditProEmail      = document.getElementById('btnEditProEmail');
-const proCustomEmailRow    = document.getElementById('proCustomEmailRow');
 const inputCustomProEmail  = document.getElementById('inputCustomProEmail');
 const btnSaveCustomProEmail= document.getElementById('btnSaveCustomProEmail');
 const proDescText          = document.getElementById('proDescText');
@@ -135,8 +134,6 @@ const btnVerifyPro         = document.getElementById('btnVerifyPro');
 const proSyncControls      = document.querySelectorAll('.pro-sync-controls');
 const modalProPix          = document.getElementById('modalProPix');
 const btnCloseProModal     = document.getElementById('btnCloseProModal');
-const btnCopyProPix        = document.getElementById('btnCopyProPix');
-const proPixKeyText        = document.getElementById('proPixKeyText');
 const inputModalProPin     = document.getElementById('inputModalProPin');
 const btnModalRedeemPin    = document.getElementById('btnModalRedeemPin');
 const proPixBrCode         = document.getElementById('proPixBrCode');
@@ -2427,45 +2424,7 @@ if (btnVerifyPro) {
   });
 }
 
-// ── Pix BR Code (EMV QR Code) builder — gera Copia-e-Cola ─
-function brcodeCRC16(payload) {
-  let crc = 0xFFFF;
-  for (let i = 0; i < payload.length; i++) {
-    crc ^= payload.charCodeAt(i) << 8;
-    for (let j = 0; j < 8; j++) {
-      crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) : (crc << 1);
-      crc &= 0xFFFF;
-    }
-  }
-  return crc.toString(16).toUpperCase().padStart(4, '0');
-}
-function emvField(id, value) {
-  const str = String(value);
-  return id + String(str.length).padStart(2, '0') + str;
-}
-function buildPixBRCode({ key, amount, merchantName = 'YEKUN DREAM', merchantCity = 'SAO PAULO', txid = '***' }) {
-  const gui = emvField('00', 'BR.GOV.BCB.PIX');
-  const keyField = emvField('01', key);
-  const merchantInfo = emvField('26', gui + keyField);
-  const additional = emvField('62', emvField('05', txid));
-  let payload = '';
-  payload += emvField('00', '01');
-  payload += merchantInfo;
-  payload += emvField('52', '0000');
-  payload += emvField('53', '986');
-  if (amount != null && amount !== '') {
-    payload += emvField('54', Number(amount).toFixed(2));
-  }
-  payload += emvField('58', 'BR');
-  payload += emvField('59', merchantName.slice(0, 25));
-  payload += emvField('60', merchantCity.slice(0, 15));
-  payload += additional;
-  payload += '6304';
-  return payload + brcodeCRC16(payload);
-}
-
 // ── Modal PRO: step indicator + fluxo de 3 fases ──────────
-const PRO_PIX_AMOUNT = 20.00;
 const PRO_POLL_INTERVAL_MS = 10000;
 const PRO_POLL_MAX_MS = 10 * 60 * 1000;
 
@@ -3283,7 +3242,6 @@ function buildWorkCard(work) {
   const sources   = work.sources || [];
   const activeSrc = sources.find(s => s.id === work.lastReadSourceId) || sources[0] || {};
   const showIncBtn = appSettings.enableQuickIncrement !== false;
-  const initials  = getWorkInitials(work.name);
   const relTime   = formatRelativeTime(work.updatedAt || work.createdAt);
 
   const readingStatus = work.readingStatus || 'lendo';
@@ -3541,11 +3499,6 @@ function safeOpenUrl(url) {
       window.open(u.href, '_blank', 'noopener,noreferrer');
     }
   } catch (_) {}
-}
-
-// I-02: Valida formato de domínio antes de salvar nos chips
-function isValidDomain(d) {
-  return /^[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?(\.[a-z]{2,})+$/i.test((d || '').trim());
 }
 
 // ── Central Consolidada de Sites (Sem Duplicações) ──────
