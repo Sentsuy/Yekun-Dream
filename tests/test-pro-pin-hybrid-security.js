@@ -22,6 +22,8 @@ assert.ok(html.includes('id="inputDisplayProRecovery"'), 'Must contain #inputDis
 assert.ok(html.includes('id="btnToggleRevealRecovery"'), 'Must contain #btnToggleRevealRecovery');
 assert.ok(html.includes('id="proTotpAccordion"'), 'Must contain #proTotpAccordion for 2FA');
 assert.ok(html.includes('id="imgTotpQr"'), 'Must contain #imgTotpQr');
+assert.ok(html.includes('id="proTotpDesc"'), 'Must contain #proTotpDesc');
+assert.ok(html.includes('id="proTotpSecretRow"'), 'Must contain #proTotpSecretRow');
 assert.ok(html.includes('id="inputTotpManualSecret"'), 'Must contain #inputTotpManualSecret');
 assert.ok(html.includes('id="btnActivateTotp"'), 'Must contain #btnActivateTotp');
 assert.ok(html.includes('id="modalVerifyProAccess"'), 'Must contain #modalVerifyProAccess for new device access');
@@ -47,6 +49,8 @@ assert.ok(js.includes('btnToggleRevealPin'), 'popup.js must handle btnToggleReve
 assert.ok(js.includes('btnToggleRevealRecovery'), 'popup.js must handle btnToggleRevealRecovery');
 assert.ok(js.includes('IdentityService.verifyProAccess'), 'popup.js must call IdentityService.verifyProAccess');
 assert.ok(js.includes('IdentityService.verifyAndEnableTotp'), 'popup.js must call verifyAndEnableTotp');
+assert.ok(js.includes("qrWrap.classList.add('hidden')"), 'popup.js must hide QR wrapper when 2FA is active');
+assert.ok(js.includes("totpSecretRow.classList.remove('hidden')"), 'popup.js must keep manual secret visible when 2FA is active');
 
 // 5. Unit test de TOTP
 console.log('5. Testing TotpUtil unit functions...');

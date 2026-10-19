@@ -1246,14 +1246,33 @@ async function updateProStatusUI(forceRefresh = false) {
 
         // TOTP status
         const isTotpActive = Boolean(creds.totpEnabled || (status && status.totpEnabled));
+        const qrWrap = document.getElementById('proTotpQrWrap');
+        const totpDesc = document.getElementById('proTotpDesc');
+        const totpSecretRow = document.getElementById('proTotpSecretRow');
+
         if (isTotpActive) {
           if (lblTotpStatus) lblTotpStatus.textContent = 'Google Authenticator (2FA Ativo)';
           if (proTotpActiveRow) proTotpActiveRow.classList.remove('hidden');
           if (proTotpVerifyRow) proTotpVerifyRow.classList.add('hidden');
+          if (qrWrap) {
+            qrWrap.classList.add('hidden');
+            qrWrap.style.display = 'none';
+          }
+          if (proTotpQrHint) proTotpQrHint.style.display = 'none';
+          if (totpDesc) totpDesc.textContent = 'Chave do Google Authenticator vinculada com sucesso à sua conta:';
+          if (inputTotpManualSecret) {
+            inputTotpManualSecret.value = creds.totpSecret || currentTotpSetupSecret || inputTotpManualSecret.value;
+          }
+          if (totpSecretRow) totpSecretRow.classList.remove('hidden');
         } else {
           if (lblTotpStatus) lblTotpStatus.textContent = 'Configurar Google Authenticator (2FA Opcional)';
           if (proTotpActiveRow) proTotpActiveRow.classList.add('hidden');
           if (proTotpVerifyRow) proTotpVerifyRow.classList.remove('hidden');
+          if (qrWrap) {
+            qrWrap.classList.remove('hidden');
+            qrWrap.style.display = '';
+          }
+          if (totpDesc) totpDesc.innerHTML = 'Escaneie o QR Code no app <strong>Google Authenticator</strong> no seu celular ou use a chave manual de 16 caracteres.';
         }
       } else {
         proActiveSecurityCard.classList.add('hidden');
@@ -3317,7 +3336,20 @@ if (proTotpAccordion) {
     const email = idInfo && idInfo.email;
     const config = getSupabaseConfig();
     const isRequired = creds.totpEnabled || (email ? await IdentityService.isTotpRequiredForEmail(config, email) : false);
-    if (isRequired) return;
+    if (isRequired) {
+      const qrWrap = document.getElementById('proTotpQrWrap');
+      if (qrWrap) {
+        qrWrap.classList.add('hidden');
+        qrWrap.style.display = 'none';
+      }
+      if (proTotpQrHint) proTotpQrHint.style.display = 'none';
+      const totpDesc = document.getElementById('proTotpDesc');
+      if (totpDesc) totpDesc.textContent = 'Chave do Google Authenticator vinculada com sucesso à sua conta:';
+      if (inputTotpManualSecret) {
+        inputTotpManualSecret.value = creds.totpSecret || currentTotpSetupSecret || inputTotpManualSecret.value;
+      }
+      return;
+    }
     if (email) {
       if (!currentTotpSetupSecret) {
         const totpData = await IdentityService.setupTotp(email);
@@ -3376,6 +3408,15 @@ if (btnActivateTotp && inputTotpTestCode) {
     if (res.success) {
       showToast('✓ ' + res.message);
       inputTotpTestCode.value = '';
+      if (inputTotpManualSecret && currentTotpSetupSecret) {
+        inputTotpManualSecret.value = currentTotpSetupSecret;
+      }
+      const qrWrap = document.getElementById('proTotpQrWrap');
+      if (qrWrap) {
+        qrWrap.classList.add('hidden');
+        qrWrap.style.display = 'none';
+      }
+      if (proTotpQrHint) proTotpQrHint.style.display = 'none';
       await updateProStatusUI(true);
     } else {
       showToast('⚠️ ' + res.error);
@@ -3389,6 +3430,26 @@ if (btnDisableTotp) {
     const idInfo = await IdentityService.getIdentityInfo();
     await IdentityService.disableTotp(config, idInfo.email);
     currentTotpSetupSecret = '';
+    if (inputTotpManualSecret) inputTotpManualSecret.value = '';
+    if (inputTotpTestCode) inputTotpTestCode.value = '';
+    const qrWrap = document.getElementById('proTotpQrWrap');
+    if (qrWrap) {
+      const oldSvg = qrWrap.querySelector('svg');
+      if (oldSvg) oldSvg.remove();
+      const oldOffline = qrWrap.querySelector('.pro-totp-qr-offline');
+      if (oldOffline) oldOffline.remove();
+      qrWrap.classList.remove('hidden');
+      qrWrap.style.display = '';
+    }
+    if (imgTotpQr) {
+      imgTotpQr.src = '';
+      imgTotpQr.style.display = 'none';
+    }
+    if (qrLoadingSpinner) qrLoadingSpinner.style.display = 'flex';
+    if (proTotpQrHint) {
+      proTotpQrHint.textContent = '';
+      proTotpQrHint.style.display = 'none';
+    }
     showToast('2FA desativado com sucesso.');
     await updateProStatusUI(true);
   });
