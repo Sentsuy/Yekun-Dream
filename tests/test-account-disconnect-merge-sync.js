@@ -211,6 +211,18 @@ global.chrome = {
   const totpSetup = await IdentityService.setupTotp('leitor@gmail.com');
   assert.strictEqual(totpSetup.secret.length, 16);
   assert.ok(totpSetup.qrUrl.startsWith('data:image/') || totpSetup.qrUrl.includes('api.qrserver.com'), 'Deve gerar Data URI ou URL para o QR Code');
+  assert.ok(typeof totpSetup.svg === 'string' && totpSetup.svg.includes('<svg'), 'Deve gerar SVG vetorial local para o QR Code');
+
+  // Verifica elementos e layout do QR Code no popup.html e popup.css
+  assert.ok(popupHtml.includes('id="proTotpQrWrap"'), 'popup.html deve conter #proTotpQrWrap');
+  assert.ok(popupHtml.includes('id="proTotpQrHint"'), 'popup.html deve conter #proTotpQrHint');
+  const qrWrapPos = popupHtml.indexOf('id="proTotpQrWrap"');
+  const qrHintPos = popupHtml.indexOf('id="proTotpQrHint"');
+  assert.ok(qrWrapPos !== -1 && qrHintPos !== -1 && qrWrapPos < qrHintPos, '#proTotpQrHint deve estar posicionado abaixo de #proTotpQrWrap');
+
+  const popupCss = fs.readFileSync(path.resolve(__dirname, '../popup.css'), 'utf8');
+  assert.ok(popupCss.includes('.pro-totp-qr-hint'), 'popup.css deve estilizar .pro-totp-qr-hint');
+  assert.ok(popupCss.includes('.pro-totp-qr-wrap svg'), 'popup.css deve conter estilos para SVG vetorial em .pro-totp-qr-wrap');
 
   // Ativação opcional com verificação de token
   const validToken = await IdentityService.Totp.generateToken(totpSetup.secret);

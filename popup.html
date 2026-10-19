@@ -321,9 +321,10 @@
                     <div class="pro-totp-content" id="proTotpContent">
                       <p class="pro-totp-desc">Escaneie o QR Code no app <strong>Google Authenticator</strong> no seu celular ou use a chave manual de 16 caracteres.</p>
                       <div class="pro-totp-qr-wrap" id="proTotpQrWrap">
-                        <img id="imgTotpQr" class="pro-totp-qr-img" alt="QR Code Google Authenticator" src="" style="display: none;" />
+                        <img id="imgTotpQr" class="pro-totp-qr-img" alt="" src="" style="display: none;" />
                         <div class="qr-loading-spinner" id="qrLoadingSpinner" style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: #888; font-size: 11px;">Carregando QR...</div>
                       </div>
+                      <div class="pro-totp-qr-hint text-xs text-muted" id="proTotpQrHint" style="display: none;"></div>
                       <div class="pro-totp-secret-row">
                         <input type="text" class="field-input pro-totp-secret-input" id="inputTotpManualSecret" readonly placeholder="Chave de configuração" />
                         <button type="button" class="btn-copy-pix btn-copy-cred" id="btnCopyTotpSecret">Copiar</button>

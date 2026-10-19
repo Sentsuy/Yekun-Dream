@@ -160,6 +160,7 @@ const btnCopySuccessRecovery   = document.getElementById('btnCopySuccessRecovery
 const proTotpAccordion         = document.getElementById('proTotpAccordion');
 const lblTotpStatus            = document.getElementById('lblTotpStatus');
 const imgTotpQr                = document.getElementById('imgTotpQr');
+const proTotpQrHint            = document.getElementById('proTotpQrHint');
 const inputTotpManualSecret    = document.getElementById('inputTotpManualSecret');
 const btnCopyTotpSecret        = document.getElementById('btnCopyTotpSecret');
 const inputTotpTestCode        = document.getElementById('inputTotpTestCode');
@@ -3016,11 +3017,22 @@ async function executeDisconnectAccount() {
   }
 
   currentTotpSetupSecret = '';
+  const qrWrap = document.getElementById('proTotpQrWrap');
+  if (qrWrap) {
+    const oldSvg = qrWrap.querySelector('svg');
+    if (oldSvg) oldSvg.remove();
+    const oldOffline = qrWrap.querySelector('.pro-totp-qr-offline');
+    if (oldOffline) oldOffline.remove();
+  }
   if (imgTotpQr) {
     imgTotpQr.src = '';
     imgTotpQr.style.display = 'none';
   }
   if (qrLoadingSpinner) qrLoadingSpinner.style.display = 'flex';
+  if (proTotpQrHint) {
+    proTotpQrHint.textContent = '';
+    proTotpQrHint.style.display = 'none';
+  }
   if (inputTotpManualSecret) inputTotpManualSecret.value = '';
   if (inputTotpTestCode) inputTotpTestCode.value = '';
 
@@ -3168,6 +3180,78 @@ if (btnCopySuccessRecovery && proSuccessRecovery) {
 
 // ── Google Authenticator (TOTP) Opcional ───────────────────
 let currentTotpSetupSecret = '';
+
+function renderTotpQr(totpData, email) {
+  if (proTotpQrHint) {
+    proTotpQrHint.textContent = '';
+    proTotpQrHint.style.display = 'none';
+  }
+  const qrWrap = document.getElementById('proTotpQrWrap');
+  if (qrWrap) {
+    const existingSvg = qrWrap.querySelector('svg');
+    if (existingSvg) existingSvg.remove();
+    const existingOffline = qrWrap.querySelector('.pro-totp-qr-offline');
+    if (existingOffline) existingOffline.remove();
+  }
+
+  // 1. Prioridade máxima: SVG vetorial offline (gerado localmente)
+  if (totpData && totpData.svg && qrWrap) {
+    if (qrLoadingSpinner) qrLoadingSpinner.style.display = 'none';
+    if (imgTotpQr) {
+      imgTotpQr.style.display = 'none';
+      imgTotpQr.src = '';
+    }
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = totpData.svg;
+    const svgEl = tempDiv.querySelector('svg');
+    if (svgEl) {
+      svgEl.setAttribute('role', 'img');
+      svgEl.setAttribute('aria-label', `QR Code Google Authenticator para ${email}`);
+      qrWrap.appendChild(svgEl);
+      return;
+    }
+  }
+
+  // 2. Geração direta no popup via biblioteca qrcode
+  try {
+    const qrlib = (typeof window !== 'undefined' && window.qrcode) ||
+                  (typeof globalThis !== 'undefined' && globalThis.qrcode) ||
+                  (typeof qrcode !== 'undefined' ? qrcode : null);
+    if (qrlib && totpData && (totpData.secret || currentTotpSetupSecret) && qrWrap) {
+      const secret = totpData.secret || currentTotpSetupSecret;
+      const otpUrl = TotpUtil.getOtpAuthUrl(email, secret);
+      const qr = qrlib(0, 'M');
+      qr.addData(otpUrl);
+      qr.make();
+      const svgTag = qr.createSvgTag({ cellSize: 3, margin: 4, scalable: true });
+      if (qrLoadingSpinner) qrLoadingSpinner.style.display = 'none';
+      if (imgTotpQr) {
+        imgTotpQr.style.display = 'none';
+        imgTotpQr.src = '';
+      }
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = svgTag;
+      const svgEl = tempDiv.querySelector('svg');
+      if (svgEl) {
+        svgEl.setAttribute('role', 'img');
+        svgEl.setAttribute('aria-label', `QR Code Google Authenticator para ${email}`);
+        qrWrap.appendChild(svgEl);
+        return;
+      }
+    }
+  } catch (_) {}
+
+  // 3. Fallback para <img> com totpData.qrUrl
+  if (imgTotpQr && totpData && totpData.qrUrl) {
+    imgTotpQr.onload = () => {
+      imgTotpQr.style.display = 'block';
+      if (qrLoadingSpinner) qrLoadingSpinner.style.display = 'none';
+      if (proTotpQrHint) proTotpQrHint.style.display = 'none';
+    };
+    imgTotpQr.src = totpData.qrUrl;
+  }
+}
+
 if (proTotpAccordion) {
   proTotpAccordion.addEventListener('toggle', async () => {
     if (!proTotpAccordion.open) return;
@@ -3179,30 +3263,15 @@ if (proTotpAccordion) {
       if (!currentTotpSetupSecret) {
         const totpData = await IdentityService.setupTotp(email);
         currentTotpSetupSecret = totpData.secret;
-        if (imgTotpQr) {
-          imgTotpQr.onload = () => {
-            imgTotpQr.style.display = 'block';
-            if (qrLoadingSpinner) qrLoadingSpinner.style.display = 'none';
-          };
-          imgTotpQr.src = totpData.qrUrl;
-          imgTotpQr.alt = `QR Code Google Authenticator para ${email}`;
-        }
+        renderTotpQr(totpData, email);
         if (inputTotpManualSecret) inputTotpManualSecret.value = totpData.secret;
-      } else if (imgTotpQr && (!imgTotpQr.src || imgTotpQr.style.display === 'none')) {
-        try {
-          const qrlib = (typeof qrcode !== 'undefined') ? qrcode : null;
-          if (qrlib) {
-            const otpUrl = TotpUtil.getOtpAuthUrl(email, currentTotpSetupSecret);
-            const qr = qrlib(0, 'M');
-            qr.addData(otpUrl);
-            qr.make();
-            imgTotpQr.onload = () => {
-              imgTotpQr.style.display = 'block';
-              if (qrLoadingSpinner) qrLoadingSpinner.style.display = 'none';
-            };
-            imgTotpQr.src = qr.createDataURL(4, 4);
-          }
-        } catch (_) {}
+      } else {
+        const qrWrap = document.getElementById('proTotpQrWrap');
+        const hasSvg = qrWrap && qrWrap.querySelector('svg');
+        const hasImg = imgTotpQr && imgTotpQr.style.display !== 'none' && imgTotpQr.src;
+        if (!hasSvg && !hasImg) {
+          renderTotpQr({ secret: currentTotpSetupSecret }, email);
+        }
       }
     }
   });
@@ -3211,13 +3280,18 @@ if (proTotpAccordion) {
 if (imgTotpQr) {
   imgTotpQr.addEventListener('error', () => {
     if (!imgTotpQr.src) return;
+    imgTotpQr.style.display = 'none';
     if (qrLoadingSpinner) qrLoadingSpinner.style.display = 'none';
     const qrWrap = document.getElementById('proTotpQrWrap');
-    if (qrWrap && !qrWrap.querySelector('.qr-offline-hint')) {
-      const hint = document.createElement('div');
-      hint.className = 'qr-offline-hint';
-      hint.textContent = 'Sem rede para QR: use a chave de 16 caracteres abaixo';
-      qrWrap.appendChild(hint);
+    if (qrWrap && !qrWrap.querySelector('.pro-totp-qr-offline') && !qrWrap.querySelector('svg')) {
+      const offlineMsg = document.createElement('div');
+      offlineMsg.className = 'pro-totp-qr-offline';
+      offlineMsg.textContent = 'QR indisponível';
+      qrWrap.appendChild(offlineMsg);
+    }
+    if (proTotpQrHint) {
+      proTotpQrHint.textContent = 'Sem rede para QR: use a chave de 16 caracteres abaixo';
+      proTotpQrHint.style.display = 'block';
     }
   });
 }

@@ -808,8 +808,15 @@ const IdentityService = {
     const secret = TotpUtil.generateSecret(16);
     const otpAuthUrl = TotpUtil.getOtpAuthUrl(email, secret);
     let localQrUrl = '';
+    let localSvg = '';
     try {
       let qrlib = (typeof qrcode !== 'undefined') ? qrcode : null;
+      if (!qrlib && typeof window !== 'undefined' && window.qrcode) {
+        qrlib = window.qrcode;
+      }
+      if (!qrlib && typeof globalThis !== 'undefined' && globalThis.qrcode) {
+        qrlib = globalThis.qrcode;
+      }
       if (!qrlib && typeof require !== 'undefined') {
         try { qrlib = require('./qrcode.js'); } catch (_) {}
       }
@@ -818,13 +825,17 @@ const IdentityService = {
         qr.addData(otpAuthUrl);
         qr.make();
         localQrUrl = qr.createDataURL(4, 4);
+        try {
+          localSvg = qr.createSvgTag({ cellSize: 3, margin: 4, scalable: true });
+        } catch (_) {}
       }
     } catch (_) {}
 
     return {
       secret,
       otpAuthUrl,
-      qrUrl: localQrUrl || `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(otpAuthUrl)}&size=160x160`
+      qrUrl: localQrUrl || `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(otpAuthUrl)}&size=160x160`,
+      svg: localSvg
     };
   },
 

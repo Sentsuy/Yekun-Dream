@@ -3839,11 +3839,42 @@ input:checked + .slider::before {
   align-items: center;
   justify-content: center;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+.pro-totp-qr-wrap svg {
+  width: 132px;
+  height: 132px;
+  display: block;
+  border-radius: 4px;
 }
 .pro-totp-qr-img {
   width: 132px;
   height: 132px;
   object-fit: contain;
+}
+.pro-totp-qr-offline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  color: #666666;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+}
+.pro-totp-qr-hint {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.35;
+  margin-top: 4px;
+  margin-bottom: 2px;
+  max-width: 240px;
+  word-break: break-word;
 }
 .pro-totp-secret-row {
   display: flex;
