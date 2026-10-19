@@ -158,6 +158,77 @@ const { IdentityService } = require('../identity-service');
   assert.strictEqual(savedCreds.accessPin, '123456');
   assert.strictEqual(savedCreds.recoveryKey, 'YK-1234-5678-9012');
 
+  console.log('Testing signInWithGoogleBrowserFlow & signOutGoogle...');
+  // 1. Fallback to getProfileUserInfo
+  global.chrome.identity.getProfileUserInfo = (cb) => cb({ email: 'browser.user@gmail.com', id: 'gid_browser' });
+  const flowProfileRes = await IdentityService.signInWithGoogleBrowserFlow();
+  assert.strictEqual(flowProfileRes.success, true);
+  assert.strictEqual(flowProfileRes.email, 'browser.user@gmail.com');
+  assert.strictEqual(flowProfileRes.source, 'google');
+
+  // 2. Interactive getAuthToken flow
+  global.chrome.identity.getAuthToken = (opts, cb) => cb('mock_token_abc');
+  global.fetch = async (url, opts) => {
+    if (url.includes('oauth2/v2/userinfo')) {
+      return {
+        ok: true,
+        json: async () => ({ email: 'oauth.user@gmail.com', id: 'gid_oauth', verified_email: true })
+      };
+    }
+    return { ok: false };
+  };
+  const flowOAuthRes = await IdentityService.signInWithGoogleBrowserFlow();
+  assert.strictEqual(flowOAuthRes.success, true);
+  assert.strictEqual(flowOAuthRes.email, 'oauth.user@gmail.com');
+  assert.strictEqual(flowOAuthRes.source, 'google');
+
+  // 3. Neither available (empty profile + auth error)
+  delete global.chrome.identity.getAuthToken;
+  global.chrome.identity.getProfileUserInfo = (cb) => cb({ email: '', id: '' });
+  await IdentityService.clearCustomProEmail();
+  const flowEmptyRes = await IdentityService.signInWithGoogleBrowserFlow();
+  assert.strictEqual(flowEmptyRes.success, false);
+  assert.strictEqual(flowEmptyRes.needsInput, true);
+
+  // 4. Sign out
+  await IdentityService.setCustomProEmail('logged.user@gmail.com');
+  const signoutRes = await IdentityService.signOutGoogle();
+  assert.strictEqual(signoutRes.success, true);
+  const afterSignOut = await IdentityService.getIdentityInfo();
+  assert.strictEqual(afterSignOut.email, '');
+
+  console.log('Testing checkProStatus: FREE vs PRO on new device...');
+  global.fetch = async (url, opts) => {
+    if (url.includes('check_pro_status')) {
+      const body = JSON.parse(opts.body);
+      if (body.p_email === 'free@test.com') {
+        return {
+          ok: true,
+          json: async () => ({ isPro: false, validUntil: 0, plan: 'none' })
+        };
+      } else if (body.p_email === 'pro@test.com') {
+        return {
+          ok: true,
+          json: async () => ({ isPro: true, validUntil: Date.now() + 365 * 86400000, plan: 'annual' })
+        };
+      }
+    }
+    return { ok: false };
+  };
+
+  // Free user: must NOT require PIN
+  await IdentityService.setCustomProEmail('free@test.com');
+  await IdentityService.clearStoredCredentials();
+  const freeStatus = await IdentityService.checkProStatus({ supabaseUrl: 'https://mock.supabase.co', supabaseKey: 'mock' }, true);
+  assert.strictEqual(freeStatus.isPro, false);
+  assert.strictEqual(freeStatus.needsPin, false, 'Free user must not have needsPin: true');
+
+  // PRO user without local PIN: must require PIN on new device
+  await IdentityService.setCustomProEmail('pro@test.com');
+  const proStatusNewDevice = await IdentityService.checkProStatus({ supabaseUrl: 'https://mock.supabase.co', supabaseKey: 'mock' }, true);
+  assert.strictEqual(proStatusNewDevice.isPro, false);
+  assert.strictEqual(proStatusNewDevice.needsPin, true, 'PRO user on new device without PIN must have needsPin: true');
+
   global.fetch = originalFetch;
 
   console.log('✓ test-identity-service passed');

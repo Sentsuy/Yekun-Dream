@@ -1232,6 +1232,47 @@ async function updateProStatusUI(forceRefresh = false) {
         showToast('Tema Cyber Neon desativado (exclusivo PRO). Retornado ao tema Escuro.');
       }
     }
+
+    // Atualiza estado de conexão Google e liberação do checkout PRO
+    const hasEmail = Boolean(status && status.email);
+    const proAuthHelper = document.getElementById('proAuthHelper');
+
+    if (hasEmail) {
+      if (btnConnectGoogle) {
+        btnConnectGoogle.classList.add('is-connected');
+        const span = btnConnectGoogle.querySelector('span');
+        if (span) span.textContent = `Conta Google: ${status.email}`;
+        btnConnectGoogle.title = `Conectado como ${status.email}. Clique para reconectar ou sincronizar.`;
+      }
+      if (proAuthHelper) {
+        proAuthHelper.classList.add('is-connected');
+        proAuthHelper.innerHTML = '<svg class="svg-icon svg-xs" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg><span>Conta conectada. Assinatura PRO liberada!</span>';
+      }
+      if (btnOpenProModal) {
+        btnOpenProModal.classList.remove('is-locked');
+        btnOpenProModal.removeAttribute('disabled');
+        btnOpenProModal.title = status.isPro ? 'Renovar Assinatura Yekun PRO (R$ 20/ano)' : 'Assinar Yekun PRO (R$ 20/ano via Pix)';
+        const span = btnOpenProModal.querySelector('span');
+        if (span) span.textContent = status.isPro ? 'Renovar Yekun PRO' : 'Assinar Yekun PRO (R$ 20/ano)';
+      }
+    } else {
+      if (btnConnectGoogle) {
+        btnConnectGoogle.classList.remove('is-connected');
+        const span = btnConnectGoogle.querySelector('span');
+        if (span) span.textContent = 'Conectar Conta Google';
+        btnConnectGoogle.title = 'Conectar com sua conta Google em 1 clique';
+      }
+      if (proAuthHelper) {
+        proAuthHelper.classList.remove('is-connected');
+        proAuthHelper.innerHTML = '<span>Conecte sua conta do navegador para liberar a assinatura PRO</span>';
+      }
+      if (btnOpenProModal) {
+        btnOpenProModal.classList.add('is-locked');
+        btnOpenProModal.title = 'Conecte sua conta Google acima para liberar a assinatura';
+        const span = btnOpenProModal.querySelector('span');
+        if (span) span.textContent = 'Conectar Conta Google para Assinar';
+      }
+    }
   } catch (e) {
     console.warn('Erro ao atualizar status PRO:', e);
   }
@@ -2336,22 +2377,43 @@ if (btnModalRedeemPin) {
 const btnConnectGoogle = document.getElementById('btnConnectGoogle');
 if (btnConnectGoogle) {
   btnConnectGoogle.addEventListener('click', () => requireProTermsAccepted(async () => {
-    showToast('Conectando conta Google...');
+    showToast('Conectando conta Google do navegador…');
     try {
-      const info = await IdentityService.getGoogleIdentityInfo();
-      if (info && info.email) {
+      let res = await IdentityService.signInWithGoogleBrowserFlow();
+      if (!res || !res.email) {
+        const info = await IdentityService.getGoogleIdentityInfo();
+        if (info && info.email) {
+          res = { success: true, email: info.email, source: 'google' };
+        }
+      }
+
+      if (res && res.success && res.email) {
         if (inputCustomProEmail) {
-          inputCustomProEmail.value = info.email;
+          inputCustomProEmail.value = res.email;
         }
         setProEmailEditingMode(false);
-        await IdentityService.setCustomProEmail(info.email);
-        await updateProStatusUI(true);
-        showToast('Conta Google conectada: ' + info.email);
-      } else {
+        await IdentityService.setCustomProEmail(res.email);
+
+        const config = {
+          supabaseUrl: appSettings ? appSettings.supabaseUrl : '',
+          supabaseKey: appSettings ? appSettings.supabaseKey : ''
+        };
+        const status = await IdentityService.checkProStatus(config, true);
+        if (status && status.needsPin) {
+          openVerifyProAccessModal(res.email);
+        } else {
+          await updateProStatusUI(true);
+          showToast('✓ Conectado como ' + res.email + (status && status.isPro ? ' (PRO Ativo)' : ''));
+        }
+      } else if (res && res.needsInput) {
         setProEmailEditingMode(true);
+        if (inputCustomProEmail) inputCustomProEmail.focus();
         showToast('Nenhuma conta Google detectada. Digite seu e-mail e clique no botão Salvar.');
+      } else {
+        showToast('⚠️ ' + ((res && res.error) || 'Não foi possível conectar a conta Google.'));
       }
     } catch (e) {
+      console.warn('[PRO] Erro ao conectar conta Google:', e);
       showToast('Erro ao conectar conta Google');
     }
   }));
@@ -2506,6 +2568,19 @@ let currentBrCode = '';
 
 async function openProModal() {
   if (!modalProPix) return;
+
+  const idInfo = await IdentityService.getIdentityInfo();
+  const email = idInfo && idInfo.email ? idInfo.email.trim().toLowerCase() : '';
+  if (!email) {
+    showToast('⚠️ Conecte sua conta Google antes de assinar o PRO');
+    if (btnConnectGoogle) {
+      btnConnectGoogle.focus();
+      btnConnectGoogle.classList.add('highlight-pulse');
+      setTimeout(() => btnConnectGoogle.classList.remove('highlight-pulse'), 1600);
+    }
+    return;
+  }
+
   currentChargeId = null;
   currentBrCode = '';
   if (proPixBrCode) {
@@ -2524,8 +2599,6 @@ async function openProModal() {
   modalProPix.scrollTop = 0;
 
   try {
-    const idInfo = await IdentityService.getIdentityInfo();
-    const email = idInfo && idInfo.email ? idInfo.email.trim().toLowerCase() : '';
     const supabaseUrl = appSettings && appSettings.supabaseUrl ? appSettings.supabaseUrl : 'https://wbappdsgstzintgznikb.supabase.co';
     const supabaseKey = appSettings && appSettings.supabaseKey ? appSettings.supabaseKey : '';
     if (email && supabaseUrl) {
@@ -2576,7 +2649,20 @@ function closeProModal() {
 }
 
 if (btnOpenProModal) {
-  btnOpenProModal.addEventListener('click', () => requireProTermsAccepted(() => openProModal()));
+  btnOpenProModal.addEventListener('click', () => requireProTermsAccepted(async () => {
+    const idInfo = await IdentityService.getIdentityInfo();
+    const email = idInfo && idInfo.email ? idInfo.email.trim().toLowerCase() : '';
+    if (!email) {
+      showToast('⚠️ Conecte sua conta Google antes de assinar o PRO');
+      if (btnConnectGoogle) {
+        btnConnectGoogle.focus();
+        btnConnectGoogle.classList.add('highlight-pulse');
+        setTimeout(() => btnConnectGoogle.classList.remove('highlight-pulse'), 1600);
+      }
+      return;
+    }
+    openProModal();
+  }));
 }
 if (btnCloseProModal) btnCloseProModal.addEventListener('click', closeProModal);
 const btnCloseProModalHeader = document.getElementById('btnCloseProModalHeader');

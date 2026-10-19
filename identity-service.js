@@ -169,6 +169,77 @@ const IdentityService = {
     });
   },
 
+  async signInWithGoogleBrowserFlow(options = {}) {
+    // 1. Tenta autenticação interativa OAuth via getAuthToken (se configurado no manifest e suportado)
+    if (typeof chrome !== 'undefined' && chrome.identity && typeof chrome.identity.getAuthToken === 'function') {
+      try {
+        const token = await new Promise((resolve, reject) => {
+          chrome.identity.getAuthToken({ interactive: true }, (authToken) => {
+            if (chrome.runtime && chrome.runtime.lastError) {
+              return reject(new Error(chrome.runtime.lastError.message));
+            }
+            resolve(authToken);
+          });
+        });
+
+        if (token && typeof fetch === 'function') {
+          try {
+            const res = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data && data.email) {
+                const clean = this.normalizeEmail(data.email);
+                if (clean) {
+                  await this.setCustomProEmail(clean);
+                  return {
+                    success: true,
+                    email: clean,
+                    source: 'google',
+                    id: data.id || '',
+                    name: data.name || '',
+                    verified: true
+                  };
+                }
+              }
+            }
+          } catch (_) {}
+        }
+      } catch (authErr) {
+        // Fallback para getProfileUserInfo se getAuthToken não estiver disponível ou configurado
+        console.debug('[IdentityService] getAuthToken fallback:', authErr.message);
+      }
+    }
+
+    // 2. Tenta obter a identidade nativa da conta Google do navegador
+    try {
+      const googleInfo = await this.getGoogleIdentityInfo();
+      if (googleInfo && googleInfo.email) {
+        await this.setCustomProEmail(googleInfo.email);
+        return {
+          success: true,
+          email: googleInfo.email,
+          source: 'google',
+          id: googleInfo.id || '',
+          verified: true
+        };
+      }
+    } catch (_) {}
+
+    // 3. Caso nenhuma conta Google ativa seja detectada no navegador
+    return {
+      success: false,
+      error: 'Nenhuma conta Google ativa detectada no navegador.',
+      needsInput: true
+    };
+  },
+
+  async signOutGoogle() {
+    await this.clearCustomProEmail();
+    return { success: true };
+  },
+
   Totp: TotpUtil,
 
   async getStoredCredentials() {
@@ -388,22 +459,8 @@ const IdentityService = {
 
     const creds = await this.getStoredCredentials();
 
-    // Se for e-mail manual (custom) e não tiver credenciais nesta máquina: bloqueia
-    if (idInfo.source === 'custom' && !creds.accessPin && !creds.recoveryKey) {
-      return {
-        isPro: false,
-        email,
-        source: 'custom',
-        needsPin: true,
-        daysLeft: 0,
-        validUntil: 0,
-        plan: 'none',
-        cached: false
-      };
-    }
-
     try {
-      if (idInfo.source === 'custom' && (creds.accessPin || creds.recoveryKey)) {
+      if (creds.accessPin || creds.recoveryKey) {
         const vRes = await this.verifyProAccess(config, email, creds.accessPin || creds.recoveryKey);
         if (vRes.success && vRes.statusData) {
           return vRes.statusData;
@@ -430,11 +487,27 @@ const IdentityService = {
       const result = await res.json();
       const now = Date.now();
       const validUntil = Number(result.validUntil) || 0;
+      const isAccountPro = !!(result && result.isPro);
+
+      // Se a conta for PRO no servidor, mas esta máquina não possuir PIN ou Chave Mestra gravada:
+      if (isAccountPro && !creds.accessPin && !creds.recoveryKey) {
+        return {
+          isPro: false,
+          email,
+          source: idInfo.source,
+          needsPin: true,
+          daysLeft: this.calculateDaysLeft(validUntil, now),
+          validUntil,
+          plan: result.plan || 'annual',
+          cached: false
+        };
+      }
 
       const statusData = {
-        isPro: !!result.isPro,
+        isPro: isAccountPro,
         email,
         source: idInfo.source,
+        needsPin: false,
         daysLeft: this.calculateDaysLeft(validUntil, now),
         validUntil,
         plan: result.plan || 'none',
