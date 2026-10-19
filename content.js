@@ -1041,19 +1041,27 @@ if (typeof window !== 'undefined') {
       }
     }
 
-    // 0.2 Link direto da obra em cabeçalhos de leitura (ex: a[href*="/manga/"])
+    // 0.2 Link direto da obra em breadcrumbs ou cabeçalhos de leitura (ex: .breadcrumb a, a[href*="/manga/slug"], a[href*="/series/slug"])
     if (!domWorkTitle) {
-      const mangaLink = document.querySelector('a[href*="/manga/"]');
-      if (mangaLink) {
-        if (mangaLink.getAttribute('title')) {
-          const t = mangaLink.getAttribute('title').replace(/^Voltar\s+para\s+/i, '').trim();
-          if (t && !/^(?:in[íi]cio|home|obras)$/i.test(t)) domWorkTitle = t;
-        } else if (mangaLink.textContent && mangaLink.textContent.trim().length > 1) {
-          const t = mangaLink.textContent.trim();
-          if (!/^(?:in[íi]cio|home|todos|voltar)$/i.test(t)) domWorkTitle = t;
-        } else if (mangaLink.getAttribute('href') && typeof StorageLocal !== 'undefined' && StorageLocal.slugToTitle) {
-          const m = mangaLink.getAttribute('href').match(/\/manga\/([^/?#]+)/i);
-          if (m && m[1]) domWorkTitle = StorageLocal.slugToTitle(m[1]);
+      const candidates = Array.from(document.querySelectorAll('.breadcrumb a, .breadcrumbs a, .c-breadcrumb a, a[href*="/manga/"], a[href*="/series/"], a[href*="/obra/"], a[href*="/comics/"]'));
+      for (const a of candidates) {
+        if (a.closest && a.closest('header:not(.c-breadcrumb-wrapper):not([class*="breadcrumb"]):not([class*="crumbs"]), nav:not([class*="breadcrumb"]):not([class*="crumbs"]), footer, [role="navigation"]')) {
+          continue;
+        }
+        const href = a.getAttribute('href') || '';
+        const m = href.match(/\/(?:manga|series|obra|comics|story|webtoon)\/([^/?#]+)(?:\/|$)/i);
+        if (!m || !m[1] || /^(?:mangas?|series|obras?|todos|all|catalogo|lista|category|categoria)$/i.test(m[1])) {
+          continue;
+        }
+        const titleAttr = (a.getAttribute('title') || '').replace(/^Voltar\s+para\s+/i, '').trim();
+        const textContent = (a.textContent || '').replace(/^Voltar\s+para\s+/i, '').trim();
+        const candidate = titleAttr || textContent;
+        if (candidate && candidate.length > 1 && !/^(?:in[íi]cio|home|obras?|mang[aá]s?|voltar|todos|menu|animes?)$/i.test(candidate)) {
+          domWorkTitle = candidate;
+          break;
+        } else if (m[1] && typeof StorageLocal !== 'undefined' && StorageLocal.slugToTitle) {
+          domWorkTitle = StorageLocal.slugToTitle(m[1]);
+          break;
         }
       }
     }

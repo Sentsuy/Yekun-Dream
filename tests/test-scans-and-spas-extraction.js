@@ -64,7 +64,28 @@ assert.strictEqual(dec.mangaSlug, 'o-melhor-engenheiro-do-mundo', 'decrypted slu
 assert.strictEqual(StorageLocal.slugToTitle(dec.mangaSlug), 'O Melhor Engenheiro do Mundo', 'slugToTitle must capitalize correctly with PT-BR prepositions');
 
 
-// ── 5. Cross-Site Work Matching ────────────────────────────────
+// ── 5. MangaLivre.to (the-beginning-after-the-end-ptbr) ───────
+const mlObraUrl = 'https://mangalivre.to/manga/the-beginning-after-the-end-ptbr/';
+const mlCapUrl  = 'https://mangalivre.to/manga/the-beginning-after-the-end-ptbr/capitulo-1/';
+const mlRawTitle = 'The Beginning After The End | Manga Livre - Leitor online de Mangás em Português';
+const mlHeading = 'The Beginning After The End - Capitulo 1.';
+
+assert.strictEqual(StorageLocal.cleanWorkTitle(mlRawTitle), 'The Beginning After The End', 'cleanWorkTitle must extract clean title from MangaLivre document title');
+assert.strictEqual(StorageLocal.cleanWorkTitle(mlHeading), 'The Beginning After The End', 'cleanWorkTitle must clean chapter heading ending in dot');
+assert.strictEqual(StorageLocal.extractSlugTitle(mlObraUrl), 'The Beginning After The End', 'extractSlugTitle must strip trailing -ptbr from slug');
+assert.strictEqual(StorageLocal.extractChapter(mlObraUrl, mlRawTitle), '', 'extractChapter must return empty chapter on obra page');
+assert.strictEqual(StorageLocal.extractChapter(mlCapUrl, mlRawTitle), 'Cap. 1', 'extractChapter must extract Cap. 1 from /capitulo-1/');
+
+// ── 6. LycanToons.com (/series/:slug and /series/:slug/:cap) ──
+const lycanObraUrl = 'https://lycantoons.com/series/estou-apenas-aproveitando-meu-tempo-limite';
+const lycanCapUrl  = 'https://lycantoons.com/series/estou-apenas-aproveitando-meu-tempo-limite/1';
+
+assert.strictEqual(StorageLocal.extractSlugTitle(lycanObraUrl), 'Estou Apenas Aproveitando Meu Tempo Limite', 'extractSlugTitle must extract slug title on Lycan Toons series page');
+assert.strictEqual(StorageLocal.extractSlugTitle(lycanCapUrl), 'Estou Apenas Aproveitando Meu Tempo Limite', 'extractSlugTitle must extract slug title on Lycan Toons chapter page');
+assert.strictEqual(StorageLocal.extractChapter(lycanObraUrl), '', 'extractChapter must return empty on series overview');
+assert.strictEqual(StorageLocal.extractChapter(lycanCapUrl), 'Cap. 1', 'extractChapter must extract Cap. 1 from /series/:slug/:cap');
+
+// ── 7. Cross-Site Work Matching ────────────────────────────────
 const mockWorks = [
   { id: 'w1', name: 'Tensura Nikki: Tensei Shitara Slime Datta Ken', mainChapter: 'Cap. 10', sources: [] },
   { id: 'w2', name: 'The Beginning After The End', mainChapter: 'Cap. 250', sources: [] }

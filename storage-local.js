@@ -179,8 +179,8 @@ function extractChapter(url = '', title = '', domText = '') {
       if (num < 10000) return `Cap. ${chUrlMatch[1]}`;
     }
 
-    // Rotas modernas de leitura com subcaminho como /ler/:slug/:cap, /read/:slug/:cap, /capitulo/:slug/:cap
-    const subpathMatch = url.match(/\/(?:ler|read|chapter|capitulo|manga|comic|novel)\/[^\/]+\/(\d+(?:\.\d+)?)(?:[\/?#&]|$)/i);
+    // Rotas modernas de leitura com subcaminho como /ler/:slug/:cap, /read/:slug/:cap, /capitulo/:slug/:cap, /series/:slug/:cap
+    const subpathMatch = url.match(/\/(?:ler|read|chapter|capitulo|manga|comic|comics|novel|series|obra|obras|webtoon|manhwa|manhua)\/[^\/]+\/(\d+(?:\.\d+)?)(?:[\/?#&]|$)/i);
     if (subpathMatch) {
       const num = parseFloat(subpathMatch[1]);
       if (num < 10000) return `Cap. ${subpathMatch[1]}`;
@@ -270,6 +270,7 @@ function slugToTitle(slug) {
   const cleaned = slug
     .replace(/^(?:ler|assistir)[-_]/i, '')
     .replace(/-(?:cap[íi]tulo|chapter|chap|cap|cp|ch|epis[oó]dio|ep|temporada|season)[-_.]?\d+(?:\.\d+)?.*$/i, '')
+    .replace(/[-_]+(?:pt[-_]?br|sub[-_]?ptbr|dublado|legendado|online|manga|manhwa|manhua|scan|completo)$/i, '')
     .replace(/[-_]+/g, ' ')
     .trim();
   const lowercaseWords = new Set(['de', 'da', 'do', 'das', 'dos', 'em', 'no', 'na', 'nos', 'nas', 'e', 'ou', 'com', 'por', 'para', 'a', 'o', 'as', 'os']);
@@ -356,7 +357,7 @@ function cleanWorkTitle(rawTitle = '') {
   // 6. Remove temporadas e episódios (Temp 01 - Ep 01, S 01 Ep. 01, S01E01, T03E08, Temporada 4 Episódio 9, E1070)
   clean = clean.replace(/(?:[-–—:,|·•~]\s*)?(?:\b|[_\-\/])(?:temp(?:orada)?|[st])\s*\d{1,2}[-_.\s|]*(?:[eE]p(?:is[oó]dio)?\.?|[eE])\s*\d{1,4}\b/gi, '');
   clean = clean.replace(/(?:[-–—:,|·•~]\s*)?(?:\d{1,2}\s*ª?\s*)?(?:temp(?:orada)?|season)\s*\d*(?:\s*(?:epis[oó]dio|episode|ep\.?|e)\s*\d+)?\b/gi, '');
-  clean = clean.replace(/(?:[-–—:,|·•~]\s*)?(?:cap[íi]tulo|chapter|chap\.?|cap\.?|cp\.?|ch\.?|epis[óo]dio|episode|ep\.?)\s*\d+(?:\.\d+)?(?:\s*[,:\-–—|]\s*[^–—|]+)?\b(?:\s*final|\s*online)?/gi, '');
+  clean = clean.replace(/(?:[-–—:,|·•~]\s*)?(?:cap[íi]tulo|chapter|chap\.?|cap\.?|cp\.?|ch\.?|epis[óo]dio|episode|ep\.?)\s*\d+(?:\.\d+)?\.?(?:\s*[,:\-–—|]\s*[^–—|]+)?\b(?:\s*final|\s*online)?/gi, '');
   clean = clean.replace(/(?:[-–—:,|·•~]\s*)?(?:^|[\s\-_–|#\[(])e\s*\d+(?:\.\d+)?\b/gi, '');
   clean = clean.replace(/(?:[-–—:,|·•~]\s*)?#\s*\d+\b/g, '');
 
@@ -369,7 +370,7 @@ function cleanWorkTitle(rawTitle = '') {
   // 9. Remove fragmentos de traços ou texto solto de scan no final (exige espaço antes do hífen para não cortar palavras compostas como Homem-Aranha)
   clean = clean.replace(/\s+[-–—|·•~]\s*[^–—|-]{2,30}$/, '');
   clean = clean.replace(/[\(\[\{]\s*[\)\]\}]/g, ' ');
-  clean = clean.replace(/^[\s\-–—:,|·•~]+|[\s\-–—:,|·•~]+$/g, '');
+  clean = clean.replace(/^[\s\-–—:,|·•~.]+|[\s\-–—:,|·•~.]+$/g, '');
   clean = clean.replace(/\s+/g, ' ').trim();
 
   if (!clean || isSeasonDescriptor(clean)) {
