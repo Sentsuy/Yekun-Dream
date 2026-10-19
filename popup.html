@@ -228,6 +228,9 @@
                     <svg class="svg-icon svg-sm" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
                     <span>Salvar</span>
                   </button>
+                  <button type="button" class="btn-icon-subtle btn-disconnect-header hidden" id="btnDisconnectAccountHeader" title="Desconectar conta atual (obras locais permanecem salvas)" aria-label="Desconectar conta">
+                    <svg class="svg-icon svg-sm" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                  </button>
                 </div>
               </div>
 
@@ -236,7 +239,7 @@
                   Sincronize suas obras entre múltiplos dispositivos em tempo real com o <strong>Yekun Cloud PRO</strong> por apenas <strong>R$ 20/ano</strong>.
                 </p>
 
-                <!-- 1-Click Google Connect -->
+                <!-- 1-Click Google Connect & Disconnect -->
                 <div class="pro-google-row" id="proGoogleRow">
                   <button type="button" class="btn-google-signin" id="btnConnectGoogle" title="Conectar com sua conta Google em 1 clique">
                     <svg class="svg-icon svg-google" viewBox="0 0 24 24">
@@ -246,6 +249,10 @@
                       <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"></path>
                     </svg>
                     <span>Conectar Conta Google</span>
+                  </button>
+                  <button type="button" class="btn-disconnect-account hidden" id="btnDisconnectAccount" title="Desconectar conta (suas obras locais continuarão salvas)">
+                    <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    <span>Desconectar</span>
                   </button>
                   <div class="pro-auth-helper" id="proAuthHelper">
                     <span>Conecte sua conta do navegador para liberar a assinatura PRO</span>
@@ -1097,6 +1104,26 @@
 
         <div class="modal-actions">
           <button class="btn-modal-cancel" id="btnCloseProModal" type="button">Fechar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Confirmação de Sincronização ao Conectar Nova Conta -->
+    <div class="modal-overlay" id="modalSyncAccountPrompt">
+      <div class="modal-box modal-verify-box">
+        <div class="modal-icon" style="color: var(--accent);">
+          <svg class="svg-icon svg-lg" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+        </div>
+        <h3 class="modal-title">Nova Conta Conectada</h3>
+        <p class="modal-text text-xs" id="lblSyncAccountPromptDesc">
+          Você conectou uma nova conta (<strong id="lblNewSyncEmail"></strong>). Deseja sincronizar suas obras salvas com esta conta agora?
+        </p>
+        <p class="modal-text text-xs text-muted" style="margin-top: 6px;">
+          Suas obras locais nunca são duplicadas: capítulos e sites lidos serão mesclados de forma inteligente.
+        </p>
+        <div class="modal-actions" style="margin-top: 16px; display: flex; gap: 8px;">
+          <button class="btn-modal-cancel" id="btnCancelSyncNewAccount" type="button">Agora Não (Manter Local)</button>
+          <button class="btn-save" id="btnConfirmSyncNewAccount" type="button">Sim, Sincronizar Agora</button>
         </div>
       </div>
     </div>

@@ -1223,6 +1223,95 @@ const StorageLocal = {
     return work;
   },
 
+  mergeWorkData(targetWork, incomingWork) {
+    if (!targetWork || !incomingWork) return targetWork || incomingWork;
+
+    // 1. Mescla fontes (sources) sem duplicar por domain ou siteName
+    if (!Array.isArray(targetWork.sources)) targetWork.sources = [];
+    const incomingSources = Array.isArray(incomingWork.sources) ? incomingWork.sources : [];
+
+    for (const incSrc of incomingSources) {
+      const existing = targetWork.sources.find(s =>
+        (incSrc.domain && s.domain && incSrc.domain === s.domain) ||
+        (incSrc.siteName && s.siteName && incSrc.siteName.toLowerCase() === s.siteName.toLowerCase())
+      );
+      if (existing) {
+        if ((incSrc.updatedAt || 0) >= (existing.updatedAt || 0)) {
+          existing.chapter = incSrc.chapter || existing.chapter;
+          existing.url = incSrc.url || existing.url;
+          existing.updatedAt = incSrc.updatedAt || Date.now();
+        }
+      } else {
+        targetWork.sources.push({ ...incSrc });
+      }
+    }
+
+    // 2. Mescla aliases sem duplicatas
+    if (!Array.isArray(targetWork.aliases)) targetWork.aliases = [];
+    const incomingAliases = Array.isArray(incomingWork.aliases) ? incomingWork.aliases : [];
+    const normName = normalizeTitle(targetWork.name || '');
+    for (const a of incomingAliases) {
+      const clean = (this.cleanWorkTitle ? this.cleanWorkTitle(a) : a).trim();
+      const norm = normalizeTitle(clean);
+      if (norm && norm !== normName && !targetWork.aliases.some(ea => normalizeTitle(ea) === norm)) {
+        targetWork.aliases.push(clean);
+      }
+    }
+
+    // 3. Mescla histórico (history) sem duplicar itens idênticos
+    if (!Array.isArray(targetWork.history)) targetWork.history = [];
+    const incomingHistory = Array.isArray(incomingWork.history) ? incomingWork.history : [];
+    for (const h of incomingHistory) {
+      const exists = targetWork.history.some(eh =>
+        (h.url && eh.url && h.url === eh.url) ||
+        (h.timestamp && eh.timestamp && Math.abs(h.timestamp - eh.timestamp) < 1000)
+      );
+      if (!exists) {
+        targetWork.history.push({ ...h });
+      }
+    }
+    targetWork.history.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    if (targetWork.history.length > 50) {
+      targetWork.history = targetWork.history.slice(0, 50);
+    }
+
+    // 4. Decide mainChapter e lastReadSourceId baseado no updatedAt mais recente
+    const targetUpdated = targetWork.updatedAt || 0;
+    const incomingUpdated = incomingWork.updatedAt || 0;
+    if (incomingUpdated > targetUpdated) {
+      targetWork.mainChapter = incomingWork.mainChapter || targetWork.mainChapter;
+      if (incomingWork.lastReadSourceId) {
+        const matchSrc = targetWork.sources.find(s => s.id === incomingWork.lastReadSourceId) || targetWork.sources[0];
+        if (matchSrc) targetWork.lastReadSourceId = matchSrc.id;
+      }
+      targetWork.updatedAt = incomingUpdated;
+    }
+
+    // 5. Metadados complementares
+    if (!targetWork.readingStatus && incomingWork.readingStatus) targetWork.readingStatus = incomingWork.readingStatus;
+    if (!targetWork.publicationStatus && incomingWork.publicationStatus) targetWork.publicationStatus = incomingWork.publicationStatus;
+    if ((!targetWork.releaseDays || targetWork.releaseDays.length === 0) && Array.isArray(incomingWork.releaseDays)) {
+      targetWork.releaseDays = incomingWork.releaseDays;
+    }
+
+    return targetWork;
+  },
+
+  async markAllWorksPendingSync() {
+    const list = await this.getAllRawWorks();
+    let changed = false;
+    for (const w of list) {
+      if (w.syncStatus !== 'pending') {
+        w.syncStatus = 'pending';
+        changed = true;
+      }
+    }
+    if (changed) {
+      await safeStorageSet({ [STORAGE_KEY_ENTRIES_V3]: list });
+    }
+    return list.length;
+  },
+
   parseChapterIncrement(chapterStr) {
     if (!chapterStr || typeof chapterStr !== 'string') return 'Cap. 1';
 

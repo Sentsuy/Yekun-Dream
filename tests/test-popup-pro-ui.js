@@ -22,6 +22,8 @@ assert.ok(html.includes('id="modalProPix"'), 'popup.html deve conter modal de Pi
 assert.ok(html.includes('id="inputCustomProEmail"'), 'popup.html deve permitir informar e-mail customizado #inputCustomProEmail');
 
 assert.ok(html.includes('id="btnConnectGoogle"'), 'popup.html deve conter botão #btnConnectGoogle para login em 1 clique');
+assert.ok(html.includes('id="btnDisconnectAccount"'), 'popup.html deve conter botão #btnDisconnectAccount');
+assert.ok(html.includes('id="modalSyncAccountPrompt"'), 'popup.html deve conter modal #modalSyncAccountPrompt');
 assert.ok(html.includes('id="settingsTabsNav"'), 'popup.html deve conter navegação por pílulas #settingsTabsNav');
 
 assert.ok(html.includes('id="btnSaveCustomProEmail"'), 'popup.html deve conter botão #btnSaveCustomProEmail');

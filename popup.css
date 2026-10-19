@@ -4130,6 +4130,37 @@ input:checked + .slider::before {
   flex-shrink: 0;
 }
 
+.btn-disconnect-account {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-disconnect-account:hover {
+  color: #ff5252;
+  border-color: rgba(255, 82, 82, 0.35);
+  background: rgba(255, 82, 82, 0.08);
+}
+
+.btn-disconnect-header {
+  color: var(--text-muted);
+}
+
+.btn-disconnect-header:hover {
+  color: #ff5252;
+}
+
 .btn-upgrade-pro.is-locked {
   background: var(--surface2);
   color: var(--text-muted);

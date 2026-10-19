@@ -132,44 +132,69 @@ const SyncService = {
 
     let updatedCount = 0;
     for (const rem of remoteEntries) {
-      const local = map.get(rem.id);
+      let local = map.get(rem.id);
+      if (!local && rem.name && typeof StorageLocal.findMatchingWork === 'function') {
+        const matchRes = StorageLocal.findMatchingWork(rem.name, Array.from(map.values()));
+        if (matchRes && matchRes.exactMatch) {
+          local = matchRes.exactMatch;
+        }
+      }
       const remoteUpdatedAt = Number(rem.updated_at) || 0;
 
-      // Se não existe ou remoto é mais recente
-      if (!local || remoteUpdatedAt > (local.updatedAt || 0)) {
-        let sources = [];
-        let history = [];
+      let sources = [];
+      let history = [];
 
-        try {
-          if (rem.sources) {
-            sources = typeof rem.sources === 'string' ? JSON.parse(rem.sources) : rem.sources;
-          }
-        } catch (e) {
-          sources = [];
+      try {
+        if (rem.sources) {
+          sources = typeof rem.sources === 'string' ? JSON.parse(rem.sources) : rem.sources;
         }
+      } catch (e) {
+        sources = [];
+      }
 
-        try {
-          if (rem.history) {
-            history = typeof rem.history === 'string' ? JSON.parse(rem.history) : rem.history;
-          }
-        } catch (e) {
-          history = [];
+      try {
+        if (rem.history) {
+          history = typeof rem.history === 'string' ? JSON.parse(rem.history) : rem.history;
         }
+      } catch (e) {
+        history = [];
+      }
 
-        if (!Array.isArray(sources) || sources.length === 0) {
-          const domain = StorageLocal.extractDomain(rem.url);
-          const siteName = StorageLocal.formatSiteName(domain);
-          const srcId = 'src_' + rem.id;
-          sources = [{
-            id: srcId,
-            siteName,
-            domain,
-            url: rem.url || '',
-            chapter: rem.chapter || 'Cap. 1',
-            updatedAt: remoteUpdatedAt
-          }];
+      if (!Array.isArray(sources) || sources.length === 0) {
+        const domain = StorageLocal.extractDomain(rem.url);
+        const siteName = StorageLocal.formatSiteName(domain);
+        const srcId = 'src_' + rem.id;
+        sources = [{
+          id: srcId,
+          siteName,
+          domain,
+          url: rem.url || '',
+          chapter: rem.chapter || 'Cap. 1',
+          updatedAt: remoteUpdatedAt
+        }];
+      }
+
+      const remoteWorkData = {
+        name: rem.name,
+        mainChapter: rem.chapter || (sources[0] && sources[0].chapter) || 'Cap. 1',
+        tag: rem.tag || 'manga',
+        lastReadSourceId: sources[0] ? sources[0].id : '',
+        updatedAt: remoteUpdatedAt,
+        deleted: !!rem.deleted,
+        sources,
+        history
+      };
+
+      if (local) {
+        if (typeof StorageLocal.mergeWorkData === 'function') {
+          StorageLocal.mergeWorkData(local, remoteWorkData);
+        } else if (remoteUpdatedAt > (local.updatedAt || 0)) {
+          Object.assign(local, remoteWorkData);
         }
-
+        local.syncStatus = 'synced';
+        map.set(local.id, local);
+        updatedCount++;
+      } else {
         map.set(rem.id, {
           id: rem.id,
           name: rem.name,

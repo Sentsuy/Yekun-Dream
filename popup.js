@@ -173,6 +173,14 @@ const modalVerifyProAccess     = document.getElementById('modalVerifyProAccess')
 const inputVerifyProSecret     = document.getElementById('inputVerifyProSecret');
 const btnCancelVerifyPro       = document.getElementById('btnCancelVerifyPro');
 const btnConfirmVerifyPro      = document.getElementById('btnConfirmVerifyPro');
+
+// Desconexão e Troca Segura de Conta DOM refs
+const btnDisconnectAccount       = document.getElementById('btnDisconnectAccount');
+const btnDisconnectAccountHeader = document.getElementById('btnDisconnectAccountHeader');
+const modalSyncAccountPrompt     = document.getElementById('modalSyncAccountPrompt');
+const lblNewSyncEmail            = document.getElementById('lblNewSyncEmail');
+const btnConfirmSyncNewAccount   = document.getElementById('btnConfirmSyncNewAccount');
+const btnCancelSyncNewAccount    = document.getElementById('btnCancelSyncNewAccount');
 const verifyProAccessEmailDesc = document.getElementById('verifyProAccessEmailDesc');
 
 // Feedback & Community Feed DOM refs
@@ -1235,6 +1243,8 @@ async function updateProStatusUI(forceRefresh = false) {
     const proAuthHelper = document.getElementById('proAuthHelper');
 
     if (hasEmail) {
+      if (btnDisconnectAccount) btnDisconnectAccount.classList.remove('hidden');
+      if (btnDisconnectAccountHeader) btnDisconnectAccountHeader.classList.remove('hidden');
       if (btnConnectGoogle) {
         btnConnectGoogle.classList.add('is-connected');
         const span = btnConnectGoogle.querySelector('span');
@@ -1253,6 +1263,8 @@ async function updateProStatusUI(forceRefresh = false) {
         if (span) span.textContent = status.isPro ? 'Renovar Yekun PRO' : 'Assinar Yekun PRO (R$ 20/ano)';
       }
     } else {
+      if (btnDisconnectAccount) btnDisconnectAccount.classList.add('hidden');
+      if (btnDisconnectAccountHeader) btnDisconnectAccountHeader.classList.add('hidden');
       if (btnConnectGoogle) {
         btnConnectGoogle.classList.remove('is-connected');
         const span = btnConnectGoogle.querySelector('span');
@@ -2389,6 +2401,10 @@ if (btnConnectGoogle) {
           inputCustomProEmail.value = res.email;
         }
         setProEmailEditingMode(false);
+
+        const lastDisconnected = await IdentityService.getLastDisconnectedEmail();
+        const isDifferentAccount = Boolean(lastDisconnected && lastDisconnected !== res.email);
+
         await IdentityService.setCustomProEmail(res.email, 'google');
 
         const config = {
@@ -2398,6 +2414,11 @@ if (btnConnectGoogle) {
         const status = await IdentityService.checkProStatus(config, true);
         await updateProStatusUI(true);
         showToast('✓ Conectado como ' + res.email + (status && status.isPro ? ' (PRO Ativo)' : ''));
+
+        if (isDifferentAccount) {
+          await IdentityService.clearLastDisconnectedEmail();
+          openSyncAccountPrompt(res.email);
+        }
       } else if (res && res.needsInput) {
         setProEmailEditingMode(true);
         if (inputCustomProEmail) inputCustomProEmail.focus();
@@ -2639,6 +2660,7 @@ if (typeof document !== 'undefined' && typeof document.addEventListener === 'fun
     if (e.key === 'Escape') {
       if (modalProPix && modalProPix.classList.contains('open')) closeProModal();
       if (modalVerifyProAccess && modalVerifyProAccess.classList.contains('open')) closeVerifyProAccessModal();
+      if (modalSyncAccountPrompt && modalSyncAccountPrompt.classList.contains('open')) closeSyncAccountPrompt();
     }
   });
 }
@@ -2872,11 +2894,76 @@ if (btnSaveCustomProEmail && inputCustomProEmail) {
       }
     } catch (_) {}
 
+    const lastDisconnected = await IdentityService.getLastDisconnectedEmail();
+    const isDifferentAccount = Boolean(lastDisconnected && lastDisconnected !== email);
+
     await IdentityService.setCustomProEmail(email);
     setProEmailEditingMode(false);
     await updateProStatusUI(true);
     showToast('Conta alterada para: ' + email);
+
+    if (isDifferentAccount) {
+      await IdentityService.clearLastDisconnectedEmail();
+      openSyncAccountPrompt(email);
+    }
   }));
+}
+
+// ── Desconexão e Troca Segura de Conta ─────────────────────
+async function handleDisconnectAccount() {
+  await IdentityService.signOutGoogle();
+  await updateProStatusUI(true);
+  showToast('✓ Conta desconectada. Suas obras locais foram preservadas!');
+}
+if (btnDisconnectAccount) {
+  btnDisconnectAccount.addEventListener('click', handleDisconnectAccount);
+}
+if (btnDisconnectAccountHeader) {
+  btnDisconnectAccountHeader.addEventListener('click', handleDisconnectAccount);
+}
+
+// ── Modal de Confirmação de Sincronização ao Conectar Nova Conta ──
+let pendingNewSyncEmail = '';
+function openSyncAccountPrompt(newEmail) {
+  pendingNewSyncEmail = newEmail;
+  if (lblNewSyncEmail) {
+    lblNewSyncEmail.textContent = newEmail;
+  }
+  if (modalSyncAccountPrompt) {
+    modalSyncAccountPrompt.classList.add('open');
+  }
+}
+function closeSyncAccountPrompt() {
+  if (modalSyncAccountPrompt) {
+    modalSyncAccountPrompt.classList.remove('open');
+  }
+  pendingNewSyncEmail = '';
+}
+if (btnCancelSyncNewAccount) {
+  btnCancelSyncNewAccount.addEventListener('click', closeSyncAccountPrompt);
+}
+if (modalSyncAccountPrompt) {
+  modalSyncAccountPrompt.addEventListener('click', (e) => {
+    if (e.target === modalSyncAccountPrompt) closeSyncAccountPrompt();
+  });
+}
+if (btnConfirmSyncNewAccount) {
+  btnConfirmSyncNewAccount.addEventListener('click', async () => {
+    closeSyncAccountPrompt();
+    showToast('Sincronizando e mesclando obras com a nova conta…');
+    if (typeof StorageLocal !== 'undefined' && StorageLocal.markAllWorksPendingSync) {
+      await StorageLocal.markAllWorksPendingSync();
+    }
+    if (typeof SyncService !== 'undefined' && SyncService.syncAll) {
+      const res = await SyncService.syncAll();
+      if (res && res.ok) {
+        showToast(`✓ Sincronizado! ${res.pushed || 0} enviadas, ${res.pulled || 0} mescladas.`);
+        if (typeof renderAllWorks === 'function') await renderAllWorks();
+      } else {
+        showToast((res && res.error) ? '⚠️ ' + res.error : 'Sincronização concluída.');
+      }
+    }
+  });
 }
 
 // ── Handlers de Revelação e Cópia de Chaves de Acesso ──────

@@ -235,7 +235,50 @@ const IdentityService = {
     };
   },
 
+  async getLastDisconnectedEmail() {
+    return new Promise(resolve => {
+      try {
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+          chrome.storage.local.get(['lastDisconnectedEmail'], res => {
+            resolve(res && res.lastDisconnectedEmail ? String(res.lastDisconnectedEmail).trim().toLowerCase() : '');
+          });
+          return;
+        }
+      } catch (_) {}
+      resolve('');
+    });
+  },
+
+  async setLastDisconnectedEmail(email) {
+    const clean = this.normalizeEmail(email);
+    return new Promise(resolve => {
+      try {
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+          chrome.storage.local.set({ lastDisconnectedEmail: clean }, resolve);
+          return;
+        }
+      } catch (_) {}
+      resolve();
+    });
+  },
+
+  async clearLastDisconnectedEmail() {
+    return new Promise(resolve => {
+      try {
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+          chrome.storage.local.remove(['lastDisconnectedEmail'], resolve);
+          return;
+        }
+      } catch (_) {}
+      resolve();
+    });
+  },
+
   async signOutGoogle() {
+    const current = await this.getIdentityInfo();
+    if (current && current.email) {
+      await this.setLastDisconnectedEmail(current.email);
+    }
     await this.clearCustomProEmail();
     return { success: true };
   },

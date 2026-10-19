@@ -52,6 +52,7 @@ const testSuites = [
   { name: 'Popup PRO UI & PIN flow', cmd: 'node tests/test-popup-pro-ui.js' },
   { name: 'PRO Cloud Terms of Use Gate', cmd: 'node tests/test-pro-terms-gate.js' },
   { name: 'PRO PIN Hybrid Security & 2FA', cmd: 'node tests/test-pro-pin-hybrid-security.js' },
+  { name: 'Account Disconnect & Anti-Duplication Sync', cmd: 'node tests/test-account-disconnect-merge-sync.js' },
   { name: 'Supabase Feedback SQL Schema & RPC', cmd: 'node tests/test-supabase-feedback-sql.js' },
   { name: 'Feedback Service & Limits Validation', cmd: 'node tests/test-feedback-service.js' },
   { name: 'Popup Feedback UI & Context Flow', cmd: 'node tests/test-popup-feedback-ui.js' },
