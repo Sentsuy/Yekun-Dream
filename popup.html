@@ -6,7 +6,7 @@
   <title>Yekun Dream</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" id="googleFontsStylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;800&display=swap" media="print" />
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
@@ -448,10 +448,14 @@
           <div class="settings-section">
             <div class="settings-section-title">Comportamento do Leitor</div>
             <div class="toggle-list">
-              <label class="toggle-item">
+              <label class="toggle-item" title="Exibe o botão de atalho flutuante diretamente nas páginas dos sites permitidos para salvar ou atualizar suas obras sem precisar abrir o menu.">
                 <div class="toggle-label-wrap">
                   <span class="toggle-label">Botão flutuante nas páginas</span>
                   <span class="toggle-status" id="floatingButtonStatus">Ativado</span>
+                  <span class="toggle-help-icon" tabindex="0" role="button" aria-label="Explicação sobre botão flutuante">
+                    <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    <span class="toggle-tooltip">Exibe o botão de atalho flutuante diretamente nas páginas dos sites permitidos para salvar ou atualizar suas obras sem precisar abrir o menu.</span>
+                  </span>
                 </div>
                 <div class="switch">
                   <input type="checkbox" id="toggleFloatingButton" />
@@ -459,32 +463,56 @@
                 </div>
               </label>
 
-              <label class="toggle-item">
-                <span class="toggle-label">Contador no botão flutuante</span>
+              <label class="toggle-item" title="Exibe um indicador numérico com a quantidade de obras ativas salvas sobre o botão flutuante.">
+                <div class="toggle-label-wrap">
+                  <span class="toggle-label">Contador no botão flutuante</span>
+                  <span class="toggle-help-icon" tabindex="0" role="button" aria-label="Explicação sobre contador no botão flutuante">
+                    <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    <span class="toggle-tooltip">Exibe um indicador numérico com a quantidade de obras ativas salvas sobre o botão flutuante.</span>
+                  </span>
+                </div>
                 <div class="switch">
                   <input type="checkbox" id="toggleBadgeCount" />
                   <span class="slider"></span>
                 </div>
               </label>
 
-              <label class="toggle-item">
-                <span class="toggle-label">Ação rápida (+1) nos cards</span>
+              <label class="toggle-item" title="Exibe o botão de incremento rápido (+1) nos cards da lista para avançar o capítulo ou episódio com apenas um clique.">
+                <div class="toggle-label-wrap">
+                  <span class="toggle-label">Ação rápida (+1) nos cards</span>
+                  <span class="toggle-help-icon" tabindex="0" role="button" aria-label="Explicação sobre ação rápida nos cards">
+                    <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    <span class="toggle-tooltip">Exibe o botão de incremento rápido (+1) nos cards da lista para avançar o capítulo ou episódio com apenas um clique.</span>
+                  </span>
+                </div>
                 <div class="switch">
                   <input type="checkbox" id="toggleQuickIncrement" />
                   <span class="slider"></span>
                 </div>
               </label>
 
-              <label class="toggle-item">
-                <span class="toggle-label">Preenchimento automático do título</span>
+              <label class="toggle-item" title="Ao abrir o formulário para salvar ou adicionar uma nova fonte, preenche automaticamente o título da obra e o capítulo ou episódio detectados na página atual.">
+                <div class="toggle-label-wrap">
+                  <span class="toggle-label">Preenchimento automático do título</span>
+                  <span class="toggle-help-icon" tabindex="0" role="button" aria-label="Explicação sobre preenchimento automático">
+                    <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    <span class="toggle-tooltip">Ao abrir o formulário para salvar ou adicionar uma nova fonte, preenche automaticamente o título da obra e o capítulo ou episódio detectados na página atual.</span>
+                  </span>
+                </div>
                 <div class="switch">
                   <input type="checkbox" id="toggleAutoTitle" />
                   <span class="slider"></span>
                 </div>
               </label>
 
-              <label class="toggle-item">
-                <span class="toggle-label">Auto-marcar animes ao assistir 70%</span>
+              <label class="toggle-item" title="Ao assistir 70% ou mais de um vídeo em sites que possuem permissão concedida, atualiza automaticamente o episódio assistido para obras que já existem na sua lista.">
+                <div class="toggle-label-wrap">
+                  <span class="toggle-label">Auto-marcar animes ao assistir 70%</span>
+                  <span class="toggle-help-icon" tabindex="0" role="button" aria-label="Explicação sobre auto-marcar vídeos">
+                    <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    <span class="toggle-tooltip">Ao assistir 70% ou mais de um vídeo em sites que possuem permissão concedida, atualiza automaticamente o episódio assistido para obras que já existem na sua lista.</span>
+                  </span>
+                </div>
                 <div class="switch">
                   <input type="checkbox" id="toggleAutoTrackAnime" />
                   <span class="slider"></span>
@@ -499,24 +527,42 @@
           <div class="settings-section">
             <div class="settings-section-title">Alertas de Lançamento</div>
             <div class="toggle-list">
-              <label class="toggle-item">
-                <span class="toggle-label">Alertas de lançamento nos dias da obra</span>
+              <label class="toggle-item" title="Envia notificações nos dias da semana em que novos capítulos ou episódios de suas obras são lançados.">
+                <div class="toggle-label-wrap">
+                  <span class="toggle-label">Alertas de lançamento nos dias da obra</span>
+                  <span class="toggle-help-icon" tabindex="0" role="button" aria-label="Explicação sobre alertas de lançamento">
+                    <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    <span class="toggle-tooltip">Envia notificações nos dias da semana em que novos capítulos ou episódios de suas obras são lançados.</span>
+                  </span>
+                </div>
                 <div class="switch">
                   <input type="checkbox" id="toggleReleaseNotifications" />
                   <span class="slider"></span>
                 </div>
               </label>
 
-              <label class="toggle-item">
-                <span class="toggle-label">Alerta matinal (08:00)</span>
+              <label class="toggle-item" title="Envia um lembrete matinal às 08:00 com as obras que lançam novos episódios ou capítulos no dia de hoje.">
+                <div class="toggle-label-wrap">
+                  <span class="toggle-label">Alerta matinal (08:00)</span>
+                  <span class="toggle-help-icon" tabindex="0" role="button" aria-label="Explicação sobre alerta matinal">
+                    <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    <span class="toggle-tooltip">Envia um lembrete matinal às 08:00 com as obras que lançam novos episódios ou capítulos no dia de hoje.</span>
+                  </span>
+                </div>
                 <div class="switch">
                   <input type="checkbox" id="toggleMorningNotification" />
                   <span class="slider"></span>
                 </div>
               </label>
 
-              <label class="toggle-item">
-                <span class="toggle-label">Alerta vespertino (17:00)</span>
+              <label class="toggle-item" title="Envia um lembrete vespertino às 17:00 com as obras do dia para você conferir seus episódios e leituras pendentes.">
+                <div class="toggle-label-wrap">
+                  <span class="toggle-label">Alerta vespertino (17:00)</span>
+                  <span class="toggle-help-icon" tabindex="0" role="button" aria-label="Explicação sobre alerta vespertino">
+                    <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    <span class="toggle-tooltip">Envia um lembrete vespertino às 17:00 com as obras do dia para você conferir seus episódios e leituras pendentes.</span>
+                  </span>
+                </div>
                 <div class="switch">
                   <input type="checkbox" id="toggleEveningNotification" />
                   <span class="slider"></span>
@@ -849,7 +895,7 @@
 
       <select class="status-select" id="statusFilter" title="Filtrar por Status de Leitura">
         <option value="all">Status: Todos</option>
-        <option value="lendo">Lendo</option>
+        <option value="lendo">Lendo / Assistindo</option>
         <option value="concluido">Concluídos</option>
         <option value="pausado">Pausados</option>
         <option value="dropado">Dropados</option>
@@ -1149,8 +1195,6 @@
     <div class="toast" id="toast"></div>
   </div>
 
-  <script src="canonical-resolver.js"></script>
-  <script src="alias-crowd-service.js"></script>
   <script src="storage-local.js"></script>
   <script src="identity-service.js"></script>
   <script src="feedback-service.js"></script>

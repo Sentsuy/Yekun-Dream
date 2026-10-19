@@ -55,6 +55,7 @@ const testSuites = [
   { name: 'Supabase Feedback SQL Schema & RPC', cmd: 'node tests/test-supabase-feedback-sql.js' },
   { name: 'Feedback Service & Limits Validation', cmd: 'node tests/test-feedback-service.js' },
   { name: 'Popup Feedback UI & Context Flow', cmd: 'node tests/test-popup-feedback-ui.js' },
+  { name: 'Startup Performance & Lazy Loading', cmd: 'node tests/test-startup-performance.js' },
   { name: 'Syntax check: feedback-service.js', cmd: 'node -c feedback-service.js' },
   { name: 'Syntax check: identity-service.js', cmd: 'node -c identity-service.js' },
   { name: 'Syntax check: storage-local.js', cmd: 'node -c storage-local.js' },

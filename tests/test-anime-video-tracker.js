@@ -201,6 +201,110 @@ class MockVideo {
     assert.ok(contentSource.includes('autoSavedInSession') || contentSource.includes('autoTrack'), 'content.js must handle session idempotency or autoTrack');
   }
 
+  console.log('--- TEST 9: Permission Guarding (Liberar Site Inteiro & allowedDomains) ---');
+  {
+    const fs = require('fs');
+    const path = require('path');
+    const contentSource = fs.readFileSync(path.resolve(__dirname, '../content.js'), 'utf8');
+
+    // Verifica que content.js checa isSitePermitted e isDomainAllowed antes de ativar ou salvar
+    assert.ok(contentSource.includes('isSitePermitted'), 'content.js must define and use isSitePermitted');
+    assert.ok(contentSource.includes('updateVideoTrackerState'), 'content.js must synchronize video tracker state with site permission');
+    assert.ok(contentSource.includes('if (!isSitePermitted(appSettings)) return;'), 'handleAutoSave and message listener must abort if site is not permitted');
+
+    const { StorageLocal } = require('../storage-local');
+    const settings = {
+      allowedDomains: ['animesonlinecc.to'],
+      blockedDomains: ['globo.com']
+    };
+
+    assert.strictEqual(StorageLocal.isDomainAllowed('animesonlinecc.to', settings), true, 'Allowed site must pass permission');
+    assert.strictEqual(StorageLocal.isDomainAllowed('sub.animesonlinecc.to', settings), true, 'Subdomain of allowed site must pass permission');
+    assert.strictEqual(StorageLocal.isDomainAllowed('youtube.com', settings), false, 'Non-allowed site must fail permission');
+    assert.strictEqual(StorageLocal.isDomainAllowed('globo.com', settings), false, 'Blocked site must fail permission');
+  }
+
+  console.log('--- TEST 10: Existing-Works-Only Guard (Nunca criar obras novas do zero no autoTrack) ---');
+  {
+    const storageStore = {};
+    global.chrome = {
+      storage: {
+        local: {
+          get: (keys, cb) => {
+            const res = {};
+            keys.forEach(k => { res[k] = storageStore[k]; });
+            cb(res);
+          },
+          set: (items, cb) => {
+            Object.assign(storageStore, items);
+            if (cb) cb();
+          }
+        }
+      }
+    };
+
+    const { StorageLocal } = require('../storage-local');
+
+    // 1. Tenta salvar vídeo avulso/desconhecido com autoTrack/onlyExisting
+    const unlistedResult = await StorageLocal.saveWorkReading({
+      workName: 'Vídeo Aleatório da Internet',
+      chapter: 'Ep. 01',
+      url: 'https://random-site.example/video.mp4',
+      domain: 'random-site.example',
+      autoTrack: true,
+      onlyExisting: true
+    });
+
+    assert.strictEqual(unlistedResult, null, 'saveWorkReading with autoTrack must return null if work does not already exist');
+    const allWorksAfterUnlisted = await StorageLocal.getWorks();
+    assert.strictEqual(allWorksAfterUnlisted.length, 0, 'Database must remain clean with 0 works when unlisted video is watched');
+
+    // 2. Cadastra uma obra legítima no banco (ex: pelo botão salvar manual)
+    const legitWork = await StorageLocal.saveWorkReading({
+      workName: 'Sousou no Frieren',
+      chapter: 'Ep. 04',
+      url: 'https://animesonlinecc.to/episodio/sousou-no-frieren-episodio-4/',
+      domain: 'animesonlinecc.to',
+      siteName: 'Animes Online'
+    });
+    assert.ok(legitWork && legitWork.id, 'Legitimate work must be saved');
+
+    // 3. Agora assiste o próximo episódio com autoTrack: true na mesma obra
+    const autoIncrementResult = await StorageLocal.saveWorkReading({
+      linkToWorkId: legitWork.id,
+      workId: legitWork.id,
+      workName: legitWork.name,
+      chapter: 'Ep. 05',
+      url: 'https://animesonlinecc.to/episodio/sousou-no-frieren-episodio-5/',
+      domain: 'animesonlinecc.to',
+      siteName: 'Animes Online',
+      autoTrack: true,
+      onlyExisting: true
+    });
+
+    assert.ok(autoIncrementResult, 'Auto increment must succeed for existing work');
+    assert.strictEqual(autoIncrementResult.id, legitWork.id, 'Must update existing work ID');
+    assert.strictEqual(autoIncrementResult.mainChapter, 'Ep. 05', 'Chapter must be updated to Ep. 05');
+
+    const storedList = await StorageLocal.getWorks();
+    assert.strictEqual(storedList.length, 1, 'Total works must still be 1 (no duplicates or ghost works created)');
+    assert.strictEqual(storedList[0].mainChapter, 'Ep. 05', 'Stored mainChapter must be Ep. 05');
+  }
+
+  console.log('--- TEST 11: Content.js Code Guard Verifications ---');
+  {
+    const fs = require('fs');
+    const path = require('path');
+    const contentSource = fs.readFileSync(path.resolve(__dirname, '../content.js'), 'utf8');
+
+    // Garante que o ReferenceError de findExistingWork foi eliminado
+    assert.strictEqual(contentSource.includes('findExistingWork('), false, 'Legacy undefined findExistingWork must be removed');
+    // Garante que executeSaveReading tem trava de autoTrack
+    assert.ok(contentSource.includes('if (opts.autoTrack && !existingEntry)'), 'executeSaveReading must guard against saving without existingEntry');
+    // Garante que handleAutoSave tem trava antes de executar
+    assert.ok(contentSource.includes('if (!matchedWork)'), 'handleAutoSave must guard against missing matched work');
+  }
+
   console.log('✓ All anime video tracker tests passed successfully!');
 })().catch(err => {
   console.error('FAIL in anime video tracker tests:', err);

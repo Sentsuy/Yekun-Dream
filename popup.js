@@ -4,6 +4,18 @@
    painel de configurações, múltiplas fontes e histórico.
    ════════════════════════════════════════════════════════ */
 
+// Ativação assíncrona das fontes externas sem violação de CSP (sem inline onload)
+const googleFontsLink = document.getElementById('googleFontsStylesheet');
+if (googleFontsLink) {
+  if (googleFontsLink.sheet) {
+    googleFontsLink.media = 'all';
+  } else {
+    googleFontsLink.addEventListener('load', () => {
+      googleFontsLink.media = 'all';
+    });
+  }
+}
+
 // ── DOM refs ────────────────────────────────────────────
 const btnShowForm        = document.getElementById('btnShowForm');
 const btnSettings        = document.getElementById('btnSettings');
@@ -268,12 +280,26 @@ function showToast(msg) {
   toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
 }
 
-// ── Tag Picker ───────────────────────────────────────────
+// ── Tag Picker & Categorias (Vídeo vs Texto) ──────────────
+function isVideoWorkTag(tag) {
+  const t = (tag || '').toLowerCase().trim();
+  return t === 'anime' || t === 'filme' || t === 'serie';
+}
+
+function updateReadingStatusPickerLabels(tag = selectedTag) {
+  if (!readingStatusPicker) return;
+  const lendoBtn = readingStatusPicker.querySelector('[data-status="lendo"]');
+  if (lendoBtn) {
+    lendoBtn.textContent = isVideoWorkTag(tag) ? 'Assistindo' : 'Lendo';
+  }
+}
+
 tagPicker.querySelectorAll('.tag-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     tagPicker.querySelectorAll('.tag-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     selectedTag = btn.dataset.tag;
+    updateReadingStatusPickerLabels(selectedTag);
   });
 });
 
@@ -282,6 +308,7 @@ function setActiveTag(tag) {
     b.classList.toggle('active', b.dataset.tag === tag);
   });
   selectedTag = tag || 'manga';
+  updateReadingStatusPickerLabels(selectedTag);
 }
 
 // ── Status Pickers (Leitura e Obra) ──────────────────────
@@ -606,6 +633,7 @@ function toggleSettingsDrawer() {
   if (isOpen) {
     updateStorageStatsUI();
     updateCurrentSiteToggleUI();
+    updateProStatusUI();
   }
 }
 
@@ -860,7 +888,7 @@ function updateActionIcon(themeName = 'dark') {
   } catch (e) {}
 }
 
-function applyTheme(themeName = 'dark') {
+function applyTheme(themeName = 'dark', updateIcon = false) {
   const valid = ['dark', 'light', 'pink', 'neon'].includes(themeName) ? themeName : 'dark';
   if (typeof document !== 'undefined' && document.documentElement && document.documentElement.setAttribute) {
     document.documentElement.setAttribute('data-theme', valid);
@@ -875,7 +903,9 @@ function applyTheme(themeName = 'dark') {
     btn.classList.toggle('active', btn.dataset.theme === valid);
   });
 
-  updateActionIcon(valid);
+  if (updateIcon) {
+    updateActionIcon(valid);
+  }
 }
 
 function initThemeSwitcher() {
@@ -893,7 +923,7 @@ function initThemeSwitcher() {
         }
       }
 
-      applyTheme(theme);
+      applyTheme(theme, true);
       appSettings.theme = theme;
       await StorageLocal.saveSettings(appSettings);
       broadcastSettingsToTabs(appSettings);
@@ -946,6 +976,44 @@ function initSettingsTabs() {
       switchToSettingsTab(target);
     });
   });
+}
+
+function initToggleHelpTooltips() {
+  if (typeof document === 'undefined' || typeof document.querySelectorAll !== 'function') return;
+  const helpIcons = document.querySelectorAll('.toggle-help-icon');
+  if (!helpIcons || !helpIcons.length) return;
+
+  helpIcons.forEach(icon => {
+    if (typeof icon.addEventListener !== 'function') return;
+    // Impede que o clique no ícone de ajuda dispare o checkbox do label pai
+    icon.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const wasActive = icon.classList && icon.classList.contains('active');
+      document.querySelectorAll('.toggle-help-icon.active').forEach(i => i.classList && i.classList.remove('active'));
+      if (!wasActive && icon.classList) {
+        icon.classList.add('active');
+      }
+    });
+
+    // Suporte a teclado (Enter/Espaço para abrir o balão e focar na leitura)
+    icon.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (icon.classList) icon.classList.toggle('active');
+      }
+    });
+  });
+
+  // Fechar tooltips fixados ao clicar em qualquer outro lugar do documento
+  if (typeof document.addEventListener === 'function') {
+    document.addEventListener('click', (e) => {
+      if (!e.target || typeof e.target.closest !== 'function' || !e.target.closest('.toggle-help-icon')) {
+        document.querySelectorAll('.toggle-help-icon.active').forEach(i => i.classList && i.classList.remove('active'));
+      }
+    });
+  }
 }
 
 function cleanDomainInput(raw) {
@@ -1169,26 +1237,51 @@ async function updateProStatusUI(forceRefresh = false) {
   }
 }
 
-async function loadSettingsToUI() {
-  appSettings = await StorageLocal.getSettings();
-  applyTheme(appSettings.theme || 'dark');
-  toggleFloatingButton.checked = !!appSettings.enableFloatingButton;
-  updateToggleStatus(toggleFloatingButton.checked);
-  toggleBadgeCount.checked     = !!appSettings.enableBadgeCount;
-  toggleQuickIncrement.checked = !!appSettings.enableQuickIncrement;
-  toggleAutoTitle.checked      = !!appSettings.enableAutoTitleDetection;
-  toggleAutoSync.checked       = !!appSettings.enableAutoSync;
+let _deferredSettingsScheduled = false;
+function scheduleDeferredSettingsDetails() {
+  if (_deferredSettingsScheduled) return;
+  _deferredSettingsScheduled = true;
+  const runner = async () => {
+    try {
+      renderDomainChips();
+      await updateProStatusUI();
+      updateStorageStatsUI();
+    } catch (_) {}
+  };
+  if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(runner, { timeout: 800 });
+  } else {
+    setTimeout(runner, 150);
+  }
+}
+
+async function loadSettingsToUI(providedSettings = null, options = {}) {
+  appSettings = providedSettings || (typeof StorageLocal !== 'undefined' && StorageLocal.getSettings ? await StorageLocal.getSettings() : appSettings);
+  applyTheme(appSettings.theme || 'dark', false);
+  if (toggleFloatingButton) {
+    toggleFloatingButton.checked = !!appSettings.enableFloatingButton;
+    updateToggleStatus(toggleFloatingButton.checked);
+  }
+  if (toggleBadgeCount) toggleBadgeCount.checked     = !!appSettings.enableBadgeCount;
+  if (toggleQuickIncrement) toggleQuickIncrement.checked = !!appSettings.enableQuickIncrement;
+  if (toggleAutoTitle) toggleAutoTitle.checked      = !!appSettings.enableAutoTitleDetection;
+  if (toggleAutoSync) toggleAutoSync.checked       = !!appSettings.enableAutoSync;
   if (toggleReleaseNotifications) toggleReleaseNotifications.checked = appSettings.enableReleaseNotifications !== false;
   if (toggleMorningNotification)   toggleMorningNotification.checked   = appSettings.enableMorningNotification !== false;
   if (toggleEveningNotification)   toggleEveningNotification.checked   = appSettings.enableEveningNotification !== false;
   if (toggleAutoTrackAnime)        toggleAutoTrackAnime.checked        = appSettings.autoTrackAnime !== false;
   if (inputAllowedDomains) inputAllowedDomains.value = '';
   if (inputBlockedDomains) inputBlockedDomains.value = '';
-  inputSyncKey.value           = appSettings.syncKey || '';
-  renderDomainChips();
-  await updateCurrentSiteToggleUI();
-  await updateProStatusUI();
-  updateStorageStatsUI();
+  if (inputSyncKey) inputSyncKey.value           = appSettings.syncKey || '';
+
+  if (options && options.deferSecondary) {
+    scheduleDeferredSettingsDetails();
+  } else {
+    renderDomainChips();
+    await updateCurrentSiteToggleUI();
+    await updateProStatusUI();
+    updateStorageStatsUI();
+  }
 }
 
 async function persistSettings(options = {}) {
@@ -2849,14 +2942,33 @@ function sortWorks(works, sortBy = 'recent') {
   });
 }
 
+let _dateFormatter = null;
+let _timeFormatter = null;
+
 function formatDate(epoch) {
   if (!epoch) return '';
+  try {
+    if (!_dateFormatter && typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
+      _dateFormatter = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
+    }
+    if (_dateFormatter) {
+      return _dateFormatter.format(new Date(epoch));
+    }
+  } catch (_) {}
   const d = new Date(epoch);
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 }
 
 function formatTime(epoch) {
   if (!epoch) return '';
+  try {
+    if (!_timeFormatter && typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
+      _timeFormatter = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    }
+    if (_timeFormatter) {
+      return _timeFormatter.format(new Date(epoch));
+    }
+  } catch (_) {}
   const d = new Date(epoch);
   return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
@@ -2871,11 +2983,13 @@ function filterWorks(
 ) {
   let list = works || [];
   if (category && category !== 'all') {
-    list = list.filter(w => (w.tag || 'outro').toLowerCase() === category.toLowerCase());
+    const catLower = category.toLowerCase();
+    list = list.filter(w => (w.tag || 'outro').toLowerCase() === catLower);
   }
 
   if (status && status !== 'all') {
-    list = list.filter(w => (w.readingStatus || 'lendo').toLowerCase() === status.toLowerCase());
+    const statusLower = status.toLowerCase();
+    list = list.filter(w => (w.readingStatus || 'lendo').toLowerCase() === statusLower);
   }
 
   const q = (query || '').toLowerCase().trim();
@@ -2885,10 +2999,14 @@ function filterWorks(
       : q.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
     list = list.filter(w => {
-      const normName = typeof StorageLocal !== 'undefined' && StorageLocal.normalizeTitle
-        ? StorageLocal.normalizeTitle(w.name)
-        : (w.name || '').toLowerCase();
-      if (w.name.toLowerCase().includes(q) || (normQ && normName.includes(normQ))) return true;
+      const name = w.name || '';
+      const nameLower = w._nameLower || (w._nameLower = name.toLowerCase());
+      if (nameLower.includes(q)) return true;
+
+      const normName = w._normName || (w._normName = (typeof StorageLocal !== 'undefined' && StorageLocal.normalizeTitle
+        ? StorageLocal.normalizeTitle(name)
+        : nameLower));
+      if (normQ && normName.includes(normQ)) return true;
 
       if (Array.isArray(w.aliases)) {
         for (const a of w.aliases) {
@@ -2906,6 +3024,7 @@ function filterWorks(
       if ((w.mainChapter || '').toLowerCase().includes(q)) return true;
       if ((w.tag || '').toLowerCase().includes(q)) return true;
       if ((w.readingStatus || '').toLowerCase().includes(q)) return true;
+      if (isVideoWorkTag(w.tag) && (w.readingStatus || 'lendo').toLowerCase() === 'lendo' && 'assistindo'.includes(q)) return true;
       if ((w.publicationStatus || '').toLowerCase().includes(q)) return true;
       const hasSource = (w.sources || []).some(s =>
         (s.siteName || '').toLowerCase().includes(q) ||
@@ -2953,6 +3072,122 @@ function renderList(
   }
 }
 
+function renderAccordionContent(card, accPanel, work) {
+  if (!accPanel || accPanel.dataset.rendered === 'true') return;
+  accPanel.dataset.rendered = 'true';
+
+  const sources = work.sources || [];
+  const history = work.history || [];
+
+  const sourcesRowsHtml = sources.map(s => {
+    return `<div class="source-item-row" data-srcid="${s.id}">
+      <div class="source-item-left">
+        <span class="source-item-name">${esc(s.siteName)} <small style="opacity:.6; font-size:8px;">(${esc(s.domain || '')})</small></span>
+        <span class="source-item-ch">${esc(s.chapter)} • ${formatDate(s.updatedAt)}</span>
+      </div>
+      <div class="source-item-actions">
+        ${s.url ? `<button class="action-btn open btn-src-open" title="Abrir URL">${ICONS.external}</button>` : ''}
+        <button class="action-btn edit btn-src-edit" title="Editar fonte">${ICONS.edit}</button>
+        <button class="action-btn del btn-src-del" title="Remover fonte">${ICONS.del}</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  const historyRowsHtml = history.slice(0, 30).map(h => {
+    return `<div class="history-item">
+      <div class="history-item-dot"></div>
+      <div class="history-item-content">
+        <strong>${esc(h.siteName || h.domain || 'Site')}</strong>: <span class="hist-ch">${esc(h.chapter)}</span>
+        <div class="hist-date">${formatDate(h.timestamp)} às ${formatTime(h.timestamp)}</div>
+      </div>
+    </div>`;
+  }).join('') || '<div style="color:var(--muted); font-size:9px; font-family:var(--font-mono);">Nenhum histórico registrado ainda.</div>';
+
+  accPanel.innerHTML = `
+    <div class="panel-tabs">
+      <button class="panel-tab active" data-tab="sources">Fontes (${sources.length})</button>
+      <button class="panel-tab" data-tab="history">Histórico (${history.length})</button>
+    </div>
+
+    <div class="tab-content active tab-sources">
+      ${(Array.isArray(work.aliases) && work.aliases.length > 0) ? `<div style="font-size:9px; color:var(--muted); font-family:var(--font-mono); margin-bottom:8px; padding:4px 6px; background:rgba(255,255,255,0.03); border-radius:4px; border-left:2px solid var(--accent);"><strong style="color:var(--accent);">Nomes alternativos:</strong> ${esc(work.aliases.join(', '))}</div>` : ''}
+      <div class="sources-list">${sourcesRowsHtml}</div>
+      <button class="btn-add-source">${ICONS.plus} Adicionar Outro Site</button>
+    </div>
+
+    <div class="tab-content tab-history">
+      <div class="history-timeline">${historyRowsHtml}</div>
+    </div>
+  `;
+
+  // Accordion tabs
+  const tabBtns = accPanel.querySelectorAll('.panel-tab');
+  const tabSources = accPanel.querySelector('.tab-sources');
+  const tabHistory = accPanel.querySelector('.tab-history');
+
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      tabBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.dataset.tab;
+      if (tab === 'sources') {
+        tabSources.classList.add('active');
+        tabHistory.classList.remove('active');
+      } else {
+        tabSources.classList.remove('active');
+        tabHistory.classList.add('active');
+      }
+    });
+  });
+
+  // Add source button in accordion
+  const btnAddSrc = accPanel.querySelector('.btn-add-source');
+  if (btnAddSrc) {
+    btnAddSrc.addEventListener('click', e => {
+      e.stopPropagation();
+      openForm('add_source', work);
+    });
+  }
+
+  // Source item rows actions
+  accPanel.querySelectorAll('.source-item-row').forEach(row => {
+    const srcId = row.dataset.srcid;
+    const src = sources.find(s => s.id === srcId);
+    if (!src) return;
+
+    const btnOpen = row.querySelector('.btn-src-open');
+    if (btnOpen) {
+      btnOpen.addEventListener('click', e => {
+        e.stopPropagation();
+        if (src.url) safeOpenUrl(src.url);
+      });
+    }
+
+    const btnEdit = row.querySelector('.btn-src-edit');
+    if (btnEdit) {
+      btnEdit.addEventListener('click', e => {
+        e.stopPropagation();
+        openForm('edit', work, src);
+      });
+    }
+
+    const btnDel = row.querySelector('.btn-src-del');
+    if (btnDel) {
+      btnDel.addEventListener('click', e => {
+        e.stopPropagation();
+        deleteSource(work.id, src.id);
+      });
+    }
+  });
+}
+
+function ensureAccordionRendered(card, work) {
+  if (!card) return;
+  const accPanel = card.querySelector('.accordion-panel');
+  if (accPanel) renderAccordionContent(card, accPanel, work);
+}
+
 function buildWorkCard(work) {
   const card = document.createElement('div');
   card.className = 'entry-card';
@@ -2968,8 +3203,9 @@ function buildWorkCard(work) {
   const readingStatus = work.readingStatus || 'lendo';
   const pubStatus = work.publicationStatus || 'lancamento';
 
+  const isVideo = isVideoWorkTag(tag);
   const statusLabels = {
-    lendo: 'Lendo',
+    lendo: isVideo ? 'Assistindo' : 'Lendo',
     concluido: 'Concluído',
     pausado: 'Pausado',
     dropado: 'Dropado',
@@ -2982,7 +3218,8 @@ function buildWorkCard(work) {
     concluido: 'Fim'
   };
 
-  const statusBadgeHtml = `<button type="button" class="entry-status-badge status-${readingStatus} btn-status-cycle" title="Alterar status de leitura (${statusLabels[readingStatus] || readingStatus})">${statusLabels[readingStatus] || readingStatus}</button>`;
+  const statusDisplay = statusLabels[readingStatus] || readingStatus;
+  const statusBadgeHtml = `<button type="button" class="entry-status-badge status-${readingStatus} btn-status-cycle" title="Alterar status (${statusDisplay})">${statusDisplay}</button>`;
   const pubBadgeHtml = pubLabels[pubStatus] ? `<button type="button" class="entry-pub-badge pub-${pubStatus} btn-pub-cycle" title="Status da obra: ${pubLabels[pubStatus]} (clique para alternar)">${pubLabels[pubStatus]}</button>` : '';
 
   const DAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -3013,33 +3250,6 @@ function buildWorkCard(work) {
     chipsHtml += `<button type="button" class="source-chip-more" title="Ver todos os ${sources.length} sites">+${hiddenCount} sites</button>`;
   }
 
-  // Sources list inside accordion
-  const sourcesRowsHtml = sources.map(s => {
-    return `<div class="source-item-row" data-srcid="${s.id}">
-      <div class="source-item-left">
-        <span class="source-item-name">${esc(s.siteName)} <small style="opacity:.6; font-size:8px;">(${esc(s.domain || '')})</small></span>
-        <span class="source-item-ch">${esc(s.chapter)} • ${formatDate(s.updatedAt)}</span>
-      </div>
-      <div class="source-item-actions">
-        ${s.url ? `<button class="action-btn open btn-src-open" title="Abrir URL">${ICONS.external}</button>` : ''}
-        <button class="action-btn edit btn-src-edit" title="Editar fonte">${ICONS.edit}</button>
-        <button class="action-btn del btn-src-del" title="Remover fonte">${ICONS.del}</button>
-      </div>
-    </div>`;
-  }).join('');
-
-  // History timeline inside accordion
-  const history = work.history || [];
-  const historyRowsHtml = history.slice(0, 30).map(h => {
-    return `<div class="history-item">
-      <div class="history-item-dot"></div>
-      <div class="history-item-content">
-        <strong>${esc(h.siteName || h.domain || 'Site')}</strong>: <span class="hist-ch">${esc(h.chapter)}</span>
-        <div class="hist-date">${formatDate(h.timestamp)} às ${formatTime(h.timestamp)}</div>
-      </div>
-    </div>`;
-  }).join('') || '<div style="color:var(--muted); font-size:9px; font-family:var(--font-mono);">Nenhum histórico registrado ainda.</div>';
-
   card.innerHTML = `
     <div class="entry-body">
       <div class="entry-top">
@@ -3050,7 +3260,7 @@ function buildWorkCard(work) {
       </div>
 
       <div class="entry-meta-row">
-        ${activeSrc.url ? `<button class="btn-continue btn-main-open" title="Continuar lendo em ${esc(activeSrc.siteName || 'site')}">Continuar ${ICONS.external}</button>` : ''}
+        ${activeSrc.url ? `<button class="btn-continue btn-main-open" title="Continuar ${isVideo ? 'assistindo' : 'lendo'} em ${esc(activeSrc.siteName || 'site')}">Continuar ${ICONS.external}</button>` : ''}
         <span class="entry-cat-badge cat-${tag}">${tag}</span>
         ${statusBadgeHtml}
         ${pubBadgeHtml}
@@ -3065,23 +3275,8 @@ function buildWorkCard(work) {
         </button>
       </div>
 
-      <!-- Accordion Panel -->
-      <div class="accordion-panel">
-        <div class="panel-tabs">
-          <button class="panel-tab active" data-tab="sources">Fontes (${sources.length})</button>
-          <button class="panel-tab" data-tab="history">Histórico (${history.length})</button>
-        </div>
-
-        <div class="tab-content active tab-sources">
-          ${(Array.isArray(work.aliases) && work.aliases.length > 0) ? `<div style="font-size:9px; color:var(--muted); font-family:var(--font-mono); margin-bottom:8px; padding:4px 6px; background:rgba(255,255,255,0.03); border-radius:4px; border-left:2px solid var(--accent);"><strong style="color:var(--accent);">Nomes alternativos:</strong> ${esc(work.aliases.join(', '))}</div>` : ''}
-          <div class="sources-list">${sourcesRowsHtml}</div>
-          <button class="btn-add-source">${ICONS.plus} Adicionar Outro Site</button>
-        </div>
-
-        <div class="tab-content tab-history">
-          <div class="history-timeline">${historyRowsHtml}</div>
-        </div>
-      </div>
+      <!-- Accordion Panel (Renderizado sob demanda / Lazy Load) -->
+      <div class="accordion-panel" data-rendered="false"></div>
     </div>
 
     <!-- Contêiner de Ações e Informação Secundária Reestruturado -->
@@ -3193,93 +3388,37 @@ function buildWorkCard(work) {
     });
   }
 
-  // Accordion toggle
+  // Accordion toggle (Carrega conteúdo sob demanda)
   const accToggle = card.querySelector('.accordion-toggle');
   const accPanel  = card.querySelector('.accordion-panel');
   if (accToggle && accPanel) {
     accToggle.addEventListener('click', e => {
       e.stopPropagation();
+      renderAccordionContent(card, accPanel, work);
       const isOpen = accPanel.classList.toggle('open');
       accToggle.classList.toggle('open', isOpen);
     });
   }
 
-  // Accordion tabs
-  const tabBtns = card.querySelectorAll('.panel-tab');
-  const tabSources = card.querySelector('.tab-sources');
-  const tabHistory = card.querySelector('.tab-history');
-
-  tabBtns.forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      tabBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const tab = btn.dataset.tab;
-      if (tab === 'sources') {
-        tabSources.classList.add('active');
-        tabHistory.classList.remove('active');
-      } else {
-        tabSources.classList.remove('active');
-        tabHistory.classList.add('active');
-      }
-    });
-  });
-
-  // Botão "+N sites" abre accordion na aba Fontes
+  // Botão "+N sites" abre accordion na aba Fontes (Carrega conteúdo sob demanda)
   const moreBtn = card.querySelector('.source-chip-more');
-  if (moreBtn) {
+  if (moreBtn && accPanel) {
     moreBtn.addEventListener('click', e => {
       e.stopPropagation();
       e.preventDefault();
+      renderAccordionContent(card, accPanel, work);
       accPanel.classList.add('open');
-      accToggle.classList.add('open');
+      if (accToggle) accToggle.classList.add('open');
+      const tabBtns = accPanel.querySelectorAll('.panel-tab');
       tabBtns.forEach(b => b.classList.remove('active'));
-      const tabSrcBtn = card.querySelector('.panel-tab[data-tab="sources"]');
+      const tabSrcBtn = accPanel.querySelector('.panel-tab[data-tab="sources"]');
       if (tabSrcBtn) tabSrcBtn.classList.add('active');
-      tabSources.classList.add('active');
-      tabHistory.classList.remove('active');
+      const tabSources = accPanel.querySelector('.tab-sources');
+      const tabHistory = accPanel.querySelector('.tab-history');
+      if (tabSources) tabSources.classList.add('active');
+      if (tabHistory) tabHistory.classList.remove('active');
     });
   }
-
-  // Add source button in accordion
-  const btnAddSrc = card.querySelector('.btn-add-source');
-  if (btnAddSrc) {
-    btnAddSrc.addEventListener('click', e => {
-      e.stopPropagation();
-      openForm('add_source', work);
-    });
-  }
-
-  // Source item rows actions
-  card.querySelectorAll('.source-item-row').forEach(row => {
-    const srcId = row.dataset.srcid;
-    const src = sources.find(s => s.id === srcId);
-    if (!src) return;
-
-    const btnOpen = row.querySelector('.btn-src-open');
-    if (btnOpen) {
-      btnOpen.addEventListener('click', e => {
-        e.stopPropagation();
-        if (src.url) safeOpenUrl(src.url);
-      });
-    }
-
-    const btnEdit = row.querySelector('.btn-src-edit');
-    if (btnEdit) {
-      btnEdit.addEventListener('click', e => {
-        e.stopPropagation();
-        openForm('edit', work, src);
-      });
-    }
-
-    const btnDel = row.querySelector('.btn-src-del');
-    if (btnDel) {
-      btnDel.addEventListener('click', e => {
-        e.stopPropagation();
-        deleteSource(work.id, src.id);
-      });
-    }
-  });
 
   // Prevent link click from collapsing card & reliably open tabs
   card.querySelectorAll('.source-chip').forEach(chip => {
@@ -3324,7 +3463,13 @@ function isValidDomain(d) {
 }
 
 // ── Central Consolidada de Sites (Sem Duplicações) ──────
+let _cachedSitesWorksRef = null;
+let _cachedConsolidatedSites = null;
+
 function getConsolidatedSites(works) {
+  if (works && works === _cachedSitesWorksRef && _cachedConsolidatedSites) {
+    return _cachedConsolidatedSites;
+  }
   const sitesMap = new Map();
   (works || []).forEach(work => {
     (work.sources || []).forEach(source => {
@@ -3396,12 +3541,16 @@ function getConsolidatedSites(works) {
     site.works.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   });
 
-  return list.sort((a, b) => {
+  const result = list.sort((a, b) => {
     if (b.works.length !== a.works.length) {
       return b.works.length - a.works.length;
     }
     return (a.siteName || '').localeCompare(b.siteName || '', 'pt-BR');
   });
+
+  _cachedSitesWorksRef = works;
+  _cachedConsolidatedSites = result;
+  return result;
 }
 
 function updateNavBadges() {
@@ -3596,10 +3745,26 @@ if (btnClearSearch) {
   });
 }
 
+function updateStatusFilterOptionLabel() {
+  if (!statusFilter) return;
+  const lendoOpt = statusFilter.querySelector('option[value="lendo"]');
+  if (!lendoOpt) return;
+  const cat = categoryFilter ? categoryFilter.value : 'all';
+  if (isVideoWorkTag(cat)) {
+    lendoOpt.textContent = 'Assistindo';
+  } else if (cat !== 'all') {
+    lendoOpt.textContent = 'Lendo';
+  } else {
+    lendoOpt.textContent = 'Lendo / Assistindo';
+  }
+}
+
 if (categoryFilter) {
   categoryFilter.addEventListener('change', () => {
+    updateStatusFilterOptionLabel();
     renderList();
   });
+  updateStatusFilterOptionLabel();
 }
 
 if (statusFilter) {
@@ -3832,13 +3997,43 @@ function initFeedback() {
 (async function init() {
   initThemeSwitcher();
   initSettingsTabs();
+  initToggleHelpTooltips();
   initFeedback();
-  await loadSettingsToUI();
-  await updateNotificationUnreadDot();
-  allWorks = await StorageLocal.getWorks();
-  renderCurrentView();
-  updateStorageStatsUI();
-  syncBottomNavVisibility();
+
+  try {
+    let settings = {};
+    let works = [];
+
+    if (typeof StorageLocal !== 'undefined' && StorageLocal.getInitialData) {
+      const initialData = await StorageLocal.getInitialData();
+      settings = initialData.settings || {};
+      works = initialData.works || [];
+    } else {
+      const [s, w] = await Promise.all([
+        (typeof StorageLocal !== 'undefined' && StorageLocal.getSettings) ? StorageLocal.getSettings() : Promise.resolve({}),
+        (typeof StorageLocal !== 'undefined' && StorageLocal.getWorks) ? StorageLocal.getWorks() : Promise.resolve([])
+      ]);
+      settings = s || {};
+      works = w || [];
+    }
+
+    appSettings = settings || {};
+    allWorks = Array.isArray(works) ? works : [];
+
+    applyTheme(appSettings.theme || 'dark', false);
+    renderCurrentView();
+    syncBottomNavVisibility();
+
+    // Carrega detalhes essenciais da tela principal e agenda detalhes de abas fechadas
+    updateCurrentSiteToggleUI();
+    updateNotificationUnreadDot();
+    loadSettingsToUI(appSettings, { deferSecondary: true });
+  } catch (err) {
+    console.error('Falha na inicialização do popup:', err);
+    await loadSettingsToUI();
+    allWorks = await StorageLocal.getWorks();
+    renderCurrentView();
+  }
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

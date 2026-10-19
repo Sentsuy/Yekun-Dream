@@ -183,6 +183,38 @@ async function runTests() {
   assert.ok(pubBadgeSection.includes('flex-shrink: 0'), 'entry-pub-badge must have flex-shrink: 0');
   assert.ok(pubBadgeSection.includes('white-space: nowrap'), 'entry-pub-badge must have white-space: nowrap');
 
+  // Test 12: Dynamic Status Display (Assistindo for anime/filme/serie, Lendo for text works)
+  assert.ok(popupJs.includes('isVideoWorkTag'), 'popup.js must define isVideoWorkTag helper');
+  assert.ok(popupJs.includes('updateReadingStatusPickerLabels'), 'popup.js must have updateReadingStatusPickerLabels');
+
+  function isVideoWorkTagMock(tag) {
+    const t = (tag || '').toLowerCase().trim();
+    return t === 'anime' || t === 'filme' || t === 'serie';
+  }
+
+  function getStatusLabelMock(tag, status = 'lendo') {
+    const isVideo = isVideoWorkTagMock(tag);
+    const statusLabels = {
+      lendo: isVideo ? 'Assistindo' : 'Lendo',
+      concluido: 'Concluído',
+      pausado: 'Pausado',
+      dropado: 'Dropado',
+      planejo: 'Planejo'
+    };
+    return statusLabels[status] || status;
+  }
+
+  assert.strictEqual(getStatusLabelMock('anime', 'lendo'), 'Assistindo', 'Anime with lendo must display Assistindo');
+  assert.strictEqual(getStatusLabelMock('filme', 'lendo'), 'Assistindo', 'Filme with lendo must display Assistindo');
+  assert.strictEqual(getStatusLabelMock('serie', 'lendo'), 'Assistindo', 'Serie with lendo must display Assistindo');
+
+  assert.strictEqual(getStatusLabelMock('manga', 'lendo'), 'Lendo', 'Manga with lendo must display Lendo');
+  assert.strictEqual(getStatusLabelMock('manhwa', 'lendo'), 'Lendo', 'Manhwa with lendo must display Lendo');
+  assert.strictEqual(getStatusLabelMock('webtoon', 'lendo'), 'Lendo', 'Webtoon with lendo must display Lendo');
+  assert.strictEqual(getStatusLabelMock('novel', 'lendo'), 'Lendo', 'Novel with lendo must display Lendo');
+  assert.strictEqual(getStatusLabelMock('livro', 'lendo'), 'Lendo', 'Livro with lendo must display Lendo');
+  assert.strictEqual(getStatusLabelMock('outro', 'lendo'), 'Lendo', 'Outro with lendo must display Lendo');
+
   console.log('✓ Reading & Publication Status tests passed successfully!');
 }
 

@@ -679,15 +679,48 @@ const StorageLocal = {
     };
   },
 
+  async getInitialData() {
+    const result = await safeStorageGet([STORAGE_KEY_SETTINGS, STORAGE_KEY_ENTRIES_V3]);
+    const stored = result[STORAGE_KEY_SETTINGS] || {};
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      ...stored,
+      supabaseUrl: (stored.supabaseUrl && stored.supabaseUrl.trim()) ? stored.supabaseUrl : DEFAULT_SETTINGS.supabaseUrl,
+      supabaseKey: (stored.supabaseKey && stored.supabaseKey.trim()) ? stored.supabaseKey : DEFAULT_SETTINGS.supabaseKey
+    };
+
+    let rawList = result[STORAGE_KEY_ENTRIES_V3];
+    if (!rawList) {
+      rawList = await this.getAllRawWorks();
+    } else {
+      this._v3MigrationDone = true;
+    }
+
+    const list = Array.isArray(rawList) ? rawList : [];
+    const activeWorks = [];
+    for (const w of list) {
+      if (!Array.isArray(w.aliases)) w.aliases = [];
+      if (!w.readingStatus) w.readingStatus = 'lendo';
+      if (!w.publicationStatus) w.publicationStatus = 'lancamento';
+      if (!w.deleted) activeWorks.push(w);
+    }
+
+    return { settings, works: activeWorks };
+  },
+
   async saveSettings(settings) {
     await safeStorageSet({ [STORAGE_KEY_SETTINGS]: settings });
     return settings;
   },
 
+  _v3MigrationDone: false,
+
   // ── Migração Automática de v2 para v3 ────────────────────
   async migrateV2ToV3IfNeeded() {
+    if (this._v3MigrationDone) return null;
     const result = await safeStorageGet([STORAGE_KEY_ENTRIES_V3, STORAGE_KEY_ENTRIES_V2]);
     if (result[STORAGE_KEY_ENTRIES_V3]) {
+      this._v3MigrationDone = true;
       return result[STORAGE_KEY_ENTRIES_V3];
     }
 
@@ -695,6 +728,7 @@ const StorageLocal = {
     if (!Array.isArray(v2List) || v2List.length === 0) {
       const empty = [];
       await safeStorageSet({ [STORAGE_KEY_ENTRIES_V3]: empty });
+      this._v3MigrationDone = true;
       return empty;
     }
 
@@ -738,11 +772,33 @@ const StorageLocal = {
     });
 
     await safeStorageSet({ [STORAGE_KEY_ENTRIES_V3]: migratedWorks });
+    this._v3MigrationDone = true;
     return migratedWorks;
   },
 
   async getAllRawWorks() {
-    await this.migrateV2ToV3IfNeeded();
+    // Se a migração já ocorreu, consulta diretamente apenas a chave V3 (reduz IPC pela metade)
+    if (this._v3MigrationDone) {
+      const result = await safeStorageGet([STORAGE_KEY_ENTRIES_V3]);
+      const list = result[STORAGE_KEY_ENTRIES_V3] || [];
+      for (const w of list) {
+        if (!Array.isArray(w.aliases)) w.aliases = [];
+        if (!w.readingStatus) w.readingStatus = 'lendo';
+        if (!w.publicationStatus) w.publicationStatus = 'lancamento';
+      }
+      return list;
+    }
+
+    const migrated = await this.migrateV2ToV3IfNeeded();
+    if (migrated && Array.isArray(migrated)) {
+      for (const w of migrated) {
+        if (!Array.isArray(w.aliases)) w.aliases = [];
+        if (!w.readingStatus) w.readingStatus = 'lendo';
+        if (!w.publicationStatus) w.publicationStatus = 'lancamento';
+      }
+      return migrated;
+    }
+
     const result = await safeStorageGet([STORAGE_KEY_ENTRIES_V3]);
     const list = result[STORAGE_KEY_ENTRIES_V3] || [];
     for (const w of list) {
@@ -966,6 +1022,11 @@ const StorageLocal = {
       if (match.exactMatch) {
         work = match.exactMatch;
       }
+    }
+
+    // Trava de segurança: se payload exigir apenas obras já existentes (auto-incremento/autoTrack), nunca cria nova obra do zero
+    if (!work && (payload.onlyExisting || payload.autoTrack)) {
+      return null;
     }
 
     if (work) {

@@ -62,15 +62,14 @@ const YekunVideoTracker = {
     };
 
     const onTimeUpdate = () => {
+      if (this.hasTriggered) return;
       const now = Date.now();
-      this._accumulatePlayedTime(video);
-
       if (now - this.lastCheckTimestamp < this.checkThrottleMs) {
         return;
       }
       this.lastCheckTimestamp = now;
+      this._accumulatePlayedTime(video);
 
-      if (this.hasTriggered) return;
       if (!video.duration || video.duration < this.minDurationSeconds) return;
 
       const ratio = video.currentTime / video.duration;
@@ -140,10 +139,17 @@ const YekunVideoTracker = {
     };
 
     if (!tryFindVideo()) {
+      let isScheduled = false;
       const observer = new MutationObserver((mutations, obs) => {
-        if (tryFindVideo()) {
-          obs.disconnect();
-        }
+        if (isScheduled) return;
+        isScheduled = true;
+        const scheduleFn = (typeof requestAnimationFrame === 'function') ? requestAnimationFrame : (cb => setTimeout(cb, 100));
+        scheduleFn(() => {
+          isScheduled = false;
+          if (tryFindVideo()) {
+            obs.disconnect();
+          }
+        });
       });
       observer.observe(document.body || document.documentElement, {
         childList: true,
@@ -175,10 +181,40 @@ if (typeof window !== 'undefined') {
     ? await StorageLocal.getSettings()
     : { enableFloatingButton: true, enableBadgeCount: true, blockedDomains: [], allowedDomains: [], autoTrackAnime: true };
 
+  function isDomainAllowed(hostName, allowedList = []) {
+    if (!Array.isArray(allowedList) || allowedList.length === 0) return false;
+    const h = (hostName || '').trim().toLowerCase().replace(/^www\./, '');
+    if (!h) return false;
+    return allowedList.some(d => {
+      const allowed = (d || '').trim().toLowerCase().replace(/^www\./, '');
+      return allowed && (h === allowed || h.endsWith('.' + allowed));
+    });
+  }
+
+  function isDomainBlocked(blockedDomains = [], host = currentHost) {
+    return (blockedDomains || []).some(d => {
+      const domain = (d || '').trim().toLowerCase().replace(/^www\./, '');
+      return domain && (host === domain || host.endsWith('.' + domain));
+    });
+  }
+
+  function isSitePermitted(s = appSettings, host = currentHost) {
+    const blocked = isDomainBlocked(s.blockedDomains || [], host);
+    const allowed = isDomainAllowed(host, s.allowedDomains || []);
+    return allowed && !blocked;
+  }
+
   const isTopFrame = (typeof window !== 'undefined' && window.top === window);
 
   // Se estiver dentro de um iframe de player, executa apenas o Video Tracker e envia mensagem ao frame pai
   if (!isTopFrame) {
+    // Se o iframe tiver document.referrer e o domínio pai for identificável:
+    // Se o domínio pai NÃO estiver na lista de permitidos, ou estiver bloqueado, não inicializa rastreamento.
+    const refHost = document.referrer ? (typeof StorageLocal !== 'undefined' && StorageLocal.extractDomain ? StorageLocal.extractDomain(document.referrer) : '') : '';
+    if (refHost && !isSitePermitted(appSettings, refHost)) {
+      return;
+    }
+
     if (appSettings.autoTrackAnime !== false) {
       YekunVideoTracker.initAutoTracking(progressData => {
         try {
@@ -198,23 +234,6 @@ if (typeof window !== 'undefined') {
   const existingRoot = document.getElementById('__ct_root__');
   if (existingRoot) {
     try { existingRoot.remove(); } catch (_) {}
-  }
-
-  function isDomainAllowed(hostName, allowedList = []) {
-    if (!Array.isArray(allowedList) || allowedList.length === 0) return false;
-    const h = (hostName || '').trim().toLowerCase().replace(/^www\./, '');
-    if (!h) return false;
-    return allowedList.some(d => {
-      const allowed = (d || '').trim().toLowerCase().replace(/^www\./, '');
-      return allowed && (h === allowed || h.endsWith('.' + allowed));
-    });
-  }
-
-  function isDomainBlocked(blockedDomains = []) {
-    return (blockedDomains || []).some(d => {
-      const domain = d.trim().toLowerCase().replace(/^www\./, '');
-      return domain && (currentHost === domain || currentHost.endsWith('.' + domain));
-    });
   }
 
   // ── Inject font silenciosamente apenas quando o widget estiver visível ──
@@ -1617,6 +1636,11 @@ if (typeof window !== 'undefined') {
   async function executeSaveReading(opts = {}) {
     if (typeof StorageLocal === 'undefined') return null;
 
+    // Trava de segurança: autoTrack NUNCA cria obra nova do zero
+    if (opts.autoTrack && !existingEntry) {
+      return null;
+    }
+
     if (!currentTitle && typeof extractPageData === 'function') {
       try {
         const pd = await extractPageData();
@@ -1645,7 +1669,9 @@ if (typeof window !== 'undefined') {
       url:          currentUrl,
       domain:       siteDomain,
       siteName:     siteLabel,
-      tag:          selectedTag
+      tag:          existingEntry ? (existingEntry.tag || selectedTag) : selectedTag,
+      autoTrack:    !!opts.autoTrack,
+      onlyExisting: !!opts.autoTrack
     };
 
     const savedWork = await StorageLocal.saveWorkReading(payload);
@@ -1698,26 +1724,110 @@ if (typeof window !== 'undefined') {
   async function handleAutoSave(progressData = {}) {
     if (appSettings.autoTrackAnime === false) return;
 
-    if (!existingEntry && typeof StorageLocal !== 'undefined') {
-      try {
-        const allStoredWorks = await StorageLocal.getWorks();
-        if (typeof extractPageData === 'function') {
-          const pd = await extractPageData();
-          if (pd && pd.title) {
-            currentTitle = pd.title;
-            if (pd.chapter && (!chapterInp.value || chapterInp.value === 'Cap. 1')) {
-              chapterInp.value = pd.chapter;
-            }
-            existingEntry = findExistingWork(allStoredWorks, pd.title);
+    // 1. Verificação obrigatória: site DEVE ter permissão concedida (liberado em allowedDomains)
+    if (!isSitePermitted(appSettings)) {
+      return;
+    }
+
+    if (typeof StorageLocal === 'undefined') return;
+
+    // 2. Busca todas as obras ativas do usuário
+    const allStoredWorks = await StorageLocal.getWorks();
+    const activeStoredWorks = (allStoredWorks || []).filter(w => !w.deleted);
+    if (!activeStoredWorks || activeStoredWorks.length === 0) {
+      // Nenhuma obra cadastrada: não cria nada do zero
+      return;
+    }
+
+    // 3. Identifica se a obra já existe entre as cadastradas
+    let matchedWork = existingEntry;
+
+    if (!matchedWork) {
+      let pageData = lastExtractedPageData;
+      if (!pageData && typeof extractPageData === 'function') {
+        try {
+          pageData = await extractPageData();
+        } catch (_) {}
+      }
+
+      const candidateTitle = (pageData && pageData.title) ? pageData.title : currentTitle;
+
+      if (candidateTitle) {
+        // A. Match local imediato
+        if (StorageLocal.findMatchingWork) {
+          const matchRes = StorageLocal.findMatchingWork(candidateTitle, activeStoredWorks);
+          if (matchRes && matchRes.exactMatch) {
+            matchedWork = matchRes.exactMatch;
           }
+        }
+
+        // B. Match assíncrono (canon/crowd)
+        if (!matchedWork && StorageLocal.findMatchingWorkAsync) {
+          try {
+            const asyncMatch = await StorageLocal.findMatchingWorkAsync(candidateTitle, activeStoredWorks);
+            if (asyncMatch && asyncMatch.exactMatch) {
+              matchedWork = asyncMatch.exactMatch;
+            }
+          } catch (_) {}
+        }
+      }
+
+      // C. Match por URL da fonte cadastrada
+      if (!matchedWork) {
+        const thisUrl = currentUrl || window.location.href;
+        matchedWork = activeStoredWorks.find(w => {
+          return (w.sources || []).some(s => s.url && s.url === thisUrl);
+        });
+      }
+
+      // D. Match por aliases da página
+      if (!matchedWork && pageData && Array.isArray(pageData.aliases)) {
+        for (const alias of pageData.aliases) {
+          if (StorageLocal.findMatchingWork) {
+            const m = StorageLocal.findMatchingWork(alias, activeStoredWorks);
+            if (m && m.exactMatch) {
+              matchedWork = m.exactMatch;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // REGRA FUNDAMENTAL: Só dá auto-incremento em obras que JÁ EXISTEM sem criar novas do zero!
+    if (!matchedWork) {
+      return;
+    }
+
+    existingEntry = matchedWork;
+
+    // 4. Determina capítulo/episódio
+    let detectedChapter = '';
+    if (chapterInp && chapterInp.value && chapterInp.value !== 'Cap. 1' && chapterInp.value !== 'Ep. 01') {
+      detectedChapter = chapterInp.value.trim();
+    }
+    if (!detectedChapter && lastExtractedPageData && lastExtractedPageData.chapter) {
+      detectedChapter = lastExtractedPageData.chapter.trim();
+    }
+    if (!detectedChapter && typeof extractPageData === 'function') {
+      try {
+        const pd = await extractPageData();
+        if (pd && pd.chapter) {
+          detectedChapter = pd.chapter.trim();
         }
       } catch (_) {}
     }
 
-    const chap = (chapterInp && chapterInp.value ? chapterInp.value.trim() : '') || (lastExtractedPageData && lastExtractedPageData.chapter) || 'Ep. 01';
-    const sessionKey = `${currentUrl || window.location.href}__${chap}`;
+    const currentChapter = matchedWork.mainChapter || (matchedWork.sources && matchedWork.sources[0] ? matchedWork.sources[0].chapter : 'Ep. 0');
+    const targetChapter = detectedChapter || (StorageLocal.parseChapterIncrement ? StorageLocal.parseChapterIncrement(currentChapter) : 'Ep. 1');
+
+    const sessionKey = `${currentUrl || window.location.href}__${matchedWork.id}__${targetChapter}`;
     if (autoSavedInSession.has(sessionKey)) return;
     autoSavedInSession.add(sessionKey);
+
+    if (chapterInp) {
+      chapterInp.value = targetChapter;
+    }
 
     await executeSaveReading({ autoTrack: true });
   }
@@ -1725,15 +1835,20 @@ if (typeof window !== 'undefined') {
   // Ouvinte de mensagens vindas de players embutidos em iframe
   window.addEventListener('message', event => {
     if (event && event.data && event.data.type === 'YEKUN_VIDEO_PROGRESS_COMPLETED' && event.data.source === 'yekun-dream') {
+      if (!isSitePermitted(appSettings)) return;
       handleAutoSave(event.data);
     }
   });
 
-  // Também inicializa rastreamento direto no Top Frame (caso o player esteja no DOM principal)
-  if (appSettings.autoTrackAnime !== false) {
-    YekunVideoTracker.initAutoTracking(progressData => {
-      handleAutoSave(progressData);
-    });
+  function updateVideoTrackerState(s = appSettings) {
+    const permitted = isSitePermitted(s);
+    if (s.autoTrackAnime !== false && permitted) {
+      YekunVideoTracker.initAutoTracking(progressData => {
+        handleAutoSave(progressData);
+      });
+    } else {
+      YekunVideoTracker.detach();
+    }
   }
 
   // ── Fechar ao clicar fora do host ────────────────────────
@@ -1756,7 +1871,7 @@ if (typeof window !== 'undefined') {
   function setUrlPolling(enable) {
     if (enable) {
       if (!urlPollTimer) {
-        urlPollTimer = setInterval(onUrlChange, 1000);
+        urlPollTimer = setInterval(onUrlChange, 2000);
       }
     } else {
       if (urlPollTimer) {
@@ -1771,6 +1886,8 @@ if (typeof window !== 'undefined') {
     const blocked = isDomainBlocked(s.blockedDomains || []);
     const allowed = isDomainAllowed(currentHost, s.allowedDomains || []);
     const visible = !!s.enableFloatingButton && allowed && !blocked;
+
+    updateVideoTrackerState(s);
 
     if (visible) {
       ensureFontsInjected();
