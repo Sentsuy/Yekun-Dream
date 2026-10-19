@@ -341,20 +341,6 @@
                   </details>
                 </div>
 
-                <!-- Código Opcional / Legado em Accordion Colapsado -->
-                <details class="pro-pin-accordion" id="proPinAccordion">
-                  <summary class="pro-pin-summary">
-                    <svg class="svg-icon svg-xs" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                    <span>Possui um código de ativação?</span>
-                  </summary>
-                  <div class="pro-pin-section" id="proPinSection">
-                    <label class="pro-pin-label">Código numérico de ativação:</label>
-                    <div class="pro-pin-row">
-                      <input class="pro-pin-input" id="inputProPin" type="text" maxlength="4" placeholder="••••" />
-                      <button class="btn-activate-pin" id="btnRedeemPin">Ativar PIN</button>
-                    </div>
-                  </div>
-                </details>
 
                 <!-- Doação Voluntária Opcional para o Projeto Livre -->
                 <div class="pro-voluntary-pix-hint">
@@ -1152,6 +1138,28 @@
         <div class="modal-actions" style="margin-top: 16px; display: flex; gap: 8px;">
           <button type="button" class="btn-modal-cancel" id="btnCancelConfirmDisconnect" style="flex: 1;">Cancelar</button>
           <button type="button" class="btn-modal-confirm" id="btnConfirmDisconnectAccount" style="flex: 1; background: #ff4d4f; border-color: #ff4d4f; color: #fff;">Sim, Desconectar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Verificação em Duas Etapas (2FA) no Login -->
+    <div class="modal-overlay" id="modalTotpLogin">
+      <div class="modal-box modal-verify-box modal-totp-login-box">
+        <div class="modal-icon" style="color: var(--accent);">
+          <svg class="svg-icon svg-lg" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+        </div>
+        <h3 class="modal-title">Verificação em 2 Etapas (2FA)</h3>
+        <p class="modal-text text-xs" id="totpLoginDesc">
+          Esta conta possui proteção 2FA ativa. Digite o código de 6 dígitos gerado no <strong>Google Authenticator</strong> para concluir o login.
+        </p>
+
+        <div class="field-group" style="margin-top: 14px; width: 100%;">
+          <input class="field-input text-center totp-login-input" id="inputTotpLoginCode" type="text" maxlength="6" inputmode="numeric" placeholder="000000" autocomplete="one-time-code" style="font-size: 20px; font-weight: 700; letter-spacing: 0.25em;" />
+        </div>
+
+        <div class="modal-actions" style="margin-top: 16px; display: flex; gap: 8px;">
+          <button type="button" class="btn-modal-cancel" id="btnCancelTotpLogin" style="flex: 1;">Cancelar</button>
+          <button type="button" class="btn-save" id="btnConfirmTotpLogin" style="flex: 1;">Confirmar Login</button>
         </div>
       </div>
     </div>

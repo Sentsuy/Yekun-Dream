@@ -15,8 +15,9 @@ assert.ok(html.includes('<script src="identity-service.js"></script>'), 'popup.h
 
 console.log('Testing PRO UI elements in popup.html...');
 assert.ok(html.includes('id="proStatusCard"'), 'popup.html deve conter #proStatusCard');
-assert.ok(html.includes('id="inputProPin"'), 'popup.html deve conter input #inputProPin para PIN de 4 dígitos');
-assert.ok(html.includes('id="btnRedeemPin"'), 'popup.html deve conter botão #btnRedeemPin');
+assert.ok(!html.includes('id="inputProPin"'), 'popup.html não deve conter input #inputProPin');
+assert.ok(!html.includes('id="btnRedeemPin"'), 'popup.html não deve conter botão #btnRedeemPin');
+assert.ok(html.includes('id="modalTotpLogin"'), 'popup.html deve conter modal #modalTotpLogin para 2FA');
 assert.ok(html.includes('id="btnOpenProModal"'), 'popup.html deve conter botão #btnOpenProModal');
 assert.ok(html.includes('id="modalProPix"'), 'popup.html deve conter modal de Pix #modalProPix');
 assert.ok(html.includes('id="inputCustomProEmail"'), 'popup.html deve permitir informar e-mail customizado #inputCustomProEmail');
@@ -55,8 +56,8 @@ console.log('Testing PRO JS logic in popup.js...');
 assert.ok(js.includes('updateProStatusUI'), 'popup.js deve conter função updateProStatusUI');
 assert.ok(js.includes('btnHeaderAuth'), 'popup.js deve gerenciar btnHeaderAuth');
 assert.ok(js.includes('openLoginView'), 'popup.js deve conter função openLoginView');
-assert.ok(js.includes('btnRedeemPin'), 'popup.js deve conter evento para btnRedeemPin');
-assert.ok(js.includes('IdentityService.redeemPin'), 'popup.js deve chamar IdentityService.redeemPin');
+assert.ok(!js.includes('btnRedeemPin'), 'popup.js não deve conter evento para btnRedeemPin');
+assert.ok(js.includes('modalTotpLogin'), 'popup.js deve conter gerenciamento de modalTotpLogin');
 assert.ok(js.includes("appSettings.theme === 'neon'") && js.includes("applyTheme('dark')"), 'popup.js deve reverter tema neon para dark se a conta for FREE');
 assert.ok(js.includes('IdentityService.getGoogleIdentityInfo'), 'popup.js deve usar getGoogleIdentityInfo ao conectar conta Google');
 assert.ok(js.includes('IdentityService.signInWithGoogleBrowserFlow'), 'popup.js deve suportar signInWithGoogleBrowserFlow');

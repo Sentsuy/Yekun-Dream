@@ -231,10 +231,33 @@ global.chrome = {
   const credsWithTotp = await IdentityService.getStoredCredentials();
   assert.strictEqual(credsWithTotp.totpEnabled, true);
 
+  // Verifica desafio de 2FA obrigatório no login
+  const isReq1 = await IdentityService.isTotpRequiredForEmail('leitor@gmail.com');
+  assert.strictEqual(isReq1, true, 'isTotpRequiredForEmail deve ser true para conta com 2FA ativado');
+  const isReq2 = await IdentityService.isTotpRequiredForEmail('desconhecido@gmail.com');
+  assert.strictEqual(isReq2, false, 'isTotpRequiredForEmail deve ser false para conta diferente');
+
+  // Validação do token de login
+  const loginToken = await IdentityService.Totp.generateToken(totpSetup.secret);
+  const loginRes = await IdentityService.verifyTotpLogin(loginToken);
+  assert.strictEqual(loginRes.success, true, 'verifyTotpLogin deve ter sucesso com token válido');
+  const badLoginRes = await IdentityService.verifyTotpLogin('000000');
+  assert.strictEqual(badLoginRes.success, false, 'verifyTotpLogin deve falhar com token incorreto');
+
   // Desativação
   await IdentityService.disableTotp();
   const credsDisabled = await IdentityService.getStoredCredentials();
   assert.strictEqual(credsDisabled.totpEnabled, false);
+  const isReqAfterDisable = await IdentityService.isTotpRequiredForEmail('leitor@gmail.com');
+  assert.strictEqual(isReqAfterDisable, false, 'isTotpRequiredForEmail deve ser false após desativar 2FA');
+
+  // Verifica modalTotpLogin no HTML e remoção do código de ativação legado
+  assert.ok(popupHtml.includes('id="modalTotpLogin"'), 'popup.html deve conter #modalTotpLogin');
+  assert.ok(popupHtml.includes('id="inputTotpLoginCode"'), 'popup.html deve conter #inputTotpLoginCode');
+  assert.ok(popupHtml.includes('id="btnConfirmTotpLogin"'), 'popup.html deve conter #btnConfirmTotpLogin');
+  assert.ok(!popupHtml.includes('id="proPinAccordion"'), 'popup.html não deve mais conter #proPinAccordion');
+  assert.ok(!popupHtml.includes('id="inputProPin"'), 'popup.html não deve mais conter #inputProPin');
+  assert.ok(!popupHtml.includes('id="btnRedeemPin"'), 'popup.html não deve mais conter #btnRedeemPin');
 
   // Verifica modalConfirmDisconnect no HTML
   assert.ok(popupHtml.includes('id="modalConfirmDisconnect"'), 'popup.html deve conter #modalConfirmDisconnect');

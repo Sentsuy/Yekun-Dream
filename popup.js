@@ -127,15 +127,11 @@ const btnEditProEmail      = document.getElementById('btnEditProEmail');
 const inputCustomProEmail  = document.getElementById('inputCustomProEmail');
 const btnSaveCustomProEmail= document.getElementById('btnSaveCustomProEmail');
 const proDescText          = document.getElementById('proDescText');
-const inputProPin          = document.getElementById('inputProPin');
-const btnRedeemPin         = document.getElementById('btnRedeemPin');
 const btnOpenProModal      = document.getElementById('btnOpenProModal');
 const btnVerifyPro         = document.getElementById('btnVerifyPro');
 const proSyncControls      = document.querySelectorAll('.pro-sync-controls');
 const modalProPix          = document.getElementById('modalProPix');
 const btnCloseProModal     = document.getElementById('btnCloseProModal');
-const inputModalProPin     = document.getElementById('inputModalProPin');
-const btnModalRedeemPin    = document.getElementById('btnModalRedeemPin');
 const proPixBrCode         = document.getElementById('proPixBrCode');
 const proPixQrImg          = document.getElementById('proPixQrImg');
 const btnCopyProBrCode     = document.getElementById('btnCopyProBrCode');
@@ -168,6 +164,13 @@ const btnActivateTotp          = document.getElementById('btnActivateTotp');
 const proTotpVerifyRow         = document.getElementById('proTotpVerifyRow');
 const proTotpActiveRow         = document.getElementById('proTotpActiveRow');
 const btnDisableTotp           = document.getElementById('btnDisableTotp');
+
+// Modal de Desafio 2FA (TOTP) no Login
+const modalTotpLogin           = document.getElementById('modalTotpLogin');
+const totpLoginDesc            = document.getElementById('totpLoginDesc');
+const inputTotpLoginCode       = document.getElementById('inputTotpLoginCode');
+const btnCancelTotpLogin       = document.getElementById('btnCancelTotpLogin');
+const btnConfirmTotpLogin      = document.getElementById('btnConfirmTotpLogin');
 
 // Modal Verify Pro Access (para novos acessos manuais)
 const modalVerifyProAccess     = document.getElementById('modalVerifyProAccess');
@@ -2366,49 +2369,75 @@ btnSyncNow.addEventListener('click', () => requireProTermsAccepted(async () => {
   }
 }));
 
-// ── Ativação Yekun Cloud PRO & PIN ────────────────────────
-if (btnRedeemPin) {
-  btnRedeemPin.addEventListener('click', () => requireProTermsAccepted(async () => {
-    const pin = inputProPin ? inputProPin.value.trim() : '';
-    if (!pin) {
-      showToast('Digite o código de 4 dígitos');
-      return;
+// ── Modal de Verificação 2FA (TOTP) no Login ──────────────
+let pendingTotpLoginResolve = null;
+
+function openTotpLoginModal(email) {
+  return new Promise(resolve => {
+    pendingTotpLoginResolve = resolve;
+    if (totpLoginDesc) {
+      totpLoginDesc.innerHTML = `Esta conta possui proteção 2FA ativa. Digite o código de 6 dígitos gerado no <strong>Google Authenticator</strong> para autorizar o login de <strong>${email}</strong>.`;
     }
-    showToast('Validando código…');
-    const config = { supabaseUrl: appSettings ? appSettings.supabaseUrl : '', supabaseKey: appSettings ? appSettings.supabaseKey : '' };
-    const res = await IdentityService.redeemPin(config, pin);
-    if (res.success) {
-      showToast('✓ ' + res.message);
-      if (inputProPin) inputProPin.value = '';
-      await updateProStatusUI(true);
-    } else {
-      showToast('⚠️ ' + (res.error || 'Código inválido'));
+    if (inputTotpLoginCode) {
+      inputTotpLoginCode.value = '';
     }
-  }));
+    if (modalTotpLogin) {
+      modalTotpLogin.classList.add('open');
+      setTimeout(() => { if (inputTotpLoginCode) inputTotpLoginCode.focus(); }, 120);
+    }
+  });
 }
 
-if (btnModalRedeemPin) {
-  btnModalRedeemPin.addEventListener('click', () => requireProTermsAccepted(async () => {
-    const pin = inputModalProPin ? inputModalProPin.value.trim() : '';
-    if (!pin) {
-      showToast('Digite o código de 4 dígitos');
+function closeTotpLoginModal(success = false) {
+  if (modalTotpLogin) {
+    modalTotpLogin.classList.remove('open');
+  }
+  if (pendingTotpLoginResolve) {
+    pendingTotpLoginResolve(success);
+    pendingTotpLoginResolve = null;
+  }
+}
+
+if (btnCancelTotpLogin) {
+  btnCancelTotpLogin.addEventListener('click', () => closeTotpLoginModal(false));
+}
+
+if (modalTotpLogin) {
+  modalTotpLogin.addEventListener('click', (e) => {
+    if (e.target === modalTotpLogin) closeTotpLoginModal(false);
+  });
+}
+
+if (btnConfirmTotpLogin) {
+  btnConfirmTotpLogin.addEventListener('click', async () => {
+    const code = inputTotpLoginCode ? inputTotpLoginCode.value.trim() : '';
+    if (!code || code.length !== 6) {
+      showToast('⚠️ Digite o código de 6 dígitos');
+      if (inputTotpLoginCode) inputTotpLoginCode.focus();
       return;
     }
-    showToast('Validando código…');
-    const config = { supabaseUrl: appSettings ? appSettings.supabaseUrl : '', supabaseKey: appSettings ? appSettings.supabaseKey : '' };
-    const res = await IdentityService.redeemPin(config, pin);
-    if (res.success) {
-      showToast('✓ ' + res.message);
-      if (inputModalProPin) inputModalProPin.value = '';
-      if (res.validUntil && proSuccessValidUntil) {
-        proSuccessValidUntil.textContent = new Date(Number(res.validUntil)).toLocaleDateString('pt-BR');
-      }
-      goToProStep(3);
-      await updateProStatusUI(true);
+    const res = await IdentityService.verifyTotpLogin(code);
+    if (res && res.success) {
+      showToast('✓ 2FA verificado com sucesso!');
+      closeTotpLoginModal(true);
     } else {
-      showToast('⚠️ ' + (res.error || 'Código inválido'));
+      showToast('⚠️ ' + ((res && res.error) || 'Código 2FA incorreto'));
+      if (inputTotpLoginCode) {
+        inputTotpLoginCode.value = '';
+        inputTotpLoginCode.focus();
+      }
     }
-  }));
+  });
+}
+
+if (inputTotpLoginCode) {
+  inputTotpLoginCode.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      if (btnConfirmTotpLogin) btnConfirmTotpLogin.click();
+    } else if (e.key === 'Escape') {
+      closeTotpLoginModal(false);
+    }
+  });
 }
 
 const btnConnectGoogle = document.getElementById('btnConnectGoogle');
@@ -2425,6 +2454,16 @@ if (btnConnectGoogle) {
       }
 
       if (res && res.success && res.email) {
+        // Se a conta tem 2FA ativado, exige validação antes de autenticar
+        const needsTotp = await IdentityService.isTotpRequiredForEmail(res.email);
+        if (needsTotp) {
+          const authorized = await openTotpLoginModal(res.email);
+          if (!authorized) {
+            showToast('Login cancelado: 2FA não confirmado');
+            return;
+          }
+        }
+
         if (inputCustomProEmail) {
           inputCustomProEmail.value = res.email;
         }
@@ -2897,6 +2936,16 @@ if (btnSaveCustomProEmail && inputCustomProEmail) {
       showToast('Informe um e-mail válido');
       return;
     }
+
+    const needsTotp = await IdentityService.isTotpRequiredForEmail(email);
+    if (needsTotp) {
+      const authorized = await openTotpLoginModal(email);
+      if (!authorized) {
+        showToast('Login cancelado: 2FA não confirmado');
+        return;
+      }
+    }
+
     showToast('Verificando conta…');
     const config = { supabaseUrl: appSettings ? appSettings.supabaseUrl : '', supabaseKey: appSettings ? appSettings.supabaseKey : '' };
 

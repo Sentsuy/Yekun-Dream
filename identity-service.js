@@ -332,18 +332,19 @@ const IdentityService = {
     return new Promise(resolve => {
       try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.get(['proAccessPin', 'proRecoveryKey', 'proTotpSecret', 'proTotpEnabled'], res => {
+          chrome.storage.local.get(['proAccessPin', 'proRecoveryKey', 'proTotpSecret', 'proTotpEnabled', 'proTotpEmail'], res => {
             resolve({
               accessPin: (res && res.proAccessPin) ? String(res.proAccessPin) : '',
               recoveryKey: (res && res.proRecoveryKey) ? String(res.proRecoveryKey) : '',
               totpSecret: (res && res.proTotpSecret) ? String(res.proTotpSecret) : '',
-              totpEnabled: !!(res && res.proTotpEnabled)
+              totpEnabled: !!(res && res.proTotpEnabled),
+              totpEmail: (res && res.proTotpEmail) ? String(res.proTotpEmail) : ''
             });
           });
           return;
         }
       } catch (_) {}
-      resolve({ accessPin: '', recoveryKey: '', totpSecret: '', totpEnabled: false });
+      resolve({ accessPin: '', recoveryKey: '', totpSecret: '', totpEnabled: false, totpEmail: '' });
     });
   },
 
@@ -356,6 +357,7 @@ const IdentityService = {
           if (creds.recoveryKey !== undefined) payload.proRecoveryKey = String(creds.recoveryKey);
           if (creds.totpSecret !== undefined) payload.proTotpSecret = String(creds.totpSecret);
           if (creds.totpEnabled !== undefined) payload.proTotpEnabled = !!creds.totpEnabled;
+          if (creds.totpEmail !== undefined) payload.proTotpEmail = String(creds.totpEmail);
           chrome.storage.local.set(payload, resolve);
           return;
         }
@@ -368,7 +370,7 @@ const IdentityService = {
     return new Promise(resolve => {
       try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.remove(['proAccessPin', 'proRecoveryKey', 'proTotpSecret', 'proTotpEnabled'], resolve);
+          chrome.storage.local.remove(['proAccessPin', 'proRecoveryKey', 'proTotpSecret', 'proTotpEnabled', 'proTotpEmail'], resolve);
           return;
         }
       } catch (_) {}
@@ -377,11 +379,10 @@ const IdentityService = {
   },
 
   async clearCustomProEmail() {
-    await this.clearStoredCredentials();
     return new Promise(resolve => {
       try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.remove(['customProEmail', 'proEmailSource', PRO_CACHE_KEY], () => resolve());
+          chrome.storage.local.remove(['customProEmail', 'proEmailSource', PRO_CACHE_KEY, 'proAccessPin', 'proRecoveryKey'], () => resolve());
           return;
         }
       } catch (_) {}
@@ -846,7 +847,8 @@ const IdentityService = {
     }
     await this.saveStoredCredentials({
       totpSecret: secret,
-      totpEnabled: true
+      totpEnabled: true,
+      totpEmail: email || ''
     });
     return { success: true, message: 'Google Authenticator ativado com sucesso!' };
   },
@@ -854,8 +856,31 @@ const IdentityService = {
   async disableTotp() {
     await this.saveStoredCredentials({
       totpSecret: '',
-      totpEnabled: false
+      totpEnabled: false,
+      totpEmail: ''
     });
+    return { success: true };
+  },
+
+  async isTotpRequiredForEmail(email) {
+    if (!email) return false;
+    const creds = await this.getStoredCredentials();
+    if (!creds.totpEnabled || !creds.totpSecret) return false;
+    if (creds.totpEmail) {
+      return creds.totpEmail.trim().toLowerCase() === String(email).trim().toLowerCase();
+    }
+    return true;
+  },
+
+  async verifyTotpLogin(code) {
+    const creds = await this.getStoredCredentials();
+    if (!creds.totpEnabled || !creds.totpSecret) {
+      return { success: true };
+    }
+    const valid = await TotpUtil.verifyToken(code, creds.totpSecret);
+    if (!valid) {
+      return { success: false, error: 'Código 2FA inválido ou expirado. Verifique o relógio do seu celular.' };
+    }
     return { success: true };
   },
 

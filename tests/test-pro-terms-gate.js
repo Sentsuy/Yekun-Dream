@@ -49,7 +49,7 @@ const guardCalls = (popupJs.match(guardRegex) || []).length;
 assert.ok(guardCalls >= 4, `Must guard at least 4 entry points with requireProTermsAccepted, found ${guardCalls}`);
 const flat = popupJs.replace(/\s+/g, ' ');
 assert.ok(/btnSyncNow\.addEventListener[\s\S]{0,80}requireProTermsAccepted/.test(flat), 'btnSyncNow must be gated');
-assert.ok(/btnRedeemPin\.addEventListener[\s\S]{0,80}requireProTermsAccepted/.test(flat), 'btnRedeemPin must be gated');
+assert.ok(/btnSaveCustomProEmail\.addEventListener[\s\S]{0,80}requireProTermsAccepted/.test(flat), 'btnSaveCustomProEmail must be gated');
 assert.ok(/btnConnectGoogle\.addEventListener[\s\S]{0,80}requireProTermsAccepted/.test(flat), 'btnConnectGoogle must be gated');
 assert.ok(/toggleAutoSync\.addEventListener/.test(popupJs), 'toggleAutoSync must have its own handler');
 assert.ok(/toggleAutoSync[\s\S]{0,500}openProTermsModal/.test(popupJs), 'toggleAutoSync handler must open terms modal when enabling');
