@@ -229,6 +229,15 @@ const { IdentityService } = require('../identity-service');
   assert.strictEqual(proStatusNewDevice.isPro, false);
   assert.strictEqual(proStatusNewDevice.needsPin, true, 'PRO user on new device without PIN must have needsPin: true');
 
+  // PRO user connected via Google: must NOT require PIN and should be immediately PRO
+  console.log('Testing checkProStatus: Google user bypasses PIN requirement...');
+  await IdentityService.setCustomProEmail('pro@test.com', 'google');
+  const googleIdentity = await IdentityService.getIdentityInfo();
+  assert.strictEqual(googleIdentity.source, 'google', 'Identity source should be google');
+  const proStatusGoogle = await IdentityService.checkProStatus({ supabaseUrl: 'https://mock.supabase.co', supabaseKey: 'mock' }, true);
+  assert.strictEqual(proStatusGoogle.isPro, true, 'Google authenticated user must be directly PRO');
+  assert.strictEqual(proStatusGoogle.needsPin, false, 'Google authenticated user must NOT have needsPin: true');
+
   global.fetch = originalFetch;
 
   console.log('✓ test-identity-service passed');

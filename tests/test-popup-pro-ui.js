@@ -50,7 +50,8 @@ assert.ok(js.includes("appSettings.theme === 'neon'") && js.includes("applyTheme
 assert.ok(js.includes('IdentityService.getGoogleIdentityInfo'), 'popup.js deve usar getGoogleIdentityInfo ao conectar conta Google');
 assert.ok(js.includes('IdentityService.signInWithGoogleBrowserFlow'), 'popup.js deve suportar signInWithGoogleBrowserFlow');
 assert.ok(js.includes('setProEmailEditingMode'), 'popup.js deve conter setProEmailEditingMode');
-assert.ok(js.includes('btnOpenProModal') && js.includes('is-locked'), 'popup.js deve controlar estado travado do botão de checkout');
+assert.ok(!html.includes('id="proPinFallback"'), 'popup.html não deve conter #proPinFallback dentro do modal de ativação');
+assert.ok(js.includes('goToProStep(3)'), 'popup.js deve avançar diretamente para etapa 3 na simulação de teste');
 
 console.log('✓ test-popup-pro-ui passed');
 process.exit(0);

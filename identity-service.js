@@ -192,7 +192,7 @@ const IdentityService = {
               if (data && data.email) {
                 const clean = this.normalizeEmail(data.email);
                 if (clean) {
-                  await this.setCustomProEmail(clean);
+                  await this.setCustomProEmail(clean, 'google');
                   return {
                     success: true,
                     email: clean,
@@ -216,7 +216,7 @@ const IdentityService = {
     try {
       const googleInfo = await this.getGoogleIdentityInfo();
       if (googleInfo && googleInfo.email) {
-        await this.setCustomProEmail(googleInfo.email);
+        await this.setCustomProEmail(googleInfo.email, 'google');
         return {
           success: true,
           email: googleInfo.email,
@@ -295,7 +295,7 @@ const IdentityService = {
     return new Promise(resolve => {
       try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.remove(['customProEmail', PRO_CACHE_KEY], () => resolve());
+          chrome.storage.local.remove(['customProEmail', 'proEmailSource', PRO_CACHE_KEY], () => resolve());
           return;
         }
       } catch (_) {}
@@ -307,10 +307,11 @@ const IdentityService = {
     return new Promise(resolve => {
       try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.get(['customProEmail'], res => {
+          chrome.storage.local.get(['customProEmail', 'proEmailSource'], res => {
             const email = IdentityService.normalizeEmail(res && res.customProEmail);
             if (email) {
-              return resolve({ email, source: 'custom', id: '' });
+              const source = (res && res.proEmailSource) || 'custom';
+              return resolve({ email, source, id: '' });
             }
             resolve({ email: '', source: 'none', id: '' });
           });
@@ -321,7 +322,7 @@ const IdentityService = {
     });
   },
 
-  async setCustomProEmail(email) {
+  async setCustomProEmail(email, source = 'custom') {
     const clean = this.normalizeEmail(email);
     // M-05: Validação básica de formato de e-mail antes de salvar
     if (!clean || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(clean) || clean.length > 254) {
@@ -330,7 +331,7 @@ const IdentityService = {
     return new Promise(resolve => {
       try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.set({ customProEmail: clean }, () => {
+          chrome.storage.local.set({ customProEmail: clean, proEmailSource: source }, () => {
             // Invalida cache ao mudar o e-mail
             chrome.storage.local.remove([PRO_CACHE_KEY], () => resolve(clean));
           });
@@ -489,8 +490,11 @@ const IdentityService = {
       const validUntil = Number(result.validUntil) || 0;
       const isAccountPro = !!(result && result.isPro);
 
-      // Se a conta for PRO no servidor, mas esta máquina não possuir PIN ou Chave Mestra gravada:
-      if (isAccountPro && !creds.accessPin && !creds.recoveryKey) {
+      // Se a conta for PRO no servidor:
+      // Contas autenticadas com Google no navegador já possuem identidade verificada via OAuth.
+      // Apenas contas manuais/customizadas sem credenciais locais exigem autorização via PIN.
+      const isGoogleAuth = idInfo.source === 'google';
+      if (isAccountPro && !isGoogleAuth && !creds.accessPin && !creds.recoveryKey) {
         return {
           isPro: false,
           email,
@@ -503,6 +507,14 @@ const IdentityService = {
         };
       }
 
+      if ((result.access_pin && !creds.accessPin) || (result.recovery_key && !creds.recoveryKey)) {
+        await this.saveStoredCredentials({
+          accessPin: creds.accessPin || result.access_pin || '',
+          recoveryKey: creds.recoveryKey || result.recovery_key || '',
+          totpEnabled: creds.totpEnabled || !!result.totp_enabled
+        });
+      }
+
       const statusData = {
         isPro: isAccountPro,
         email,
@@ -511,9 +523,9 @@ const IdentityService = {
         daysLeft: this.calculateDaysLeft(validUntil, now),
         validUntil,
         plan: result.plan || 'none',
-        accessPin: creds.accessPin || '',
-        recoveryKey: creds.recoveryKey || '',
-        totpEnabled: creds.totpEnabled || false,
+        accessPin: creds.accessPin || result.access_pin || '',
+        recoveryKey: creds.recoveryKey || result.recovery_key || '',
+        totpEnabled: creds.totpEnabled || !!result.totp_enabled,
         cached: false
       };
 

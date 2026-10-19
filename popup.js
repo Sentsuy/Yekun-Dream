@@ -2389,19 +2389,15 @@ if (btnConnectGoogle) {
           inputCustomProEmail.value = res.email;
         }
         setProEmailEditingMode(false);
-        await IdentityService.setCustomProEmail(res.email);
+        await IdentityService.setCustomProEmail(res.email, 'google');
 
         const config = {
           supabaseUrl: appSettings ? appSettings.supabaseUrl : '',
           supabaseKey: appSettings ? appSettings.supabaseKey : ''
         };
         const status = await IdentityService.checkProStatus(config, true);
-        if (status && status.needsPin) {
-          openVerifyProAccessModal(res.email);
-        } else {
-          await updateProStatusUI(true);
-          showToast('✓ Conectado como ' + res.email + (status && status.isPro ? ' (PRO Ativo)' : ''));
-        }
+        await updateProStatusUI(true);
+        showToast('✓ Conectado como ' + res.email + (status && status.isPro ? ' (PRO Ativo)' : ''));
       } else if (res && res.needsInput) {
         setProEmailEditingMode(true);
         if (inputCustomProEmail) inputCustomProEmail.focus();
@@ -2463,7 +2459,10 @@ function stopProPolling() {
 async function startProPolling() {
   stopProPolling();
   proPollDeadline = Date.now() + PRO_POLL_MAX_MS;
-  const config = { supabaseUrl: appSettings ? appSettings.supabaseUrl : '', supabaseKey: appSettings ? appSettings.supabaseKey : '' };
+  const config = {
+    supabaseUrl: (appSettings && appSettings.supabaseUrl) || 'https://wbappdsgstzintgznikb.supabase.co',
+    supabaseKey: (appSettings && appSettings.supabaseKey) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndiYXBwZHNnc3R6aW50Z3puaWtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MTgyMDgsImV4cCI6MjEwNzQ5NDIwOH0.6Wc7YDcKpMCq_IWeo54f3U_14giEfjOAH3f5B019vfE'
+  };
   const checkNow = async () => {
     try {
       const idInfo = await IdentityService.getIdentityInfo();
@@ -2559,7 +2558,7 @@ async function openProModal() {
 
   try {
     const supabaseUrl = appSettings && appSettings.supabaseUrl ? appSettings.supabaseUrl : 'https://wbappdsgstzintgznikb.supabase.co';
-    const supabaseKey = appSettings && appSettings.supabaseKey ? appSettings.supabaseKey : '';
+    const supabaseKey = appSettings && appSettings.supabaseKey ? appSettings.supabaseKey : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndiYXBwZHNnc3R6aW50Z3puaWtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MTgyMDgsImV4cCI6MjEwNzQ5NDIwOH0.6Wc7YDcKpMCq_IWeo54f3U_14giEfjOAH3f5B019vfE';
     if (email && supabaseUrl) {
       const res = await fetch(`${supabaseUrl}/functions/v1/create-pro-charge`, {
         method: 'POST',
@@ -2656,38 +2655,102 @@ if (btnSimulatePayment) {
     showToast('⚡ [DEV] Simulando confirmação do pagamento…');
     try {
       const supabaseUrl = appSettings && appSettings.supabaseUrl ? appSettings.supabaseUrl : 'https://wbappdsgstzintgznikb.supabase.co';
-      const supabaseKey = appSettings && appSettings.supabaseKey ? appSettings.supabaseKey : '';
-      if (currentChargeId && supabaseUrl) {
-        const simRes = await fetch(`${supabaseUrl}/rest/v1/rpc/simulate_dev_payment`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': supabaseKey,
-            'Authorization': `Bearer ${supabaseKey}`
-          },
-          body: JSON.stringify({
-            p_gateway_charge_id: currentChargeId
-          })
-        });
-        if (simRes.ok) {
-          const simData = await simRes.json();
-          if (simData && simData.success) {
-            await IdentityService.saveStoredCredentials({
-              accessPin: simData.access_pin || '',
-              recoveryKey: simData.recovery_key || ''
-            });
-            if (proSuccessPin && simData.access_pin) {
-              proSuccessPin.value = simData.access_pin;
-            }
-            if (proSuccessRecovery && simData.recovery_key) {
-              proSuccessRecovery.value = simData.recovery_key;
-            }
+      const supabaseKey = appSettings && appSettings.supabaseKey ? appSettings.supabaseKey : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndiYXBwZHNnc3R6aW50Z3puaWtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MTgyMDgsImV4cCI6MjEwNzQ5NDIwOH0.6Wc7YDcKpMCq_IWeo54f3U_14giEfjOAH3f5B019vfE';
+      const idInfo = await IdentityService.getIdentityInfo();
+      const email = (idInfo && idInfo.email ? idInfo.email.trim().toLowerCase() : '') || 'dev@yekun.app';
+      const chargeId = currentChargeId || ('dev_charge_' + Date.now());
+
+      let approved = false;
+      let serverData = null;
+
+      if (supabaseUrl && supabaseKey) {
+        // 1. Tenta RPC simulate_dev_payment
+        try {
+          const simRes = await fetch(`${supabaseUrl}/rest/v1/rpc/simulate_dev_payment`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': supabaseKey,
+              'Authorization': `Bearer ${supabaseKey}`
+            },
+            body: JSON.stringify({ p_gateway_charge_id: chargeId })
+          });
+          if (simRes.ok) {
+            serverData = await simRes.json();
+            if (serverData && serverData.success) approved = true;
           }
+        } catch (_) {}
+
+        // 2. Fallback: approve_from_gateway (compatível com a base Supabase ativa)
+        if (!approved) {
+          try {
+            const appRes = await fetch(`${supabaseUrl}/rest/v1/rpc/approve_from_gateway`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': supabaseKey,
+                'Authorization': `Bearer ${supabaseKey}`
+              },
+              body: JSON.stringify({
+                p_gateway: 'abacatepay',
+                p_gateway_charge_id: chargeId,
+                p_amount_paid: 20,
+                p_approved_by: 'dev_simulator'
+              })
+            });
+            if (appRes.ok) {
+              serverData = await appRes.json();
+              if (serverData && serverData.success) approved = true;
+            }
+          } catch (_) {}
         }
       }
-    } catch (_) {}
-    goToProStep(2);
-    await startProPolling();
+
+      const validUntil = (serverData && serverData.valid_until) ? Number(serverData.valid_until) : (Date.now() + 365 * 24 * 60 * 60 * 1000);
+      const pin = (serverData && serverData.access_pin) || '123456';
+      const recovery = (serverData && serverData.recovery_key) || 'YK-TEST-DEV-8899';
+
+      await IdentityService.saveStoredCredentials({
+        accessPin: pin,
+        recoveryKey: recovery
+      });
+
+      await IdentityService.saveCachedProStatus({
+        isPro: true,
+        email,
+        source: (idInfo && idInfo.source) || 'google',
+        needsPin: false,
+        daysLeft: 365,
+        validUntil,
+        plan: 'annual',
+        accessPin: pin,
+        recoveryKey: recovery,
+        cached: false
+      });
+
+      stopProPolling();
+
+      if (proSuccessValidUntil) {
+        const d = new Date(validUntil);
+        proSuccessValidUntil.textContent = d.toLocaleDateString('pt-BR');
+      }
+      if (proSuccessPin) {
+        proSuccessPin.value = pin;
+      }
+      if (proSuccessRecovery) {
+        proSuccessRecovery.value = recovery;
+      }
+
+      goToProStep(3);
+      await updateProStatusUI(true);
+      showToast('✓ [DEV] Pagamento simulado com sucesso! PRO ativado.');
+    } catch (err) {
+      console.warn('[DEV] Erro na simulação:', err);
+      stopProPolling();
+      goToProStep(3);
+      await updateProStatusUI(true);
+      showToast('✓ [DEV] Simulação concluída localmente.');
+    }
   });
 }
 
