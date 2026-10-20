@@ -1861,10 +1861,12 @@ async function captureCurrentTab(onlySource = false) {
       }
     }
 
+    const isAnimeSite = domain.includes('crunchyroll') || domain.includes('anime');
+
     if (detectedChapter) {
       inputChapter.value = detectedChapter;
     } else if (!inputChapter.value) {
-      inputChapter.value = 'Cap. 1';
+      inputChapter.value = isAnimeSite ? 'Ep. 1' : 'Cap. 1';
     }
 
     if (!onlySource && detectedName && detectedName.toLowerCase() !== siteName) {
@@ -1874,18 +1876,52 @@ async function captureCurrentTab(onlySource = false) {
       }
 
       // Se estiver em modo nova obra, confere se já existe match nas obras salvas
-      if (!editIdField.value && typeof StorageLocal.findMatchingWork === 'function') {
-        const match = StorageLocal.findMatchingWork(detectedName, allWorks);
-        if (match.exactMatch) {
-          editIdField.value = match.exactMatch.id;
-          inputTitle.value = match.exactMatch.name;
+      if (!editIdField.value) {
+        let matchedWork = null;
+
+        // A. Match por seriesUrl (ex: link de série da Crunchyroll na página de episódio)
+        if (pageDetails && pageDetails.seriesUrl && Array.isArray(allWorks)) {
+          const sUrlNorm = pageDetails.seriesUrl.toLowerCase();
+          matchedWork = allWorks.find(w => !w.deleted && (w.sources || []).some(s => {
+            if (!s.url) return false;
+            const su = s.url.toLowerCase();
+            return su === sUrlNorm || su.includes(sUrlNorm) || sUrlNorm.includes(su);
+          }));
+        }
+
+        // B. Match por título e aliases via StorageLocal
+        if (!matchedWork && typeof StorageLocal.findMatchingWork === 'function') {
+          const match = StorageLocal.findMatchingWork(detectedName, allWorks);
+          if (match && match.exactMatch) {
+            matchedWork = match.exactMatch;
+          }
+        }
+
+        // C. Match por aliases detectados na página
+        if (!matchedWork && Array.isArray(detectedAliases) && detectedAliases.length > 0 && typeof StorageLocal.findMatchingWork === 'function') {
+          for (const alias of detectedAliases) {
+            const match = StorageLocal.findMatchingWork(alias, allWorks);
+            if (match && match.exactMatch) {
+              matchedWork = match.exactMatch;
+              break;
+            }
+          }
+        }
+
+        if (matchedWork) {
+          editIdField.value = matchedWork.id;
+          inputTitle.value = matchedWork.name;
           inputTitle.readOnly = true;
-          setActiveTag(match.exactMatch.tag || 'manga');
-          formTitle.textContent = `Atualizar: ${match.exactMatch.name}`;
+          setActiveTag(matchedWork.tag || (isAnimeSite ? 'anime' : 'manga'));
+          formTitle.textContent = `Atualizar: ${matchedWork.name}`;
           btnSave.textContent = 'Atualizar Obra';
-          showToast(`✓ Obra reconhecida: ${match.exactMatch.name}`);
+          showToast(`✓ Obra reconhecida: ${matchedWork.name}`);
+        } else if (isAnimeSite) {
+          setActiveTag('anime');
         }
       }
+    } else if (!editIdField.value && isAnimeSite) {
+      setActiveTag('anime');
     }
   } catch (e) {
     // Falha silenciosa
@@ -2033,6 +2069,17 @@ function isTabForWork(tab, work, pageDetails) {
   const sources = Array.isArray(work.sources) ? work.sources : [];
   const domainMatches = sources.some(s => s.domain && s.domain.toLowerCase() === tabDomain);
 
+  // 1. Match direto por URL de série detectada na página (ex: Crunchyroll /series/ link)
+  if (pageDetails && pageDetails.seriesUrl) {
+    const normSeriesUrl = pageDetails.seriesUrl.toLowerCase();
+    const seriesMatches = sources.some(s => {
+      if (!s.url) return false;
+      const sUrl = s.url.toLowerCase();
+      return sUrl === normSeriesUrl || sUrl.includes(normSeriesUrl) || normSeriesUrl.includes(sUrl);
+    });
+    if (seriesMatches) return true;
+  }
+
   let tabTitle = (pageDetails && pageDetails.title) ? pageDetails.title : '';
   if (!tabTitle && tab.title) {
     tabTitle = (typeof StorageLocal !== 'undefined' && StorageLocal.cleanWorkTitle) ? StorageLocal.cleanWorkTitle(tab.title) : tab.title;
@@ -2053,22 +2100,31 @@ function isTabForWork(tab, work, pageDetails) {
     return normTabTitle === na || normTabTitle.includes(na) || na.includes(normTabTitle);
   });
 
+  const pageAliases = (pageDetails && Array.isArray(pageDetails.aliases)) ? pageDetails.aliases : [];
+  const aliasPageMatches = pageAliases.some(pAlias => {
+    const pNorm = (typeof StorageLocal !== 'undefined' && StorageLocal.normalizeTitle) ? StorageLocal.normalizeTitle(pAlias) : pAlias.toLowerCase();
+    return pNorm === normWorkName || aliases.some(a => {
+      const na = (typeof StorageLocal !== 'undefined' && StorageLocal.normalizeTitle) ? StorageLocal.normalizeTitle(a) : a.toLowerCase();
+      return pNorm === na;
+    });
+  });
+
   const slugMatches = sources.some(s => {
     if (!s.url) return false;
     try {
       const u = new URL(s.url);
       const parts = u.pathname.split('/').filter(p => p.length > 3 && !/^(?:watch|series|episodio|capitulo|manga|anime)$/i.test(p));
-      return parts.some(p => tabUrl.includes(p.toLowerCase()));
+      return parts.some(p => tabUrl.includes(p.toLowerCase()) || (pageDetails && pageDetails.seriesUrl && pageDetails.seriesUrl.toLowerCase().includes(p.toLowerCase())));
     } catch (_) {
       return false;
     }
   });
 
-  if (domainMatches && (titleMatches || slugMatches || sources.length === 1)) {
+  if (domainMatches && (titleMatches || aliasPageMatches || slugMatches || sources.length === 1)) {
     return true;
   }
 
-  return titleMatches;
+  return titleMatches || aliasPageMatches;
 }
 
 // ── Quick Increment (+1) com Verificação de Link e Capítulo ─────────
@@ -2468,6 +2524,22 @@ if (inputTotpLoginCode) {
   });
 }
 
+async function triggerAutoSyncOnConnect(email) {
+  if (typeof SyncService === 'undefined' || !SyncService.syncAll) return;
+  try {
+    showToast('Sincronizando obras da nuvem…');
+    const res = await SyncService.syncAll();
+    if (res && res.ok) {
+      allWorks = await StorageLocal.getWorks();
+      renderCurrentView();
+      const count = res.pulled || 0;
+      showToast(count > 0 ? `✓ Sincronizado! ${count} obras carregadas da nuvem.` : '✓ Sincronização concluída!');
+    }
+  } catch (err) {
+    console.debug('[Sync] Falha no auto-pull ao conectar:', err.message);
+  }
+}
+
 const btnConnectGoogle = document.getElementById('btnConnectGoogle');
 if (btnConnectGoogle) {
   btnConnectGoogle.addEventListener('click', () => requireProTermsAccepted(async () => {
@@ -2511,6 +2583,10 @@ if (btnConnectGoogle) {
         if (isDifferentAccount) {
           await IdentityService.clearLastDisconnectedEmail();
           openSyncAccountPrompt(res.email);
+        } else {
+          appSettings.syncKey = res.email;
+          await StorageLocal.saveSettings(appSettings);
+          await triggerAutoSyncOnConnect(res.email);
         }
       } else if (res && res.needsInput) {
         setProEmailEditingMode(true);
@@ -2950,12 +3026,16 @@ if (btnConfirmVerifyPro) {
       const lastDisconnected = await IdentityService.getLastDisconnectedEmail();
       const isDifferentAccount = Boolean(lastDisconnected && lastDisconnected !== verifiedEmail);
       await IdentityService.setCustomProEmail(verifiedEmail);
+      appSettings.syncKey = verifiedEmail;
+      await StorageLocal.saveSettings(appSettings);
       setProEmailEditingMode(false);
       await updateProStatusUI(true);
       showToast('✓ PRO autorizado com sucesso neste dispositivo!');
       if (isDifferentAccount) {
         await IdentityService.clearLastDisconnectedEmail();
         openSyncAccountPrompt(verifiedEmail);
+      } else {
+        await triggerAutoSyncOnConnect(verifiedEmail);
       }
     } else {
       showToast('⚠️ ' + (res.error || 'PIN ou Chave incorreta'));
@@ -2983,6 +3063,7 @@ if (btnSaveCustomProEmail && inputCustomProEmail) {
     }
 
     const config = getSupabaseConfig();
+    let totpAuthenticated = false;
     const needsTotp = await IdentityService.isTotpRequiredForEmail(config, email);
     if (needsTotp) {
       const authorized = await openTotpLoginModal(email);
@@ -2990,6 +3071,7 @@ if (btnSaveCustomProEmail && inputCustomProEmail) {
         showToast('Login cancelado: 2FA não confirmado');
         return;
       }
+      totpAuthenticated = true;
     }
 
     showToast('Verificando conta…');
@@ -3009,21 +3091,30 @@ if (btnSaveCustomProEmail && inputCustomProEmail) {
           const checkData = await checkRes.json();
           if (checkData && checkData.isPro) {
             const creds = await IdentityService.getStoredCredentials();
-            if (creds.accessPin || creds.recoveryKey) {
-              const vRes = await IdentityService.verifyProAccess(config, email, creds.accessPin || creds.recoveryKey);
-              if (vRes.success) {
-                const lastDisconnected = await IdentityService.getLastDisconnectedEmail();
-                const isDifferentAccount = Boolean(lastDisconnected && lastDisconnected !== email);
-                await IdentityService.setCustomProEmail(email);
-                setProEmailEditingMode(false);
-                await updateProStatusUI(true);
-                showToast('Conta alterada e PRO verificado: ' + email);
-                if (isDifferentAccount) {
-                  await IdentityService.clearLastDisconnectedEmail();
-                  openSyncAccountPrompt(email);
+            const hasTotpAuth = totpAuthenticated || Boolean(creds.totpSecret && (!creds.totpEmail || creds.totpEmail.trim().toLowerCase() === email));
+            if (hasTotpAuth || creds.accessPin || creds.recoveryKey) {
+              if (!hasTotpAuth && (creds.accessPin || creds.recoveryKey)) {
+                const vRes = await IdentityService.verifyProAccess(config, email, creds.accessPin || creds.recoveryKey);
+                if (!vRes.success) {
+                  openVerifyProAccessModal(email);
+                  return;
                 }
-                return;
               }
+              const lastDisconnected = await IdentityService.getLastDisconnectedEmail();
+              const isDifferentAccount = Boolean(lastDisconnected && lastDisconnected !== email);
+              await IdentityService.setCustomProEmail(email);
+              appSettings.syncKey = email;
+              await StorageLocal.saveSettings(appSettings);
+              setProEmailEditingMode(false);
+              await updateProStatusUI(true);
+              showToast('Conta conectada e PRO verificado: ' + email);
+              if (isDifferentAccount) {
+                await IdentityService.clearLastDisconnectedEmail();
+                openSyncAccountPrompt(email);
+              } else {
+                await triggerAutoSyncOnConnect(email);
+              }
+              return;
             }
             openVerifyProAccessModal(email);
             return;
@@ -3036,6 +3127,8 @@ if (btnSaveCustomProEmail && inputCustomProEmail) {
     const isDifferentAccount = Boolean(lastDisconnected && lastDisconnected !== email);
 
     await IdentityService.setCustomProEmail(email);
+    appSettings.syncKey = email;
+    await StorageLocal.saveSettings(appSettings);
     setProEmailEditingMode(false);
     await updateProStatusUI(true);
     showToast('Conta alterada para: ' + email);
@@ -3043,6 +3136,8 @@ if (btnSaveCustomProEmail && inputCustomProEmail) {
     if (isDifferentAccount) {
       await IdentityService.clearLastDisconnectedEmail();
       openSyncAccountPrompt(email);
+    } else {
+      await triggerAutoSyncOnConnect(email);
     }
   }));
 }
@@ -4624,6 +4719,20 @@ function initFeedback() {
     updateCurrentSiteToggleUI();
     updateNotificationUnreadDot();
     loadSettingsToUI(appSettings, { deferSecondary: true });
+
+    // Se o usuário possui conta PRO ativa e a lista local de obras estiver vazia, realiza pull da nuvem automaticamente
+    if (allWorks.length === 0 && typeof SyncService !== 'undefined' && SyncService.pullRemote) {
+      SyncService.getClientConfig().then(async conf => {
+        if (conf && conf.isPro && conf.syncKey) {
+          const pullRes = await SyncService.pullRemote();
+          if (pullRes && pullRes.pulled > 0) {
+            allWorks = await StorageLocal.getWorks();
+            renderCurrentView();
+            showToast(`✓ ${pullRes.pulled} obras sincronizadas da nuvem!`);
+          }
+        }
+      }).catch(() => {});
+    }
   } catch (err) {
     console.error('Falha na inicialização do popup:', err);
     await loadSettingsToUI();

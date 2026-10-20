@@ -52,8 +52,21 @@ const TotpUtil = {
     return `otpauth://totp/${label}?secret=${secret}&issuer=${iss}&algorithm=SHA1&digits=6&period=30`;
   },
 
+  getCrypto() {
+    if (typeof crypto !== 'undefined' && crypto && crypto.subtle) return crypto;
+    if (typeof globalThis !== 'undefined' && globalThis.crypto && globalThis.crypto.subtle) return globalThis.crypto;
+    if (typeof require !== 'undefined') {
+      try {
+        const nodeCrypto = require('crypto');
+        if (nodeCrypto.webcrypto && nodeCrypto.webcrypto.subtle) return nodeCrypto.webcrypto;
+      } catch (_) {}
+    }
+    return null;
+  },
+
   async generateToken(secret, timeMs = Date.now()) {
-    if (typeof crypto === 'undefined' || !crypto.subtle) {
+    const crypt = this.getCrypto();
+    if (!crypt || !crypt.subtle) {
       return '';
     }
     try {
@@ -67,7 +80,7 @@ const TotpUtil = {
       }
 
       const keyBytes = this.base32ToBytes(secret);
-      const cryptoKey = await crypto.subtle.importKey(
+      const cryptoKey = await crypt.subtle.importKey(
         'raw',
         keyBytes,
         { name: 'HMAC', hash: { name: 'SHA-1' } },
@@ -75,7 +88,7 @@ const TotpUtil = {
         ['sign']
       );
 
-      const sig = await crypto.subtle.sign('HMAC', cryptoKey, counterBytes);
+      const sig = await crypt.subtle.sign('HMAC', cryptoKey, counterBytes);
       const hmac = new Uint8Array(sig);
       const offset = hmac[hmac.length - 1] & 0x0f;
       const code =
@@ -590,9 +603,13 @@ const IdentityService = {
 
       // Se a conta for PRO no servidor:
       // Contas autenticadas com Google no navegador já possuem identidade verificada via OAuth.
-      // Apenas contas manuais/customizadas sem credenciais locais exigem autorização via PIN.
+      // Contas com 2FA (TOTP) verificado já comprovaram posse do token do Google Authenticator.
+      // Apenas contas manuais/customizadas sem credenciais locais nem 2FA exigem autorização via PIN.
       const isGoogleAuth = idInfo.source === 'google';
-      if (isAccountPro && !isGoogleAuth && !creds.accessPin && !creds.recoveryKey) {
+      const isTotpAuth = Boolean(
+        creds.totpSecret && (!creds.totpEmail || creds.totpEmail.trim().toLowerCase() === email.trim().toLowerCase())
+      );
+      if (isAccountPro && !isGoogleAuth && !isTotpAuth && !creds.accessPin && !creds.recoveryKey) {
         return {
           isPro: false,
           email,
@@ -852,7 +869,7 @@ const IdentityService = {
   },
 
   async verifyAndEnableTotp(config, email, secret, code) {
-    const valid = await TotpUtil.verifyToken(code, secret);
+    const valid = await TotpUtil.verifyToken(code, secret, 2);
     if (!valid) {
       return { success: false, error: 'Código de 6 dígitos inválido ou expirado. Verifique o relógio do seu celular.' };
     }
@@ -1059,6 +1076,9 @@ const IdentityService = {
             accessPin: data.access_pin || creds.accessPin || '',
             recoveryKey: data.recovery_key || creds.recoveryKey || ''
           });
+          if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+            try { chrome.storage.local.remove([PRO_CACHE_KEY], () => {}); } catch (_) {}
+          }
           return { success: true };
         } else {
           return {

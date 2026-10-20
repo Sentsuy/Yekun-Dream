@@ -8,19 +8,21 @@
 
 const YekunVideoTracker = {
   targetRatio: 0.70,
-  minPlayedSeconds: 120,
-  minDurationSeconds: 60,
-  checkThrottleMs: 2000,
+  minPlayedSeconds: 5,
+  minDurationSeconds: 45,
+  checkThrottleMs: 1000,
   activeVideo: null,
   playedSeconds: 0,
   lastPlayTimestamp: null,
   lastCheckTimestamp: 0,
   hasTriggered: false,
   boundListeners: null,
+  _observer: null,
+  onTriggerCb: null,
 
   reset(video = null) {
     this.playedSeconds = 0;
-    this.lastPlayTimestamp = null;
+    this.lastPlayTimestamp = (video && !video.paused) ? Date.now() : null;
     this.lastCheckTimestamp = 0;
     this.hasTriggered = false;
     if (video) {
@@ -48,6 +50,23 @@ const YekunVideoTracker = {
     }
   },
 
+  findVideo(root = (typeof document !== 'undefined' ? document : null)) {
+    if (!root) return null;
+    let video = null;
+    try {
+      video = root.querySelector('video');
+      if (video) return video;
+      const all = root.querySelectorAll('*');
+      for (const el of all) {
+        if (el.shadowRoot) {
+          video = this.findVideo(el.shadowRoot);
+          if (video) return video;
+        }
+      }
+    } catch (_) {}
+    return null;
+  },
+
   attach(video, onTrigger) {
     if (!video) return;
     this.reset(video);
@@ -59,6 +78,10 @@ const YekunVideoTracker = {
     const onPause = () => {
       this._accumulatePlayedTime(video);
       this.lastPlayTimestamp = null;
+    };
+
+    const onSourceChanged = () => {
+      this.reset(video);
     };
 
     const onTimeUpdate = () => {
@@ -91,7 +114,7 @@ const YekunVideoTracker = {
       if (this.hasTriggered) return;
       if (!video.duration || video.duration < this.minDurationSeconds) return;
 
-      if (this.playedSeconds >= 60) {
+      if (this.playedSeconds >= 5) {
         this.hasTriggered = true;
         if (typeof onTrigger === 'function') {
           onTrigger({
@@ -108,18 +131,28 @@ const YekunVideoTracker = {
     video.addEventListener('pause', onPause);
     video.addEventListener('timeupdate', onTimeUpdate);
     video.addEventListener('ended', onEnded);
+    video.addEventListener('loadstart', onSourceChanged);
+    video.addEventListener('loadedmetadata', onSourceChanged);
 
-    this.boundListeners = { video, onPlay, onPause, onTimeUpdate, onEnded };
+    this.boundListeners = { video, onPlay, onPause, onTimeUpdate, onEnded, onSourceChanged };
   },
 
   detach() {
+    if (this._observer) {
+      try { this._observer.disconnect(); } catch (_) {}
+      this._observer = null;
+    }
     if (this.boundListeners) {
-      const { video, onPlay, onPause, onTimeUpdate, onEnded } = this.boundListeners;
+      const { video, onPlay, onPause, onTimeUpdate, onEnded, onSourceChanged } = this.boundListeners;
       try {
         video.removeEventListener('play', onPlay);
         video.removeEventListener('pause', onPause);
         video.removeEventListener('timeupdate', onTimeUpdate);
         video.removeEventListener('ended', onEnded);
+        if (onSourceChanged) {
+          video.removeEventListener('loadstart', onSourceChanged);
+          video.removeEventListener('loadedmetadata', onSourceChanged);
+        }
       } catch (_) {}
       this.boundListeners = null;
     }
@@ -129,35 +162,46 @@ const YekunVideoTracker = {
   initAutoTracking(onTrigger) {
     if (typeof document === 'undefined') return;
 
+    if (onTrigger) {
+      this.onTriggerCb = onTrigger;
+    }
+    const cb = this.onTriggerCb;
+
     const tryFindVideo = () => {
-      const video = document.querySelector('video');
+      const video = this.findVideo(document);
       if (video && video !== this.activeVideo) {
-        this.attach(video, onTrigger);
+        this.attach(video, cb);
         return true;
       }
       return false;
     };
 
     if (!tryFindVideo()) {
+      if (this._observer) {
+        try { this._observer.disconnect(); } catch (_) {}
+      }
       let isScheduled = false;
-      const observer = new MutationObserver((mutations, obs) => {
+      this._observer = new MutationObserver(() => {
         if (isScheduled) return;
         isScheduled = true;
-        const scheduleFn = (typeof requestAnimationFrame === 'function') ? requestAnimationFrame : (cb => setTimeout(cb, 100));
+        const scheduleFn = (typeof requestAnimationFrame === 'function') ? requestAnimationFrame : (fn => setTimeout(fn, 100));
         scheduleFn(() => {
           isScheduled = false;
           if (tryFindVideo()) {
-            obs.disconnect();
+            if (this._observer) {
+              try { this._observer.disconnect(); } catch (_) {}
+              this._observer = null;
+            }
           }
         });
       });
-      observer.observe(document.body || document.documentElement, {
-        childList: true,
-        subtree: true
-      });
-      setTimeout(() => {
-        try { observer.disconnect(); } catch (_) {}
-      }, 45000);
+      const rootEl = document.body || document.documentElement;
+      if (rootEl) {
+        this._observer.observe(rootEl, {
+          childList: true,
+          subtree: true
+        });
+      }
     }
   }
 };
@@ -772,6 +816,7 @@ if (typeof window !== 'undefined') {
     if (domain.includes('crunchyroll')) {
       let title = '';
       let chapter = '';
+      let seriesUrl = '';
 
       function isSeasonDesc(str) {
         if (!str || typeof str !== 'string') return false;
@@ -785,9 +830,8 @@ if (typeof window !== 'undefined') {
       const isSeriesPage = /\/series\/[A-Za-z0-9_-]+/i.test(currentUrl);
 
       // ── CENÁRIO 1: Página da Própria Série (/series/:id/:slug) ──
-      // Na página da série, o anime é a própria página em exibição.
-      // NUNCA buscamos outros links "a[href*=/series/]" no documento para não capturar itens do menu/header.
       if (isSeriesPage) {
+        seriesUrl = currentUrl;
         // 1.1 Título principal no H1 da página de série
         const h1 = document.querySelector('h1.title, h1[data-t="title"], h1.heading--nKNOf, h1:not(.site-title):not(.logo):not([class*="site"]):not([class*="logo"])');
         if (h1 && h1.textContent) {
@@ -860,12 +904,22 @@ if (typeof window !== 'undefined') {
             const parsed = JSON.parse(raw);
             const list = Array.isArray(parsed) ? parsed : (parsed['@graph'] || [parsed]);
             for (const item of list) {
-              if (item && (item.partOfSeries || item.partOfTVSeries)) {
-                const seriesObj = item.partOfSeries || item.partOfTVSeries;
-                const sName = typeof seriesObj === 'string' ? seriesObj : (seriesObj.name || '');
-                if (!title && sName && sName.trim().length > 1 && !isSeasonDesc(sName)) {
-                  title = sName.trim();
+              if (item) {
+                if (item.partOfSeries || item.partOfTVSeries) {
+                  const seriesObj = item.partOfSeries || item.partOfTVSeries;
+                  const sName = typeof seriesObj === 'string' ? seriesObj : (seriesObj.name || '');
+                  if (!title && sName && sName.trim().length > 1 && !isSeasonDesc(sName)) {
+                    title = sName.trim();
+                  }
+                  if (!seriesUrl && seriesObj && seriesObj.url) {
+                    try {
+                      seriesUrl = new URL(seriesObj.url, window.location.origin).href;
+                    } catch (_) {}
+                  }
+                } else if (!title && (item['@type'] === 'TVSeries' || item['@type'] === 'Series') && item.name) {
+                  title = item.name.trim();
                 }
+
                 if (!chapter) {
                   const epNum = item.episodeNumber;
                   const seasonNum = item.partOfSeason && (item.partOfSeason.seasonNumber || item.partOfSeason.seasonDisplayNumber);
@@ -875,10 +929,10 @@ if (typeof window !== 'undefined') {
                     const ePadded = epInt < 100 ? String(epInt).padStart(2, '0') : String(epInt);
                     chapter = `Temp ${sPadded} - Ep ${ePadded}`;
                   } else if (epNum) {
-                    chapter = `Ep. ${epNum}`;
+                    const epInt = parseInt(epNum, 10);
+                    chapter = !isNaN(epInt) ? `Ep. ${epInt}` : `Ep. ${epNum}`;
                   }
                 }
-                if (title && chapter) break;
               }
             }
             if (title && chapter) break;
@@ -886,46 +940,59 @@ if (typeof window !== 'undefined') {
         } catch (_) {}
 
         // 2.2 Elementos semânticos dedicados do player (.show-title-link, [data-t="show-title-link"], breadcrumbs)
-        if (!title) {
+        if (!title || !seriesUrl) {
           const showLink = document.querySelector([
             'a.show-title-link', '[data-t="show-title-link"]', '.show-title-link a', '.show-title-link',
             '[data-t="series-title"]', '.hero-heading-line a', '.current-media-parent a',
-            '.breadcrumb a[href*="/series/"]', '.breadcrumbs a[href*="/series/"]', '[data-t="breadcrumb"] a[href*="/series/"]'
+            '.breadcrumb a[href*="/series/"]', '.breadcrumbs a[href*="/series/"]', '[data-t="breadcrumb"] a[href*="/series/"]',
+            'main a[href*="/series/"]', '.video-player-wrapper a[href*="/series/"]'
           ].join(', '));
 
           if (showLink) {
-            const t = (showLink.textContent || '').trim();
-            if (t && t.length > 1 && !isSeasonDesc(t) && !/^(?:in[íi]cio|home|series|animes|crunchyroll)$/i.test(t)) {
-              title = t;
-            } else {
-              const href = showLink.getAttribute('href') || '';
-              const slugTitle = typeof StorageLocal !== 'undefined' && StorageLocal.extractSlugTitle ? StorageLocal.extractSlugTitle(href) : '';
-              if (slugTitle && !isSeasonDesc(slugTitle)) {
-                title = slugTitle;
+            const rawHref = showLink.getAttribute('href') || showLink.href || '';
+            if (rawHref && !seriesUrl) {
+              try { seriesUrl = new URL(rawHref, window.location.origin).href; } catch (_) {}
+            }
+            if (!title) {
+              const t = (showLink.textContent || '').trim();
+              if (t && t.length > 1 && !isSeasonDesc(t) && !/^(?:in[íi]cio|home|series|animes|crunchyroll)$/i.test(t)) {
+                title = t;
+              } else if (rawHref) {
+                const slugTitle = typeof StorageLocal !== 'undefined' && StorageLocal.extractSlugTitle ? StorageLocal.extractSlugTitle(rawHref) : '';
+                if (slugTitle && !isSeasonDesc(slugTitle)) {
+                  title = slugTitle;
+                }
               }
             }
           }
         }
 
-        // 2.3 Busca links de série SOMENTE dentro de containers de mídia/player e NUNCA no header/nav/footer/carrossel
-        if (!title) {
-          const mediaContainer = document.querySelector('.erc-current-media-info, .current-media-parent, .hero-heading-line, [data-t="media-info"], .player-container');
-          if (mediaContainer) {
-            const a = mediaContainer.querySelector('a[href*="/series/"]');
-            if (a) {
+        // 2.3 Busca links de série fora de header/footer
+        if (!title || !seriesUrl) {
+          const candidates = Array.from(document.querySelectorAll('a[href*="/series/"]'));
+          for (const a of candidates) {
+            if (a.closest && a.closest('header, nav:not([class*="breadcrumb"]):not([class*="crumbs"]), footer, [role="navigation"]')) continue;
+            const rawHref = a.getAttribute('href') || a.href || '';
+            if (rawHref && !seriesUrl) {
+              try { seriesUrl = new URL(rawHref, window.location.origin).href; } catch (_) {}
+            }
+            if (!title) {
               const t = (a.textContent || '').trim();
               if (t && t.length > 1 && !isSeasonDesc(t) && !/^(?:in[íi]cio|home|series|animes|crunchyroll)$/i.test(t)) {
                 title = t;
-              } else {
-                const href = a.getAttribute('href') || '';
-                const slugTitle = typeof StorageLocal !== 'undefined' && StorageLocal.extractSlugTitle ? StorageLocal.extractSlugTitle(href) : '';
-                if (slugTitle && !isSeasonDesc(slugTitle)) title = slugTitle;
+                break;
+              } else if (rawHref) {
+                const slugTitle = typeof StorageLocal !== 'undefined' && StorageLocal.extractSlugTitle ? StorageLocal.extractSlugTitle(rawHref) : '';
+                if (slugTitle && !isSeasonDesc(slugTitle)) {
+                  title = slugTitle;
+                  break;
+                }
               }
             }
           }
         }
 
-        // 2.4 Extração via document.title / meta og:title no player (ex: "Danganronpa 3 - Episódio 1 - Despair - Assistir na Crunchyroll")
+        // 2.4 Extração via document.title / meta og:title no player
         if (!title) {
           const rawDoc = document.title || document.querySelector('meta[property="og:title"]')?.getAttribute('content') || '';
           if (rawDoc) {
@@ -939,7 +1006,7 @@ if (typeof window !== 'undefined') {
 
       // ── Extração de capítulo via metadados do player se JSON-LD não tiver ──
       if (!chapter) {
-        const metaEl = document.querySelector('.erc-current-media-info, .current-media-parent, .hero-heading-line, [data-t="episode-title"], [data-t="title"], select[name*="season"]');
+        const metaEl = document.querySelector('.erc-current-media-info, .current-media-parent, .hero-heading-line, [data-t="episode-number"], [data-t="episode-title"], [data-t="title"], select[name*="season"]');
         if (metaEl && metaEl.textContent) {
           chapter = StorageLocal.extractChapter(window.location.href, document.title || '', metaEl.textContent);
         } else if (document.title) {
@@ -947,10 +1014,11 @@ if (typeof window !== 'undefined') {
         }
       }
 
-      if (title || chapter) {
+      if (title || chapter || seriesUrl) {
         return {
           title: title ? StorageLocal.cleanWorkTitle(title) : '',
           chapter,
+          seriesUrl: seriesUrl || '',
           tag: 'anime'
         };
       }
@@ -986,12 +1054,14 @@ if (typeof window !== 'undefined') {
 
     let domWorkTitle = '';
     let chapter = '';
+    let seriesUrl = '';
 
     // 0. Executa driver dedicado do site se disponível (isolamento total)
     const driverResult = runSiteDriver(siteDomain);
     if (driverResult) {
       if (driverResult.title) domWorkTitle = driverResult.title;
       if (driverResult.chapter) chapter = driverResult.chapter;
+      if (driverResult.seriesUrl) seriesUrl = driverResult.seriesUrl;
     }
 
     // 0.0 Procura dados estruturados Schema.org (JSON-LD) genéricos se driver não encontrou
@@ -1239,7 +1309,7 @@ if (typeof window !== 'undefined') {
     }
     const combinedAliases = Array.from(new Set([...dual.aliases, ...domAliases]));
 
-    return { title: cleanTitle, chapter, aliases: combinedAliases };
+    return { title: cleanTitle, chapter, seriesUrl, aliases: combinedAliases };
   }
 
   // ── Atualiza badge com total de obras ────────────────────
@@ -1316,18 +1386,98 @@ if (typeof window !== 'undefined') {
     }
   }
 
+  // ── Match Unificado de Obras (Título, Aliases, URLs de Séries e Similaridade) ──
+  function findExistingWorkOnPage(pageData = {}, works = []) {
+    if (!Array.isArray(works) || works.length === 0) return null;
+    const activeWorks = works.filter(w => !w.deleted);
+    if (activeWorks.length === 0) return null;
+
+    const currentUrl = window.location.href;
+    const currentDomain = (typeof StorageLocal !== 'undefined' && StorageLocal.extractDomain ? StorageLocal.extractDomain(currentUrl) : currentHost).toLowerCase();
+
+    // 1. Match por URL exata de fonte já cadastrada
+    const urlMatch = activeWorks.find(w => {
+      return (w.sources || []).some(s => {
+        if (!s.url) return false;
+        return s.url === currentUrl || (pageData.seriesUrl && s.url === pageData.seriesUrl);
+      });
+    });
+    if (urlMatch) return urlMatch;
+
+    // 2. Match por série / slug de fonte (ex: página de série cadastrada e agora assistindo episódio da mesma série)
+    if (pageData.seriesUrl || currentUrl.includes('/series/')) {
+      const targetSeriesUrl = pageData.seriesUrl || (currentUrl.includes('/series/') ? currentUrl : '');
+      const seriesSlug = targetSeriesUrl && StorageLocal.extractSlugTitle ? StorageLocal.extractSlugTitle(targetSeriesUrl) : '';
+      if (seriesSlug) {
+        const slugNorm = (StorageLocal.normalizeTitle ? StorageLocal.normalizeTitle(seriesSlug) : seriesSlug.toLowerCase()).replace(/\s+/g, '');
+        const slugMatch = activeWorks.find(w => {
+          const wNorm = (StorageLocal.normalizeTitle ? StorageLocal.normalizeTitle(w.name) : w.name.toLowerCase()).replace(/\s+/g, '');
+          if (slugNorm === wNorm) return true;
+          return (w.sources || []).some(s => {
+            if (!s.url) return false;
+            return s.url === targetSeriesUrl || s.url.toLowerCase().includes(seriesSlug.toLowerCase().replace(/\s+/g, '-'));
+          });
+        });
+        if (slugMatch) return slugMatch;
+      }
+    }
+
+    // 3. Match por título limpo (com suporte a títulos duplos e aliases da página)
+    const titleCandidates = [];
+    if (pageData && pageData.title) titleCandidates.push(pageData.title);
+    if (currentTitle) titleCandidates.push(currentTitle);
+    if (pageData && Array.isArray(pageData.aliases)) titleCandidates.push(...pageData.aliases);
+
+    for (const cand of titleCandidates) {
+      if (!cand) continue;
+      const clean = (typeof StorageLocal !== 'undefined' && StorageLocal.cleanWorkTitle ? StorageLocal.cleanWorkTitle(cand) : cand).trim();
+      if (!clean) continue;
+
+      const dual = (typeof StorageLocal !== 'undefined' && StorageLocal.extractDualTitles) ? StorageLocal.extractDualTitles(clean) : { primary: clean, aliases: [] };
+      const namesToTry = [clean, dual.primary, ...(dual.aliases || [])].filter(Boolean);
+
+      for (const name of namesToTry) {
+        if (typeof StorageLocal !== 'undefined' && StorageLocal.findMatchingWork) {
+          const res = StorageLocal.findMatchingWork(name, activeWorks);
+          if (res && res.exactMatch) return res.exactMatch;
+        }
+      }
+    }
+
+    // 4. Match por similaridade alta (>= 0.70) se o domínio da fonte corresponder
+    if (pageData && pageData.title && typeof StorageLocal !== 'undefined' && StorageLocal.calculateSimilarity) {
+      const cleanSearch = StorageLocal.cleanWorkTitle(pageData.title).toLowerCase();
+      for (const w of activeWorks) {
+        const hasDomain = (w.sources || []).some(s => s.domain && s.domain.toLowerCase() === currentDomain);
+        if (hasDomain) {
+          const cleanWorkName = (w.name || '').toLowerCase();
+          const sim = StorageLocal.calculateSimilarity(cleanSearch, cleanWorkName);
+          if (sim >= 0.70) return w;
+          if (Array.isArray(w.aliases)) {
+            for (const a of w.aliases) {
+              if (StorageLocal.calculateSimilarity(cleanSearch, a.toLowerCase()) >= 0.70) return w;
+            }
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
   // ── Preenche o form ao abrir ─────────────────────────────
-  let lastExtractedPageData = { title: '', chapter: '', aliases: [] };
+  let lastExtractedPageData = { title: '', chapter: '', seriesUrl: '', aliases: [] };
 
   async function populateForm() {
     resetFormState();
-    let pageData = { title: '', chapter: '', aliases: [] };
+    let pageData = { title: '', chapter: '', seriesUrl: '', aliases: [] };
     try {
       pageData = await extractPageData();
     } catch (_) {
       pageData = {
         title: typeof StorageLocal !== 'undefined' && StorageLocal.cleanWorkTitle ? StorageLocal.cleanWorkTitle(document.title || '') : (document.title || ''),
         chapter: typeof StorageLocal !== 'undefined' && StorageLocal.extractChapter ? StorageLocal.extractChapter(window.location.href, document.title || '') : '',
+        seriesUrl: '',
         aliases: []
       };
     }
@@ -1335,7 +1485,7 @@ if (typeof window !== 'undefined') {
 
     currentTitle = pageData.title || (typeof StorageLocal !== 'undefined' && StorageLocal.cleanWorkTitle ? StorageLocal.cleanWorkTitle(document.title || '') : '') || document.title || 'Obra Desconhecida';
     currentUrl   = window.location.href;
-    const detectedChapter = pageData.chapter || (typeof StorageLocal !== 'undefined' && StorageLocal.extractChapter ? StorageLocal.extractChapter(currentUrl, document.title || '') : '') || 'Cap. 1';
+    const detectedChapter = pageData.chapter || (typeof StorageLocal !== 'undefined' && StorageLocal.extractChapter ? StorageLocal.extractChapter(currentUrl, document.title || '') : '') || '';
 
     const siteDomain = StorageLocal.extractDomain(currentUrl) || currentHost;
     const siteLabel  = StorageLocal.formatSiteName(siteDomain);
@@ -1352,13 +1502,14 @@ if (typeof window !== 'undefined') {
       linkSelect.innerHTML = '<option value="">-- Escolha uma das suas obras salvas --</option>';
     }
 
-    // 1. Match local imediato (0ms de latência para preenchimento garantido)
-    const localMatch = typeof StorageLocal !== 'undefined' && StorageLocal.findMatchingWork
-      ? StorageLocal.findMatchingWork(currentTitle, works)
-      : { exactMatch: null, suggestions: [] };
+    // 1. Match local unificado imediato
+    existingEntry = findExistingWorkOnPage(pageData, works);
+    let matchResult = { exactMatch: existingEntry, suggestions: [] };
 
-    const matchResult = localMatch;
-    existingEntry = matchResult.exactMatch;
+    if (!existingEntry && typeof StorageLocal !== 'undefined' && StorageLocal.findMatchingWork) {
+      matchResult = StorageLocal.findMatchingWork(currentTitle, works);
+      existingEntry = matchResult.exactMatch;
+    }
 
     if (existingEntry) {
       editIdInp.value    = existingEntry.id;
@@ -1366,33 +1517,43 @@ if (typeof window !== 'undefined') {
       nameInp.readOnly   = true;
       nameInp.style.opacity = '.6';
       nameLabel.innerHTML = 'OBRA <em>(já cadastrada)</em>';
-      setTag(existingEntry.tag || 'manga');
+      setTag(existingEntry.tag || (siteDomain.includes('crunchyroll') || siteDomain.includes('anime') ? 'anime' : 'manga'));
 
       matchedSource = (existingEntry.sources || []).find(s => {
         return (s.domain && s.domain === siteDomain) || (s.siteName && s.siteName.toLowerCase() === siteLabel.toLowerCase());
       });
 
+      let displayChapter = '';
+      if (detectedChapter && detectedChapter !== 'Cap. 1' && detectedChapter !== 'Ep. 01' && detectedChapter !== 'Ep. 1') {
+        displayChapter = detectedChapter;
+      } else if (matchedSource && matchedSource.chapter) {
+        displayChapter = matchedSource.chapter;
+      } else if (existingEntry.mainChapter) {
+        displayChapter = existingEntry.mainChapter;
+      } else {
+        displayChapter = detectedChapter || (siteDomain.includes('crunchyroll') || siteDomain.includes('anime') ? 'Ep. 1' : 'Cap. 1');
+      }
+      chapterInp.value = displayChapter;
+
       if (matchedSource) {
         statusEl.className = 'known';
         statusEl.innerHTML = `Continuando: <span>${esc(existingEntry.name)}</span>`;
-        if (matchResult.viaAlias || matchResult.viaCanonical) {
+        if (matchResult && (matchResult.viaAlias || matchResult.viaCanonical)) {
           sourceTextEl.textContent = `Identificado via alias: "${currentTitle}"`;
         } else if (existingEntry.name.toLowerCase() !== currentTitle.toLowerCase()) {
           sourceTextEl.textContent = `Fonte: ${matchedSource.siteName} (via alias: ${currentTitle})`;
         } else {
-          sourceTextEl.textContent = `Fonte: ${matchedSource.siteName} (Último: ${matchedSource.chapter})`;
+          sourceTextEl.textContent = `Fonte: ${matchedSource.siteName} (Último salvo: ${matchedSource.chapter || existingEntry.mainChapter})`;
         }
-        chapterInp.value = detectedChapter || matchedSource.chapter || '';
         btnSave.textContent = 'Atualizar Progresso';
       } else {
         statusEl.className = 'known new-source';
         statusEl.innerHTML = `<span>＋ Nova fonte</span> para: <span>${esc(existingEntry.name)}</span>`;
-        if (matchResult.viaAlias || matchResult.viaCanonical) {
+        if (matchResult && (matchResult.viaAlias || matchResult.viaCanonical)) {
           sourceTextEl.textContent = `Identificado via alias "${currentTitle}" (${siteLabel})`;
         } else {
           sourceTextEl.textContent = `Novo site detectado: ${siteLabel} (${siteDomain})`;
         }
-        chapterInp.value = detectedChapter || existingEntry.mainChapter || '';
         btnSave.textContent = 'Vincular Novo Site';
       }
     } else {
@@ -1404,7 +1565,7 @@ if (typeof window !== 'undefined') {
       nameInp.readOnly   = false;
       nameInp.style.opacity = '1';
       nameLabel.innerHTML = 'TÍTULO DA OBRA';
-      chapterInp.value   = detectedChapter || 'Cap. 1';
+      chapterInp.value   = detectedChapter || ((siteDomain.includes('crunchyroll') || siteDomain.includes('anime')) ? 'Ep. 1' : 'Cap. 1');
       if (/^filme/i.test(detectedChapter || '')) {
         setTag('filme');
       } else if (siteDomain.includes('anime') || siteDomain.includes('crunchyroll')) {
@@ -1495,7 +1656,9 @@ if (typeof window !== 'undefined') {
 
   // ── Botão +1 Rápido no Form ──────────────────────────────
   incBtn.addEventListener('click', () => {
-    const currentVal = chapterInp.value.trim() || (existingEntry ? existingEntry.mainChapter : 'Cap. 0');
+    const isAnime = selectedTag === 'anime' || (existingEntry && existingEntry.tag === 'anime') || currentHost.includes('crunchyroll');
+    const fallback = isAnime ? 'Ep. 0' : 'Cap. 0';
+    const currentVal = chapterInp.value.trim() || (existingEntry ? existingEntry.mainChapter : fallback);
     chapterInp.value = StorageLocal.parseChapterIncrement(currentVal);
     chapterInp.focus();
   });
@@ -1574,8 +1737,9 @@ if (typeof window !== 'undefined') {
     if (!isPointerDown) return;
     const deltaX = e.clientX - startPointerX;
     const deltaY = e.clientY - startPointerY;
+    const dist = Math.hypot(deltaX, deltaY);
 
-    if (!hasDragged && (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4)) {
+    if (!hasDragged && dist > 12) {
       hasDragged = true;
       fab.style.cursor = 'grabbing';
     }
@@ -1603,6 +1767,9 @@ if (typeof window !== 'undefined') {
           }
         }
       } catch (err) {}
+      setTimeout(() => { hasDragged = false; }, 80);
+    } else {
+      hasDragged = false;
     }
   }
 
@@ -1744,58 +1911,22 @@ if (typeof window !== 'undefined') {
     }
 
     // 3. Identifica se a obra já existe entre as cadastradas
-    let matchedWork = existingEntry;
+    let pageData = lastExtractedPageData;
+    if (!pageData && typeof extractPageData === 'function') {
+      try {
+        pageData = await extractPageData();
+      } catch (_) {}
+    }
 
-    if (!matchedWork) {
-      let pageData = lastExtractedPageData;
-      if (!pageData && typeof extractPageData === 'function') {
-        try {
-          pageData = await extractPageData();
-        } catch (_) {}
-      }
+    let matchedWork = existingEntry || findExistingWorkOnPage(pageData, activeStoredWorks);
 
-      const candidateTitle = (pageData && pageData.title) ? pageData.title : currentTitle;
-
-      if (candidateTitle) {
-        // A. Match local imediato
-        if (StorageLocal.findMatchingWork) {
-          const matchRes = StorageLocal.findMatchingWork(candidateTitle, activeStoredWorks);
-          if (matchRes && matchRes.exactMatch) {
-            matchedWork = matchRes.exactMatch;
-          }
+    if (!matchedWork && pageData && pageData.title && StorageLocal.findMatchingWorkAsync) {
+      try {
+        const asyncMatch = await StorageLocal.findMatchingWorkAsync(pageData.title, activeStoredWorks);
+        if (asyncMatch && asyncMatch.exactMatch) {
+          matchedWork = asyncMatch.exactMatch;
         }
-
-        // B. Match assíncrono (canon/crowd)
-        if (!matchedWork && StorageLocal.findMatchingWorkAsync) {
-          try {
-            const asyncMatch = await StorageLocal.findMatchingWorkAsync(candidateTitle, activeStoredWorks);
-            if (asyncMatch && asyncMatch.exactMatch) {
-              matchedWork = asyncMatch.exactMatch;
-            }
-          } catch (_) {}
-        }
-      }
-
-      // C. Match por URL da fonte cadastrada
-      if (!matchedWork) {
-        const thisUrl = currentUrl || window.location.href;
-        matchedWork = activeStoredWorks.find(w => {
-          return (w.sources || []).some(s => s.url && s.url === thisUrl);
-        });
-      }
-
-      // D. Match por aliases da página
-      if (!matchedWork && pageData && Array.isArray(pageData.aliases)) {
-        for (const alias of pageData.aliases) {
-          if (StorageLocal.findMatchingWork) {
-            const m = StorageLocal.findMatchingWork(alias, activeStoredWorks);
-            if (m && m.exactMatch) {
-              matchedWork = m.exactMatch;
-              break;
-            }
-          }
-        }
-      }
+      } catch (_) {}
     }
 
     // REGRA FUNDAMENTAL: Só dá auto-incremento em obras que JÁ EXISTEM sem criar novas do zero!
@@ -1892,10 +2023,10 @@ if (typeof window !== 'undefined') {
     const visible = !!s.enableFloatingButton && allowed && !blocked;
 
     updateVideoTrackerState(s);
+    setUrlPolling(allowed && !blocked);
 
     if (visible) {
       ensureFontsInjected();
-      setUrlPolling(true);
       const targetParent = document.body || document.documentElement;
       if (targetParent && !targetParent.contains(host)) {
         targetParent.appendChild(host);
@@ -1910,7 +2041,6 @@ if (typeof window !== 'undefined') {
         badge.classList.remove('visible');
       }
     } else {
-      setUrlPolling(false);
       if (host.parentNode) {
         host.remove();
       }
@@ -1971,7 +2101,8 @@ if (typeof window !== 'undefined') {
             chapter: data.chapter || '',
             aliases: data.aliases || [],
             siteName: siteName,
-            url: window.location.href
+            url: window.location.href,
+            seriesUrl: data.seriesUrl || ''
           });
         }).catch(() => {
           sendResponse({ ok: false });
@@ -1999,6 +2130,12 @@ if (typeof window !== 'undefined') {
       existingEntry = null;
       if (typeof autoSavedInSession !== 'undefined') {
         autoSavedInSession.clear();
+      }
+      if (typeof YekunVideoTracker !== 'undefined' && YekunVideoTracker.reset) {
+        YekunVideoTracker.reset();
+      }
+      if (typeof updateVideoTrackerState === 'function') {
+        updateVideoTrackerState(appSettings);
       }
       if (typeof StorageLocal !== 'undefined') {
         StorageLocal.getWorks().then(updateBadge);

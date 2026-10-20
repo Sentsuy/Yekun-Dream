@@ -238,6 +238,29 @@ const { IdentityService } = require('../identity-service');
   assert.strictEqual(proStatusGoogle.isPro, true, 'Google authenticated user must be directly PRO');
   assert.strictEqual(proStatusGoogle.needsPin, false, 'Google authenticated user must NOT have needsPin: true');
 
+  // PRO user connected via Custom Email + 2FA (TOTP): must NOT require PIN and should be immediately PRO
+  console.log('Testing checkProStatus: Custom email user with verified 2FA (TOTP) bypasses PIN requirement...');
+  await IdentityService.setCustomProEmail('totp@test.com', 'custom');
+  await IdentityService.saveStoredCredentials({
+    totpSecret: '5SVVKUVYDHCLM5OF',
+    totpEnabled: true,
+    totpEmail: 'totp@test.com',
+    accessPin: '',
+    recoveryKey: ''
+  });
+  global.fetch = async (url, opts) => {
+    if (url.includes('check_pro_status')) {
+      return {
+        ok: true,
+        json: async () => ({ isPro: true, validUntil: Date.now() + 365 * 86400000, plan: 'annual', totp_enabled: true })
+      };
+    }
+    return { ok: false };
+  };
+  const proStatusTotp = await IdentityService.checkProStatus({ supabaseUrl: 'https://mock.supabase.co', supabaseKey: 'mock' }, true);
+  assert.strictEqual(proStatusTotp.isPro, true, '2FA authenticated user must be directly PRO');
+  assert.strictEqual(proStatusTotp.needsPin, false, '2FA authenticated user must NOT have needsPin: true');
+
   global.fetch = originalFetch;
 
   console.log('✓ test-identity-service passed');

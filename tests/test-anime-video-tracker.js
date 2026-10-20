@@ -61,9 +61,9 @@ class MockVideo {
   console.log('--- TEST 1: YekunVideoTracker definition and defaults ---');
   assert.ok(YekunVideoTracker, 'YekunVideoTracker must be exported from content.js');
   assert.strictEqual(YekunVideoTracker.targetRatio, 0.70, 'Target ratio must be 70%');
-  assert.strictEqual(YekunVideoTracker.minPlayedSeconds, 120, 'Minimum played time must be 120s (2 min)');
-  assert.strictEqual(YekunVideoTracker.minDurationSeconds, 60, 'Minimum duration must be 60s');
-  assert.strictEqual(YekunVideoTracker.checkThrottleMs, 2000, 'Check throttle must be 2000ms');
+  assert.strictEqual(YekunVideoTracker.minPlayedSeconds, 5, 'Minimum played time must be 5s');
+  assert.strictEqual(YekunVideoTracker.minDurationSeconds, 45, 'Minimum duration must be 45s');
+  assert.strictEqual(YekunVideoTracker.checkThrottleMs, 1000, 'Check throttle must be 1000ms');
 
   console.log('--- TEST 2: Normal watching with Opening Skip (0:00 -> 2:00) ---');
   {
@@ -95,7 +95,7 @@ class MockVideo {
 
     assert.strictEqual(triggered, true, 'Deve disparar aos 70% com pulo de abertura');
     assert.ok(triggerData.ratio >= 0.70, 'Ratio deve ser >= 70%');
-    assert.ok(triggerData.playedSeconds >= 120, 'Tempo tocado deve ser >= 120s');
+    assert.ok(triggerData.playedSeconds >= 5, 'Tempo tocado deve ser >= 5s');
 
     // Continua tocando após disparar: NÃO deve disparar novamente (idempotência)
     let secondTrigger = false;
@@ -113,16 +113,16 @@ class MockVideo {
     YekunVideoTracker.attach(video, () => { triggered = true; });
 
     video.play();
-    YekunVideoTracker.simulatePlayTime(video, 5); // apenas 5 segundos tocados
+    YekunVideoTracker.simulatePlayTime(video, 2); // apenas 2 segundos tocados (< 5s)
     video.seek(1200); // saltou para mais de 80%
     video.progress(1200);
 
-    assert.strictEqual(triggered, false, 'Não deve disparar se tempo real tocado for < 120s');
+    assert.strictEqual(triggered, false, 'Não deve disparar se tempo real tocado for < 5s');
 
-    // Agora o usuário assiste de fato por mais 120s
-    YekunVideoTracker.simulatePlayTime(video, 120);
+    // Agora o usuário assiste de fato por mais 5s
+    YekunVideoTracker.simulatePlayTime(video, 5);
     video.progress(1250);
-    assert.strictEqual(triggered, true, 'Deve disparar assim que acumular os 120s reais');
+    assert.strictEqual(triggered, true, 'Deve disparar assim que acumular os 5s reais');
   }
 
   console.log('--- TEST 4: Anti-Ad Guard (vídeo curto < 60s) ---');
@@ -150,10 +150,10 @@ class MockVideo {
     YekunVideoTracker.attach(video, () => { triggered = true; });
 
     video.play();
-    YekunVideoTracker.simulatePlayTime(video, 65); // assistiu mais de 60s
+    YekunVideoTracker.simulatePlayTime(video, 10); // assistiu mais de 5s
     video.finish(); // terminou antes dos 70%
 
-    assert.strictEqual(triggered, true, 'Deve disparar no ended quando playedSeconds >= 60');
+    assert.strictEqual(triggered, true, 'Deve disparar no ended quando playedSeconds >= 5');
   }
 
   console.log('--- TEST 6: Reset automático na troca de episódio (src change) ---');

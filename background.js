@@ -184,8 +184,11 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onStartup)
     syncActionIcon();
     if (typeof StorageLocal !== 'undefined' && typeof SyncService !== 'undefined') {
       const settings = await StorageLocal.getSettings();
-      if (settings.enableAutoSync && settings.syncKey) {
-        await SyncService.syncAll();
+      if (settings.enableAutoSync !== false) {
+        const clientConf = await SyncService.getClientConfig();
+        if (clientConf.isPro && clientConf.syncKey) {
+          await SyncService.syncAll();
+        }
       }
     }
   });
@@ -197,8 +200,11 @@ if (typeof chrome !== 'undefined' && chrome.alarms && chrome.alarms.onAlarm) {
     if (alarm.name === SYNC_ALARM) {
       if (typeof StorageLocal !== 'undefined' && typeof SyncService !== 'undefined') {
         const settings = await StorageLocal.getSettings();
-        if (settings.enableAutoSync && settings.syncKey) {
-          await SyncService.syncAll();
+        if (settings.enableAutoSync !== false) {
+          const clientConf = await SyncService.getClientConfig();
+          if (clientConf.isPro && clientConf.syncKey) {
+            await SyncService.syncAll();
+          }
         }
       }
     } else if (alarm.name === RELEASE_ALARM_MORNING || alarm.name === RELEASE_ALARM_EVENING) {
