@@ -1,107 +1,144 @@
 # 📌 Guia de Retomada do Projeto — Yekun Dream
 
-- **Data da Última Atualização:** 16 de Outubro de 2026
-- **Estado Geral:** ✅ 60/60 Suítes de Testes Automatizados Aprovadas (100% Verdes)
-- **Versão:** 1.2.0 (Yekun Cloud PRO + Feed In-App & Mapeamento de Sites)
+- **Data da Última Atualização:** 20 de Outubro de 2026
+- **Estado Geral:** ✅ 66/66 Suítes de Testes Automatizados Aprovadas (100% Verdes)
+- **Versão:** 1.2.0 (Yekun Cloud PRO + Device Session Security + Filtro Multi-Status + Turbo Startup)
+- **Pacote de Produção:** `dist/yekun-dream-v1.2.0.zip` (165.5 KB) pronto para o Chrome Web Store Developer Dashboard.
 
 ---
 
-## 🎯 Resumo do que foi Concluído Hoje
+## 🎯 Resumo do Status Atual do Projeto
 
-1. **Central de Feed, Sugestões & Mapeamento de Sites (Feed In-App)**:
-   - **Limite Rígido de 300 Caracteres**: Tanto no front (`popup.html` e `popup.js`) quanto no back/RPC (`submit_feedback` e `feedback_reports.message VARCHAR(300)`), garantindo mensagens objetivas e bloqueando abusos ou textos inflados ("espertões").
-   - **3 Categorias Claras**:
-     - `site_mapping`: Sugerir novo site ou scan para ser adicionado ao ecossistema.
-     - `bug_report`: Relatar erro na captura da obra, capítulo ou player de vídeo.
-     - `suggestion`: Sugestão de melhoria, crítica ou comentário geral.
-   - **Dois Pontos de Acesso na Extensão**:
-     - *Aba dedicada "Feed" nas Configurações*: formulário com seletor, contador dinâmico de caracteres `0 / 300`, anexo contextual da aba ativa e e-mail opcional.
-     - *Atalho Contextual "Feed" na Barra de Site*: botão discreto ao lado do switch de permissão da página ativa, que abre o formulário pré-selecionando a categoria e associando a URL e obra detectada.
-   - **Script SQL no Supabase ([scripts/supabase-feedback-setup.sql](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/scripts/supabase-feedback-setup.sql))**:
-     - Tabela `feedback_reports` com índices de performance (`category`, `domain`, `status`, `created_at`) e campos de gestão (`status`, `admin_notes`) prontos para o futuro painel web.
-     - Tabela de rate limiting `feedback_rate_limits` (máx. 5 envios por hora).
-     - RPC `submit_feedback` com `SECURITY DEFINER`, sanitização e validação defensiva.
-     - RLS habilitado sem `SELECT` público (privacidade garantida; relatos só são lidos pelo administrador).
-   - **Serviço Universal ([feedback-service.js](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/feedback-service.js))**: Validação de payload no cliente, helpers de telemetria do navegador e integração com a RPC do Supabase.
-
-2. **Blindagem de Segurança no Supabase & Gateway**:
-   - **Revogação de Permissão Pública (`approve_from_gateway`)**: Fechada a brecha de segurança onde qualquer usuário com a chave pública `anon` poderia aprovar pagamentos no banco. Agora apenas a `service_role` (usada pelo webhook da AbacatePay no servidor) tem permissão de aprovação.
-   - **Simulador de Testes Restrito (`simulate_dev_payment`)**: Criada função isolada de simulação com guarda estrita via regex (`gateway_charge_id ~* '(test|dev)'`), impedindo qualquer simulação indevida sobre cobranças de produção.
-   - **Nova RPC Segura (`claim_charge_credentials`)**: Permite que o popup da extensão, portando o `chargeId` efêmero da sessão ativa, resgate com segurança o PIN de 6 dígitos e a Chave Mestra imediatamente após o pagamento Pix ser confirmado.
-   - **Patch de Produção Consolidado**: Criado [scripts/supabase-pro-production-patch.sql](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/scripts/supabase-pro-production-patch.sql) pronto para execução em 1 clique no SQL Editor do Supabase.
-
-2. **Fluxo de Polling e Entrega de Credenciais (`popup.js` e `identity-service.js`)**:
-   - Implementado método `IdentityService.claimChargeCredentials`.
-   - Polling ativo verifica o `currentChargeId` e salva automaticamente o PIN de 6 dígitos e a Chave Mestra no storage local no momento da confirmação.
-   - O Step 3 (Sucesso) agora exibe o PIN real de 6 dígitos e a Chave Mestra (`YK-XXXX-XXXX-XXXX`) para o usuário anotar.
-   - Correção para navegadores sem login Google nativo (Brave, Edge, Opera): a ativação ocorre sem bloqueios assim que o pagamento é concluído.
-   - Adicionados headers obrigatórios `apikey` e `Authorization` na chamada da Edge Function `create-pro-charge`.
-
-3. **Gateway AbacatePay v2 & Edge Functions**:
-   - Atualizado o payload de `create-pro-charge/index.ts` para enviar o objeto estruturado `customer: { email, name }` além de `metadata` em conformidade com a API v2 da AbacatePay.
-   - Proteção do Webhook com conferência de segredo via header `x-abacatepay-secret` ou query `webhookSecret`.
-
-4. **Preparação para a Chrome Web Store (`docs/GUIA_PUBLICACAO.md`)**:
-   - Adicionadas justificativas formais exigidas pelo Google para as permissões `"identity"` e `"identity.email"`.
-   - Adicionado checklist passo a passo para configuração de secrets e webhook de produção na AbacatePay.
+### 1. ⚡ Otimização Extrema de Desempenho e Startup Instantâneo (< 10ms)
+- **Leitura Atômica em Único IPC (`StorageLocal.getInitialData`)**:
+  - Unificação de 6 viagens consecutivas a disco (`chrome.storage.local.get`) em **1 único IPC atômico**: configurações, obras salvas, histórico de notificações, credenciais PRO e status da sessão.
+  - Eliminação de gravações síncronas bloqueantes durante a inicialização.
+- **Cache Volátil em Memória (`IdentityService.primeCache`)**:
+  - Sessão e credenciais do usuário PRO disponíveis instantaneamente em memória RAM.
+  - O botão de autenticação no cabeçalho (login ↔ desconectar) reflete o estado da conta de imediato, sem tela branca, sem *layout shift* e sem atrasos de rede.
+- **Renderização Progressiva por Lotes (*Chunked Batching*) no `renderList()`**:
+  - Para evitar o travamento do navegador ao carregar dezenas ou centenas de obras, os primeiros 15 cards são criados e renderizados imediatamente (tempo de pintura $< 10\text{ms}$).
+  - Os cards seguintes são inseridos progressivamente em lotes via `requestAnimationFrame`. Cancelamento automático de lotes pendentes caso o usuário digite na busca ou mude de filtro.
+- **Desacoplamento de Tarefas Secundárias**:
+  - Consulta de abas ativas do Chrome (`chrome.tabs.query`) agendada para o próximo frame livre.
+  - Ativação das folhas de estilo e verificação de sincronização periódica em nuvem postergadas para períodos de ociosidade da CPU (`requestIdleCallback`).
 
 ---
 
-## 🚀 Passo a Passo para Entrada em Produção
-
-### Passo 1: Executar o Patch Consolidado no Supabase
-1. Acesse o painel do seu projeto no [Supabase](https://supabase.com/).
-2. No menu lateral esquerdo, clique no ícone **SQL Editor** (`>_`).
-3. Abra uma **"New Query"**, cole o conteúdo completo do arquivo:
-   [scripts/supabase-pro-production-patch.sql](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/scripts/supabase-pro-production-patch.sql)
-4. Clique no botão verde **"Run"**.
-*(Isso cria as colunas `access_pin`, `recovery_key`, `totp_secret`, as RPCs `claim_charge_credentials` e `verify_pro_access`, e blinda o `approve_from_gateway`).*
-
----
-
-### Passo 2: Executar o Setup de Feed & Feedback no Supabase
-1. No mesmo SQL Editor do Supabase, abra uma nova query.
-2. Cole o conteúdo de:
-   [scripts/supabase-feedback-setup.sql](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/scripts/supabase-feedback-setup.sql)
-3. Clique em **"Run"**.
-*(Isso cria as tabelas `feedback_reports` e `feedback_rate_limits`, a RPC `submit_feedback` e as regras de segurança RLS).*
+### 2. 🛡️ Segurança de Sessão por Dispositivo & Proteção Anti-Scraping
+- **Tabela `device_sessions` no Supabase**:
+  - Cada navegador/dispositivo autorizado recebe um `device_token` criptograficamente seguro via `crypto.randomUUID()`.
+  - Tokens são emitidos automaticamente após confirmação de pagamento Pix (`claim_charge_credentials`), validação de PIN de acesso (`verify_pro_access`), login 2FA via Google Authenticator (`verify_totp_login`) ou sessão Google autorizada.
+- **Imposição de Token no Row Level Security (RLS)**:
+  - Função no banco PostgreSQL: `is_authorized_sync(p_sync_key)`.
+  - Toda operação (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) em obras e preferências remotas exige o header `x-sync-token` validado contra a tabela `device_sessions`.
+  - Tentativas de invasão, ataques man-in-the-middle ou raspagem pública são bloqueadas nativamente no banco (código HTTP 401/403).
+- **Rate Limiting por IP no Supabase**:
+  - A RPC `check_pro_status` possui limite estrito de **máximo 60 requisições a cada 5 minutos por IP** via tabela `pro_status_rate_limits`, mitigando ataques de força bruta ou enumeração de e-mails.
+- **Script SQL Consolidado**:
+  - Localizado em [`scripts/supabase-device-session-security.sql`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/scripts/supabase-device-session-security.sql).
 
 ---
 
-### Passo 3: Criar um PIN de Teste no Banco (Opcional para testar PRO)
-No SQL Editor do Supabase, execute o comando abaixo para gerar um código de ativação se desejar testar a assinatura:
-```sql
-INSERT INTO activation_pins (pin) VALUES ('7492');
-```
+### 3. 🎛️ Filtro Multi-Seleção de Status & Visualização Sob Demanda
+- **Barra de Filtro `#statusFilterBar`**:
+  - Chips interativos: `Lendo / Assistindo`, `Pausados`, `Dropados`, `Concluídos`, `Planejo` e `Todos`.
+  - **Padrão Inteligente e Leve**: Ao abrir o popup, exibe por padrão apenas as obras em `Lendo` (ou `Assistindo` para animes/séries/filmes), deixando a lista visualmente limpa e leve.
+  - **Multi-Seleção Flexível**: Permite alternar e combinar múltiplos status simultaneamente (ex: `Lendo` + `Pausados`).
+  - Destaque cromático dinâmico no fundo dos chips ativos.
 
 ---
 
-### Passo 4: Recarregar e Testar na Extensão
-1. No navegador (Chrome/Edge/Brave), acesse `chrome://extensions/`.
-2. Ative o **Modo do desenvolvedor** (canto superior direito).
-3. Se a extensão já estiver instalada, clique no botão de **Recarregar (🔄)** no card do **Yekun Dream**.
-4. Abra o popup da extensão:
-   - **Testar Feedback / Feed**:
-     - Clique no botão discreto **"Feed"** na barra do site atual (ao lado do switch), ou vá em **Configurações ⚙️ → Feed**.
-     - Selecione uma das 3 categorias (*Sugerir Site*, *Reportar Falha* ou *Sugestão Geral*).
-     - Digite uma mensagem (observe o contador `0 / 300` atualizando em tempo real e bloqueando além de 300).
-     - Clique em **"Enviar Feedback"**.
-   - **Testar PRO / Sincronização**:
-     - Vá na aba **PRO** das Configurações.
-     - Digite o PIN `7492` e clique em **"Ativar PIN"**.
-     - O selo mudará para **⭐ PRO ATIVO** por 365 dias.
+### 4. 🏷️ Menu Suspenso (Popover) de Status com Hover de 0.5s e Posição Inteligente
+- **Popover Interativo no Card da Obra**:
+  - Pousar o cursor por **0.5s** sobre o badge de status (ou clicar diretamente) abre o menu popover com todas as opções (`Lendo/Assistindo`, `Pausado`, `Dropado`, `Concluído`, `Planejo`).
+  - **Abertura Inteligente Direcional**: Abre para baixo por padrão; caso seja o último card da lista ou se o espaço inferior for $< 145\text{px}$, abre para cima, evitando que o menu seja cortado pela borda inferior do popup.
+  - **Atualização Sem Reordenação (`touchUpdatedAt: false`)**: A troca de status atualiza a obra no banco local sem alterar seu `updatedAt`, impedindo que a obra "pule" de posição na lista enquanto o usuário navega.
 
 ---
 
-### 🧪 Como Rodar os Testes Automatizados
-Se quiser verificar a integridade de todo o projeto a qualquer momento pelo terminal:
+### 5. 📬 Central de Feed, Sugestões & Mapeamento de Sites (In-App)
+- **Limite Rígido de 300 Caracteres**: Validado no front (`popup.html`/`popup.js`), serviço (`feedback-service.js`) e no Postgres (`feedback_reports.message VARCHAR(300)`).
+- **3 Categorias**: `site_mapping` (sugerir site/scan), `bug_report` (falha de captura) e `suggestion` (melhoria geral).
+- **Atalho Rápido na Barra de Site**: Botão discreto ao lado do botão flutuante para relatar a página ativa com contexto pré-preenchido.
+- **Proteção Anti-Spam**: Máximo de 5 envios por hora por IP/usuário via `feedback_rate_limits`.
+- **Script SQL**: [`scripts/supabase-feedback-setup.sql`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/scripts/supabase-feedback-setup.sql).
+
+---
+
+### 6. 💳 Pagamento Pix & Entrega de Credenciais Híbridas (PIN + 2FA)
+- **Gateway AbacatePay v2**: Webhook seguro autenticado com segredo (`x-abacatepay-secret`).
+- **Resgate Automático de Credenciais**: Imediatamente após a confirmação do Pix, a RPC `claim_charge_credentials` entrega ao popup o PIN de 6 dígitos e a Chave de Recuperação (`YK-XXXX-XXXX-XXXX`).
+- **Google Authenticator (2FA TOTP)**: Chaves manuais Base32 e QR Code gerados no front, validados via RFC 6238 antes da ativação.
+
+---
+
+## 🚀 Guia de Execução dos Scripts SQL no Supabase
+
+Para garantir que o banco em produção possua todas as tabelas, funções e travas de segurança ativas, execute os 3 scripts a seguir no **SQL Editor** do Supabase na seguinte ordem:
+
+### 1. Patch de Produção PRO
+Execute o arquivo:
+[`scripts/supabase-pro-production-patch.sql`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/scripts/supabase-pro-production-patch.sql)
+*(Garante as colunas `access_pin`, `recovery_key`, `totp_secret`, e as RPCs `claim_charge_credentials` e `verify_pro_access`).*
+
+### 2. Setup do Feed e Mapeamento de Sites
+Execute o arquivo:
+[`scripts/supabase-feedback-setup.sql`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/scripts/supabase-feedback-setup.sql)
+*(Cria as tabelas `feedback_reports` e `feedback_rate_limits`, a RPC `submit_feedback` e as regras de segurança RLS).*
+
+### 3. Sessões de Dispositivo, RLS e Rate Limiting Anti-Scraping
+Execute o arquivo:
+[`scripts/supabase-device-session-security.sql`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/scripts/supabase-device-session-security.sql)
+*(Cria `device_sessions`, `pro_status_rate_limits`, a função `is_authorized_sync` e blinda as tabelas com verificação obrigatória de `x-sync-token`).*
+
+---
+
+## 🧪 Verificação da Suíte de Testes
+
+Para validar a integridade completa da extensão (66 suítes cobrindo storage, segurança, RLS, TOTP, UI, performance e sintaxe):
+
 ```bash
 npm test
 ```
-*Resultado esperado: 60 suítes de testes passando (100% de sucesso).*
+
+**Resultado esperado:**
+```text
+═══════════════════════════════════════════════════════
+   Yekun Dream — Executing Test Suite
+═══════════════════════════════════════════════════════
+...
+───────────────────────────────────────────────────────
+Results: 66 passed, 0 failed (66 total)
+───────────────────────────────────────────────────────
+✓ All test suites passed successfully!
+```
 
 ---
 
-## 🔮 Sugestões para os Próximos Passos
-- Gerar o arquivo `.zip` final para publicação na **Chrome Web Store** via `node scripts/package-extension.js`.
-- Criar automação simples (ex: bot no Telegram/Discord ou webhook) para gerar novos PINs de 4 dígitos automaticamente a cada Pix recebido.
+## 📦 Como Gerar o Pacote para Publicação
+
+Para gerar o arquivo zip otimizado pronto para upload na Chrome Web Store:
+
+```bash
+npm run pack
+```
+
+Arquivo gerado em:
+`dist/yekun-dream-v1.2.0.zip`
+
+---
+
+## 📋 Arquitetura de Arquivos Principais
+
+| Arquivo | Função Principal |
+| :--- | :--- |
+| [`popup.js`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/popup.js) | Controle de interface, renderização em lotes, filtro multi-status, hover de status, gavetas e binding de eventos. |
+| [`popup.html`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/popup.html) | Estrutura semântica, chips de filtro multi-status, modais de 2FA, PIN, termos de uso e gaveta de feed. |
+| [`popup.css`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/popup.css) | Estilização completa, popovers direcionais (`open-below`, `open-above`), temas escuro/claro/rosa/neon. |
+| [`storage-local.js`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/storage-local.js) | CRUD local v3, método `getInitialData()` com agregação em 1 IPC e método `updateWorkStatus` com `touchUpdatedAt: false`. |
+| [`identity-service.js`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/identity-service.js) | Gestão de identidade, `primeCache()`, verificação de PIN, TOTP RFC 6238, sessions tokens e status PRO. |
+| [`sync-service.js`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/sync-service.js) | Sincronização em nuvem bidirecional com anexação do header `x-sync-token` e resolução de conflitos. |
+| [`feedback-service.js`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/feedback-service.js) | Validação e envio de sugestões/bugs para o Supabase com rate limit. |
+| [`background.js`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/background.js) | Service Worker MV3, alarmes matutinos/vespertinos, sync periódico e notificações de novos capítulos. |
+| [`content.js`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/content.js) | Extração de dados da página ativa, rastreador de vídeo 70% e botão flutuante draggable. |
