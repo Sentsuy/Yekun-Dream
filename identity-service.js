@@ -115,6 +115,17 @@ const TotpUtil = {
 };
 
 const IdentityService = {
+  _cachedIdentityBundle: null,
+
+  primeCache(bundle) {
+    if (bundle && typeof bundle === 'object') {
+      this._cachedIdentityBundle = { ...bundle };
+      if (bundle.credentials) {
+        this._cachedIdentityBundle.credentials = { ...bundle.credentials };
+      }
+    }
+  },
+
   normalizeEmail(email) {
     if (!email || typeof email !== 'string') return '';
     return email.trim().toLowerCase();
@@ -295,6 +306,9 @@ const IdentityService = {
   },
 
   async isUserSignedOut() {
+    if (this._cachedIdentityBundle && typeof this._cachedIdentityBundle.userSignedOut !== 'undefined') {
+      return Boolean(this._cachedIdentityBundle.userSignedOut);
+    }
     return new Promise(resolve => {
       try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
@@ -309,6 +323,9 @@ const IdentityService = {
   },
 
   async setUserSignedOut(signedOut = true) {
+    if (this._cachedIdentityBundle) {
+      this._cachedIdentityBundle.userSignedOut = signedOut;
+    }
     return new Promise(resolve => {
       try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
@@ -358,18 +375,25 @@ const IdentityService = {
   Totp: TotpUtil,
 
   async getStoredCredentials() {
+    if (this._cachedIdentityBundle && this._cachedIdentityBundle.credentials) {
+      return this._cachedIdentityBundle.credentials;
+    }
     return new Promise(resolve => {
       try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
           chrome.storage.local.get(['proAccessPin', 'proRecoveryKey', 'proTotpSecret', 'proTotpEnabled', 'proTotpEmail', 'proDeviceToken'], res => {
-            resolve({
+            const creds = {
               accessPin: (res && res.proAccessPin) ? String(res.proAccessPin) : '',
               recoveryKey: (res && res.proRecoveryKey) ? String(res.proRecoveryKey) : '',
               totpSecret: (res && res.proTotpSecret) ? String(res.proTotpSecret) : '',
               totpEnabled: !!(res && res.proTotpEnabled),
               totpEmail: (res && res.proTotpEmail) ? String(res.proTotpEmail) : '',
               deviceToken: (res && res.proDeviceToken) ? String(res.proDeviceToken) : ''
-            });
+            };
+            if (IdentityService._cachedIdentityBundle) {
+              IdentityService._cachedIdentityBundle.credentials = creds;
+            }
+            resolve(creds);
           });
           return;
         }
@@ -379,6 +403,10 @@ const IdentityService = {
   },
 
   async saveStoredCredentials(creds = {}) {
+    if (this._cachedIdentityBundle) {
+      if (!this._cachedIdentityBundle.credentials) this._cachedIdentityBundle.credentials = {};
+      Object.assign(this._cachedIdentityBundle.credentials, creds);
+    }
     return new Promise(resolve => {
       try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
@@ -398,6 +426,9 @@ const IdentityService = {
   },
 
   async clearStoredCredentials() {
+    if (this._cachedIdentityBundle) {
+      this._cachedIdentityBundle.credentials = { accessPin: '', recoveryKey: '', totpSecret: '', totpEnabled: false, totpEmail: '', deviceToken: '' };
+    }
     return new Promise(resolve => {
       try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
@@ -410,6 +441,11 @@ const IdentityService = {
   },
 
   async clearCustomProEmail() {
+    if (this._cachedIdentityBundle) {
+      this._cachedIdentityBundle.customProEmail = '';
+      this._cachedIdentityBundle.proEmailSource = 'none';
+      this._cachedIdentityBundle.cachedProStatus = null;
+    }
     return new Promise(resolve => {
       try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
@@ -488,6 +524,17 @@ const IdentityService = {
   },
 
   async getFallbackEmail() {
+    if (this._cachedIdentityBundle && typeof this._cachedIdentityBundle.customProEmail !== 'undefined') {
+      const email = this.normalizeEmail(this._cachedIdentityBundle.customProEmail);
+      if (email) {
+        return {
+          email,
+          source: this._cachedIdentityBundle.proEmailSource || 'custom',
+          id: ''
+        };
+      }
+      return { email: '', source: 'none', id: '' };
+    }
     return new Promise(resolve => {
       try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
@@ -511,6 +558,11 @@ const IdentityService = {
     // M-05: Validação básica de formato de e-mail antes de salvar
     if (!clean || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(clean) || clean.length > 254) {
       return '';
+    }
+    if (this._cachedIdentityBundle) {
+      this._cachedIdentityBundle.customProEmail = clean;
+      this._cachedIdentityBundle.proEmailSource = source;
+      this._cachedIdentityBundle.cachedProStatus = null;
     }
     await this.setUserSignedOut(false);
     return new Promise(resolve => {
@@ -1182,6 +1234,20 @@ const IdentityService = {
   },
 
   async getCachedProStatus(email, ignoreTtl = false) {
+    if (this._cachedIdentityBundle && this._cachedIdentityBundle.cachedProStatus) {
+      const entry = this._cachedIdentityBundle.cachedProStatus;
+      if (entry && entry.email === email) {
+        const now = Date.now();
+        if (ignoreTtl || (now - entry.timestamp <= CACHE_TTL_MS)) {
+          return {
+            ...entry.data,
+            cached: true,
+            daysLeft: IdentityService.calculateDaysLeft(entry.data.validUntil, now),
+            isPro: entry.data.isPro && entry.data.validUntil > now
+          };
+        }
+      }
+    }
     return new Promise(resolve => {
       try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
@@ -1207,6 +1273,13 @@ const IdentityService = {
   },
 
   async saveCachedProStatus(data) {
+    if (this._cachedIdentityBundle) {
+      this._cachedIdentityBundle.cachedProStatus = {
+        email: data.email,
+        timestamp: Date.now(),
+        data
+      };
+    }
     return new Promise(resolve => {
       try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {

@@ -7,12 +7,19 @@
 // Ativação assíncrona das fontes externas sem violação de CSP (sem inline onload)
 const googleFontsLink = document.getElementById('googleFontsStylesheet');
 if (googleFontsLink) {
-  if (googleFontsLink.sheet) {
-    googleFontsLink.media = 'all';
-  } else {
-    googleFontsLink.addEventListener('load', () => {
+  const enableFonts = () => {
+    if (googleFontsLink.sheet) {
       googleFontsLink.media = 'all';
-    });
+    } else {
+      googleFontsLink.addEventListener('load', () => {
+        googleFontsLink.media = 'all';
+      }, { once: true });
+    }
+  };
+  if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(enableFonts, { timeout: 1500 });
+  } else {
+    setTimeout(enableFonts, 400);
   }
 }
 
@@ -536,10 +543,14 @@ btnShowForm.addEventListener('click', () => {
 btnCancel.addEventListener('click', closeForm);
 
 // ── Notifications Drawer & History Handlers ───────────────
-async function updateNotificationUnreadDot() {
-  if (!notifUnreadDot || typeof StorageLocal === 'undefined' || typeof StorageLocal.getNotificationsHistory !== 'function') return;
+async function updateNotificationUnreadDot(providedHistory = null) {
+  if (!notifUnreadDot) return;
   try {
-    const history = await StorageLocal.getNotificationsHistory();
+    let history = providedHistory;
+    if (!history) {
+      if (typeof StorageLocal === 'undefined' || typeof StorageLocal.getNotificationsHistory !== 'function') return;
+      history = await StorageLocal.getNotificationsHistory();
+    }
     const hasUnread = Array.isArray(history) && history.some(n => !n.read);
     notifUnreadDot.style.display = hasUnread ? 'block' : 'none';
   } catch (_) {}
@@ -3756,12 +3767,17 @@ function filterWorks(
   return sortWorks(list, sortBy);
 }
 
+let _currentRenderToken = 0;
+
 function renderList(
   filter = (searchInput ? searchInput.value.trim() : ''),
   category = (categoryFilter ? categoryFilter.value : 'all'),
   sortBy = (sortFilter ? sortFilter.value : 'recent'),
   status = activeStatusFilters
 ) {
+  _currentRenderToken++;
+  const renderToken = _currentRenderToken;
+
   updateNavBadges();
   const list = filterWorks(allWorks, filter, category, sortBy, status);
 
@@ -3773,19 +3789,58 @@ function renderList(
   }
   emptyState.style.display = 'none';
 
-  if (typeof document.createDocumentFragment === 'function') {
-    const fragment = document.createDocumentFragment();
-    list.forEach(work => {
-      const card = buildWorkCard(work);
-      fragment.appendChild(card);
-    });
-    entriesList.appendChild(fragment);
-  } else {
-    list.forEach(work => {
-      const card = buildWorkCard(work);
-      entriesList.appendChild(card);
+  const BATCH_SIZE = 15;
+  const isBrowser = (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function');
+
+  // No ambiente de teste / Node ou para listas curtas (<= 15), renderiza todas imediatamente
+  if (!isBrowser || list.length <= BATCH_SIZE) {
+    if (typeof document.createDocumentFragment === 'function') {
+      const fragment = document.createDocumentFragment();
+      list.forEach(work => {
+        const card = buildWorkCard(work);
+        fragment.appendChild(card);
+      });
+      entriesList.appendChild(fragment);
+    } else {
+      list.forEach(work => {
+        const card = buildWorkCard(work);
+        entriesList.appendChild(card);
+      });
+    }
+    return;
+  }
+
+  // No navegador com listas maiores, renderiza as primeiras 15 imediatamente para paint instantâneo (0ms de atraso)
+  const initialBatch = list.slice(0, BATCH_SIZE);
+  const remaining = list.slice(BATCH_SIZE);
+
+  const fragment = document.createDocumentFragment();
+  initialBatch.forEach(work => {
+    fragment.appendChild(buildWorkCard(work));
+  });
+  entriesList.appendChild(fragment);
+
+  // Agenda os lotes seguintes progressivamente via requestAnimationFrame
+  function appendRemainingChunks(pendingItems) {
+    if (pendingItems.length === 0 || renderToken !== _currentRenderToken) return;
+    window.requestAnimationFrame(() => {
+      if (renderToken !== _currentRenderToken) return;
+      const nextBatch = pendingItems.slice(0, BATCH_SIZE);
+      const rest = pendingItems.slice(BATCH_SIZE);
+
+      const chunkFrag = document.createDocumentFragment();
+      nextBatch.forEach(work => {
+        chunkFrag.appendChild(buildWorkCard(work));
+      });
+      entriesList.appendChild(chunkFrag);
+
+      if (rest.length > 0) {
+        appendRemainingChunks(rest);
+      }
     });
   }
+
+  appendRemainingChunks(remaining);
 }
 
 function renderAccordionContent(card, accPanel, work) {
@@ -4947,11 +5002,15 @@ function initFeedback() {
   try {
     let settings = {};
     let works = [];
+    let notifications = [];
+    let identityCache = null;
 
     if (typeof StorageLocal !== 'undefined' && StorageLocal.getInitialData) {
       const initialData = await StorageLocal.getInitialData();
       settings = initialData.settings || {};
       works = initialData.works || [];
+      notifications = initialData.notifications || [];
+      identityCache = initialData.identityCache || null;
     } else {
       const [s, w] = await Promise.all([
         (typeof StorageLocal !== 'undefined' && StorageLocal.getSettings) ? StorageLocal.getSettings() : Promise.resolve({}),
@@ -4961,6 +5020,10 @@ function initFeedback() {
       works = w || [];
     }
 
+    if (identityCache && typeof IdentityService !== 'undefined' && typeof IdentityService.primeCache === 'function') {
+      IdentityService.primeCache(identityCache);
+    }
+
     appSettings = settings || {};
     allWorks = Array.isArray(works) ? works : [];
 
@@ -4968,33 +5031,60 @@ function initFeedback() {
     renderCurrentView();
     syncBottomNavVisibility();
 
-    // Carrega detalhes essenciais da tela principal e agenda detalhes de abas fechadas
-    updateCurrentSiteToggleUI();
-    updateNotificationUnreadDot();
+    // Atualiza imediatamente o indicador de notificações com dados já carregados na memória (0 IPC extra)
+    updateNotificationUnreadDot(notifications);
+
+    // Atualiza de imediato o botão de login/desconectar se houver e-mail conectado no bundle
+    if (identityCache && identityCache.customProEmail && btnHeaderAuth) {
+      btnHeaderAuth.dataset.action = 'disconnect';
+      btnHeaderAuth.title = `Desconectar conta (${identityCache.customProEmail})`;
+      btnHeaderAuth.classList.add('is-connected');
+      const svgLogin = btnHeaderAuth.querySelector('.svg-auth-login');
+      const svgLogout = btnHeaderAuth.querySelector('.svg-auth-logout');
+      if (svgLogin) svgLogin.classList.add('hidden');
+      if (svgLogout) svgLogout.classList.remove('hidden');
+    }
+
+    // Carrega detalhes essenciais da tela principal e agenda detalhes secundários
     loadSettingsToUI(appSettings, { deferSecondary: true });
 
-    // Se o usuário possui conta PRO ativa, realiza pull da nuvem se obras estiverem vazias e sincroniza preferências
+    // Agenda leitura da aba ativa para o próximo frame (após renderização inicial da lista)
+    const scheduleNextFrame = (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function')
+      ? window.requestAnimationFrame
+      : (fn => setTimeout(fn, 16));
+
+    scheduleNextFrame(() => {
+      updateCurrentSiteToggleUI();
+    });
+
+    // Se o usuário possui conta PRO ativa, realiza pull da nuvem se obras estiverem vazias e sincroniza preferências de forma postergada
     if (typeof SyncService !== 'undefined') {
-      SyncService.getClientConfig().then(async conf => {
-        if (conf && conf.isPro && conf.syncKey) {
-          if (allWorks.length === 0 && SyncService.pullRemote) {
-            const pullRes = await SyncService.pullRemote();
-            if (pullRes && pullRes.pulled > 0) {
-              allWorks = await StorageLocal.getWorks();
-              renderCurrentView();
-              showToast(`✓ ${pullRes.pulled} obras sincronizadas da nuvem!`);
+      const scheduleSyncCheck = (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function')
+        ? (fn => window.requestIdleCallback(fn, { timeout: 1500 }))
+        : (fn => setTimeout(fn, 800));
+
+      scheduleSyncCheck(() => {
+        SyncService.getClientConfig().then(async conf => {
+          if (conf && conf.isPro && conf.syncKey) {
+            if (allWorks.length === 0 && SyncService.pullRemote) {
+              const pullRes = await SyncService.pullRemote();
+              if (pullRes && pullRes.pulled > 0) {
+                allWorks = await StorageLocal.getWorks();
+                renderCurrentView();
+                showToast(`✓ ${pullRes.pulled} obras sincronizadas da nuvem!`);
+              }
+            }
+            if (SyncService.syncSettings) {
+              const setRes = await SyncService.syncSettings();
+              if (setRes && setRes.action === 'pulled') {
+                const freshSettings = await StorageLocal.getSettings();
+                appSettings = freshSettings;
+                loadSettingsToUI(appSettings);
+              }
             }
           }
-          if (SyncService.syncSettings) {
-            const setRes = await SyncService.syncSettings();
-            if (setRes && setRes.action === 'pulled') {
-              const freshSettings = await StorageLocal.getSettings();
-              appSettings = freshSettings;
-              loadSettingsToUI(appSettings);
-            }
-          }
-        }
-      }).catch(() => {});
+        }).catch(() => {});
+      });
     }
   } catch (err) {
     console.error('Falha na inicialização do popup:', err);

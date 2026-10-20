@@ -683,7 +683,22 @@ const StorageLocal = {
   },
 
   async getInitialData() {
-    const result = await safeStorageGet([STORAGE_KEY_SETTINGS, STORAGE_KEY_ENTRIES_V3]);
+    const keys = [
+      STORAGE_KEY_SETTINGS,
+      STORAGE_KEY_ENTRIES_V3,
+      STORAGE_KEY_NOTIFICATIONS_V1,
+      'userSignedOut',
+      'customProEmail',
+      'proEmailSource',
+      'yekun_pro_subscription_cache',
+      'proAccessPin',
+      'proRecoveryKey',
+      'proTotpSecret',
+      'proTotpEnabled',
+      'proTotpEmail',
+      'proDeviceToken'
+    ];
+    const result = await safeStorageGet(keys);
     const stored = result[STORAGE_KEY_SETTINGS] || {};
     const settings = {
       ...DEFAULT_SETTINGS,
@@ -702,15 +717,15 @@ const StorageLocal = {
     const list = Array.isArray(rawList) ? rawList : [];
 
     if (!stored.v4MetadataSyncDone) {
+      settings.v4MetadataSyncDone = true;
       const hasEnrichedMetadata = list.some(w => (Array.isArray(w.releaseDays) && w.releaseDays.length > 0) || (w.readingStatus && w.readingStatus !== 'lendo') || (w.publicationStatus && w.publicationStatus !== 'lancamento'));
       if (hasEnrichedMetadata) {
         for (const w of list) {
           w.syncStatus = 'pending';
         }
-        await safeStorageSet({ [STORAGE_KEY_ENTRIES_V3]: list });
+        safeStorageSet({ [STORAGE_KEY_ENTRIES_V3]: list }).catch(() => {});
       }
-      settings.v4MetadataSyncDone = true;
-      await this.saveSettings(settings);
+      this.saveSettings(settings).catch(() => {});
     }
 
     const activeWorks = [];
@@ -721,7 +736,27 @@ const StorageLocal = {
       if (!w.deleted) activeWorks.push(w);
     }
 
-    return { settings, works: activeWorks };
+    const identityCache = {
+      userSignedOut: result.userSignedOut,
+      customProEmail: result.customProEmail,
+      proEmailSource: result.proEmailSource,
+      cachedProStatus: result.yekun_pro_subscription_cache,
+      credentials: {
+        accessPin: result.proAccessPin ? String(result.proAccessPin) : '',
+        recoveryKey: result.proRecoveryKey ? String(result.proRecoveryKey) : '',
+        totpSecret: result.proTotpSecret ? String(result.proTotpSecret) : '',
+        totpEnabled: !!result.proTotpEnabled,
+        totpEmail: result.proTotpEmail ? String(result.proTotpEmail) : '',
+        deviceToken: result.proDeviceToken ? String(result.proDeviceToken) : ''
+      }
+    };
+
+    return {
+      settings,
+      works: activeWorks,
+      notifications: result[STORAGE_KEY_NOTIFICATIONS_V1] || [],
+      identityCache
+    };
   },
 
   async saveSettings(settings) {
