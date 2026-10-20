@@ -23,13 +23,27 @@ const SyncService = {
 
     let isPro = false;
     let proEmail = '';
+    let deviceToken = '';
 
-    if (typeof IdentityService !== 'undefined' && IdentityService && IdentityService.checkProStatus) {
-      try {
-        const proStatus = await IdentityService.checkProStatus({ supabaseUrl, supabaseKey });
-        isPro = !!proStatus.isPro;
-        proEmail = proStatus.email || '';
-      } catch (_) {}
+    if (typeof IdentityService !== 'undefined' && IdentityService) {
+      if (IdentityService.checkProStatus) {
+        try {
+          const proStatus = await IdentityService.checkProStatus({ supabaseUrl, supabaseKey });
+          isPro = !!proStatus.isPro;
+          proEmail = proStatus.email || '';
+        } catch (_) {}
+      }
+
+      if (isPro && proEmail && IdentityService.ensureDeviceSessionToken) {
+        try {
+          deviceToken = await IdentityService.ensureDeviceSessionToken({ supabaseUrl, supabaseKey }, proEmail);
+        } catch (_) {}
+      } else if (IdentityService.getStoredCredentials) {
+        try {
+          const creds = await IdentityService.getStoredCredentials();
+          deviceToken = (creds && creds.deviceToken) ? creds.deviceToken : '';
+        } catch (_) {}
+      }
     }
 
     const syncKey = proEmail || (settings.syncKey ? settings.syncKey.trim() : '');
@@ -39,7 +53,8 @@ const SyncService = {
       supabaseUrl,
       supabaseKey,
       isPro,
-      proEmail
+      proEmail,
+      deviceToken
     };
   },
 
@@ -78,15 +93,20 @@ const SyncService = {
       };
     });
 
+    const pushHeaders = {
+      'Content-Type': 'application/json',
+      'apikey': config.supabaseKey,
+      'Authorization': `Bearer ${config.supabaseKey}`,
+      'Prefer': 'resolution=merge-duplicates'
+    };
+    if (config.deviceToken) {
+      pushHeaders['x-sync-token'] = config.deviceToken;
+    }
+
     const url = `${config.supabaseUrl}/rest/v1/entries?on_conflict=id`;
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': config.supabaseKey,
-        'Authorization': `Bearer ${config.supabaseKey}`,
-        'Prefer': 'resolution=merge-duplicates'
-      },
+      headers: pushHeaders,
       body: JSON.stringify(payload)
     });
 
@@ -113,13 +133,18 @@ const SyncService = {
       return { pulled: 0, reason: 'offline_or_free_mode' };
     }
 
+    const pullHeaders = {
+      'apikey': config.supabaseKey,
+      'Authorization': `Bearer ${config.supabaseKey}`
+    };
+    if (config.deviceToken) {
+      pullHeaders['x-sync-token'] = config.deviceToken;
+    }
+
     const url = `${config.supabaseUrl}/rest/v1/entries?sync_key=eq.${encodeURIComponent(config.syncKey)}&order=updated_at.desc`;
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'apikey': config.supabaseKey,
-        'Authorization': `Bearer ${config.supabaseKey}`
-      }
+      headers: pullHeaders
     });
 
     if (!response.ok) {
@@ -259,12 +284,16 @@ const SyncService = {
 
       // 1. Consulta configurações remotas do usuário
       const url = `${config.supabaseUrl}/rest/v1/user_settings?sync_key=eq.${encodeURIComponent(config.syncKey)}`;
+      const getHeaders = {
+        'apikey': config.supabaseKey,
+        'Authorization': `Bearer ${config.supabaseKey}`
+      };
+      if (config.deviceToken) {
+        getHeaders['x-sync-token'] = config.deviceToken;
+      }
       const res = await fetch(url, {
         method: 'GET',
-        headers: {
-          'apikey': config.supabaseKey,
-          'Authorization': `Bearer ${config.supabaseKey}`
-        }
+        headers: getHeaders
       });
 
       if (!res.ok) {
@@ -321,14 +350,18 @@ const SyncService = {
       }
 
       const now = Date.now();
+      const pushHeaders = {
+        'Content-Type': 'application/json',
+        'apikey': config.supabaseKey,
+        'Authorization': `Bearer ${config.supabaseKey}`,
+        'Prefer': 'resolution=merge-duplicates'
+      };
+      if (config.deviceToken) {
+        pushHeaders['x-sync-token'] = config.deviceToken;
+      }
       const pushRes = await fetch(`${config.supabaseUrl}/rest/v1/user_settings?on_conflict=sync_key`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': config.supabaseKey,
-          'Authorization': `Bearer ${config.supabaseKey}`,
-          'Prefer': 'resolution=merge-duplicates'
-        },
+        headers: pushHeaders,
         body: JSON.stringify([{
           sync_key: config.syncKey,
           settings: payloadSettings,

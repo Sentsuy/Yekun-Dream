@@ -55,6 +55,7 @@ const testSuites = [
   { name: 'PRO PIN Hybrid Security & 2FA', cmd: 'node tests/test-pro-pin-hybrid-security.js' },
   { name: 'Auto-Pull on Connect & 2FA Sync', cmd: 'node tests/test-auto-pull-on-connect.js' },
   { name: 'Account Disconnect & Anti-Duplication Sync', cmd: 'node tests/test-account-disconnect-merge-sync.js' },
+  { name: 'Device Session Security & Anti-Scraping', cmd: 'node tests/test-device-session-security.js' },
   { name: 'Supabase Feedback SQL Schema & RPC', cmd: 'node tests/test-supabase-feedback-sql.js' },
   { name: 'Feedback Service & Limits Validation', cmd: 'node tests/test-feedback-service.js' },
   { name: 'Popup Feedback UI & Context Flow', cmd: 'node tests/test-popup-feedback-ui.js' },

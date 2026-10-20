@@ -3207,7 +3207,7 @@ function closeConfirmDisconnectModal() {
 
 async function executeDisconnectAccount() {
   closeConfirmDisconnectModal();
-  await IdentityService.signOutGoogle();
+  await IdentityService.signOutGoogle(getSupabaseConfig());
 
   // Reverte tema Cyber Neon (exclusivo PRO) para Escuro por padrão ao desconectar
   if (appSettings && appSettings.theme === 'neon') {

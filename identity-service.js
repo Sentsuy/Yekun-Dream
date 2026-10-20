@@ -324,11 +324,17 @@ const IdentityService = {
     });
   },
 
-  async signOutGoogle() {
+  async signOutGoogle(config) {
     const current = await this.getIdentityInfo();
     if (current && current.email) {
       await this.setLastDisconnectedEmail(current.email);
     }
+    try {
+      const creds = await this.getStoredCredentials();
+      if (creds && creds.deviceToken) {
+        await this.revokeDeviceSession(config, creds.deviceToken);
+      }
+    } catch (_) {}
     await this.clearCustomProEmail();
     await this.clearStoredCredentials();
     await this.setUserSignedOut(true);
@@ -355,19 +361,20 @@ const IdentityService = {
     return new Promise(resolve => {
       try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.get(['proAccessPin', 'proRecoveryKey', 'proTotpSecret', 'proTotpEnabled', 'proTotpEmail'], res => {
+          chrome.storage.local.get(['proAccessPin', 'proRecoveryKey', 'proTotpSecret', 'proTotpEnabled', 'proTotpEmail', 'proDeviceToken'], res => {
             resolve({
               accessPin: (res && res.proAccessPin) ? String(res.proAccessPin) : '',
               recoveryKey: (res && res.proRecoveryKey) ? String(res.proRecoveryKey) : '',
               totpSecret: (res && res.proTotpSecret) ? String(res.proTotpSecret) : '',
               totpEnabled: !!(res && res.proTotpEnabled),
-              totpEmail: (res && res.proTotpEmail) ? String(res.proTotpEmail) : ''
+              totpEmail: (res && res.proTotpEmail) ? String(res.proTotpEmail) : '',
+              deviceToken: (res && res.proDeviceToken) ? String(res.proDeviceToken) : ''
             });
           });
           return;
         }
       } catch (_) {}
-      resolve({ accessPin: '', recoveryKey: '', totpSecret: '', totpEnabled: false, totpEmail: '' });
+      resolve({ accessPin: '', recoveryKey: '', totpSecret: '', totpEnabled: false, totpEmail: '', deviceToken: '' });
     });
   },
 
@@ -381,6 +388,7 @@ const IdentityService = {
           if (creds.totpSecret !== undefined) payload.proTotpSecret = String(creds.totpSecret);
           if (creds.totpEnabled !== undefined) payload.proTotpEnabled = !!creds.totpEnabled;
           if (creds.totpEmail !== undefined) payload.proTotpEmail = String(creds.totpEmail);
+          if (creds.deviceToken !== undefined) payload.proDeviceToken = String(creds.deviceToken);
           chrome.storage.local.set(payload, resolve);
           return;
         }
@@ -393,7 +401,7 @@ const IdentityService = {
     return new Promise(resolve => {
       try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.remove(['proAccessPin', 'proRecoveryKey', 'proTotpSecret', 'proTotpEnabled', 'proTotpEmail'], resolve);
+          chrome.storage.local.remove(['proAccessPin', 'proRecoveryKey', 'proTotpSecret', 'proTotpEnabled', 'proTotpEmail', 'proDeviceToken'], resolve);
           return;
         }
       } catch (_) {}
@@ -405,12 +413,78 @@ const IdentityService = {
     return new Promise(resolve => {
       try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.remove(['customProEmail', 'proEmailSource', PRO_CACHE_KEY, 'proAccessPin', 'proRecoveryKey'], () => resolve());
+          chrome.storage.local.remove(['customProEmail', 'proEmailSource', PRO_CACHE_KEY, 'proAccessPin', 'proRecoveryKey', 'proDeviceToken'], () => resolve());
           return;
         }
       } catch (_) {}
       resolve();
     });
+  },
+
+  async revokeDeviceSession(config, deviceToken) {
+    const token = String(deviceToken || '').trim();
+    if (!token) return { success: true };
+    const conf = this.resolveConfig(config);
+    if (!conf.supabaseUrl || !conf.supabaseKey) return { success: true };
+    try {
+      await fetch(`${conf.supabaseUrl}/rest/v1/rpc/revoke_device_session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': conf.supabaseKey,
+          'Authorization': `Bearer ${conf.supabaseKey}`
+        },
+        body: JSON.stringify({ p_device_token: token })
+      });
+      return { success: true };
+    } catch (_) {
+      return { success: false };
+    }
+  },
+
+  async ensureDeviceSessionToken(config, email) {
+    const cleanEmail = this.normalizeEmail(email);
+    if (!cleanEmail) return '';
+    const creds = await this.getStoredCredentials();
+    if (creds.deviceToken) {
+      return creds.deviceToken;
+    }
+    const conf = this.resolveConfig(config);
+    if (!conf.supabaseUrl || !conf.supabaseKey) return '';
+
+    // Se tiver PIN ou RecoveryKey salvo localmente, valida silenciosamente para obter o device_token
+    if (creds.accessPin || creds.recoveryKey) {
+      try {
+        const vRes = await this.verifyProAccess(conf, cleanEmail, creds.accessPin || creds.recoveryKey);
+        if (vRes && vRes.success) {
+          const updatedCreds = await this.getStoredCredentials();
+          if (updatedCreds.deviceToken) return updatedCreds.deviceToken;
+        }
+      } catch (_) {}
+    }
+
+    // Tenta obter via get_or_create_device_session (para contas sem 2FA/PIN)
+    try {
+      const url = `${conf.supabaseUrl}/rest/v1/rpc/get_or_create_device_session`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': conf.supabaseKey,
+          'Authorization': `Bearer ${conf.supabaseKey}`
+        },
+        body: JSON.stringify({ p_email: cleanEmail })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.success && data.device_token) {
+          await this.saveStoredCredentials({ deviceToken: data.device_token });
+          return data.device_token;
+        }
+      }
+    } catch (_) {}
+
+    return '';
   },
 
   async getFallbackEmail() {
@@ -493,7 +567,8 @@ const IdentityService = {
         await this.saveStoredCredentials({
           accessPin: result.access_pin || (cleanSecret.length === 6 ? cleanSecret : ''),
           recoveryKey: result.recovery_key || (cleanSecret.startsWith('YK-') ? cleanSecret : ''),
-          totpEnabled: !!result.totp_enabled
+          totpEnabled: !!result.totp_enabled,
+          deviceToken: result.device_token || ''
         });
 
         await this.setCustomProEmail(cleanEmail);
@@ -510,6 +585,7 @@ const IdentityService = {
           accessPin: result.access_pin || '',
           recoveryKey: result.recovery_key || '',
           totpEnabled: !!result.totp_enabled,
+          deviceToken: result.device_token || '',
           cached: false
         };
         await this.saveCachedProStatus(statusData);
@@ -519,7 +595,8 @@ const IdentityService = {
           statusData,
           accessPin: result.access_pin,
           recoveryKey: result.recovery_key,
-          totpEnabled: !!result.totp_enabled
+          totpEnabled: !!result.totp_enabled,
+          deviceToken: result.device_token || ''
         };
       } else {
         return {
@@ -701,7 +778,8 @@ const IdentityService = {
         await this.saveStoredCredentials({
           accessPin: data.access_pin || '',
           recoveryKey: data.recovery_key || '',
-          totpEnabled: !!data.totp_enabled
+          totpEnabled: !!data.totp_enabled,
+          deviceToken: data.device_token || ''
         });
 
         const idInfo = await this.getIdentityInfo();
@@ -721,6 +799,7 @@ const IdentityService = {
           accessPin: data.access_pin || '',
           recoveryKey: data.recovery_key || '',
           totpEnabled: !!data.totp_enabled,
+          deviceToken: data.device_token || '',
           cached: false
         };
         await this.saveCachedProStatus(statusData);
@@ -732,6 +811,7 @@ const IdentityService = {
           statusData,
           accessPin: data.access_pin || '',
           recoveryKey: data.recovery_key || '',
+          deviceToken: data.device_token || '',
           validUntil
         };
       }
@@ -1076,12 +1156,13 @@ const IdentityService = {
             totpEnabled: true,
             totpEmail: cleanEmail,
             accessPin: data.access_pin || creds.accessPin || '',
-            recoveryKey: data.recovery_key || creds.recoveryKey || ''
+            recoveryKey: data.recovery_key || creds.recoveryKey || '',
+            deviceToken: data.device_token || creds.deviceToken || ''
           });
           if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
             try { chrome.storage.local.remove([PRO_CACHE_KEY], () => {}); } catch (_) {}
           }
-          return { success: true };
+          return { success: true, deviceToken: data.device_token || '' };
         } else {
           return {
             success: false,
