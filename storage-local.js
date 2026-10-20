@@ -72,7 +72,9 @@ const DEFAULT_SETTINGS = {
   blockedDomains: [],
   allowedDomains: [],
   theme: 'dark',
-  customProEmail: ''
+  customProEmail: '',
+  settingsUpdatedAt: 0,
+  v4MetadataSyncDone: false
 };
 
 function extractDomain(url) {
@@ -698,6 +700,19 @@ const StorageLocal = {
     }
 
     const list = Array.isArray(rawList) ? rawList : [];
+
+    if (!stored.v4MetadataSyncDone) {
+      const hasEnrichedMetadata = list.some(w => (Array.isArray(w.releaseDays) && w.releaseDays.length > 0) || (w.readingStatus && w.readingStatus !== 'lendo') || (w.publicationStatus && w.publicationStatus !== 'lancamento'));
+      if (hasEnrichedMetadata) {
+        for (const w of list) {
+          w.syncStatus = 'pending';
+        }
+        await safeStorageSet({ [STORAGE_KEY_ENTRIES_V3]: list });
+      }
+      settings.v4MetadataSyncDone = true;
+      await this.saveSettings(settings);
+    }
+
     const activeWorks = [];
     for (const w of list) {
       if (!Array.isArray(w.aliases)) w.aliases = [];
@@ -1281,9 +1296,15 @@ const StorageLocal = {
     const incomingUpdated = incomingWork.updatedAt || 0;
     if (incomingUpdated > targetUpdated) {
       targetWork.mainChapter = incomingWork.mainChapter || targetWork.mainChapter;
+      if (incomingWork.tag) targetWork.tag = incomingWork.tag;
       if (incomingWork.lastReadSourceId) {
         const matchSrc = targetWork.sources.find(s => s.id === incomingWork.lastReadSourceId) || targetWork.sources[0];
         if (matchSrc) targetWork.lastReadSourceId = matchSrc.id;
+      }
+      if (incomingWork.readingStatus) targetWork.readingStatus = incomingWork.readingStatus;
+      if (incomingWork.publicationStatus) targetWork.publicationStatus = incomingWork.publicationStatus;
+      if (Array.isArray(incomingWork.releaseDays) && incomingWork.releaseDays.length > 0) {
+        targetWork.releaseDays = incomingWork.releaseDays;
       }
       targetWork.updatedAt = incomingUpdated;
     }
@@ -1291,7 +1312,7 @@ const StorageLocal = {
     // 5. Metadados complementares
     if (!targetWork.readingStatus && incomingWork.readingStatus) targetWork.readingStatus = incomingWork.readingStatus;
     if (!targetWork.publicationStatus && incomingWork.publicationStatus) targetWork.publicationStatus = incomingWork.publicationStatus;
-    if ((!targetWork.releaseDays || targetWork.releaseDays.length === 0) && Array.isArray(incomingWork.releaseDays)) {
+    if ((!targetWork.releaseDays || targetWork.releaseDays.length === 0) && Array.isArray(incomingWork.releaseDays) && incomingWork.releaseDays.length > 0) {
       targetWork.releaseDays = incomingWork.releaseDays;
     }
 

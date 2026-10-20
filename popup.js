@@ -1408,11 +1408,17 @@ async function persistSettings(options = {}) {
     autoTrackAnime: toggleAutoTrackAnime ? toggleAutoTrackAnime.checked : true,
     allowedDomains: appSettings.allowedDomains || [],
     blockedDomains: appSettings.blockedDomains || [],
-    syncKey: inputSyncKey.value.trim()
+    syncKey: inputSyncKey.value.trim(),
+    settingsUpdatedAt: Date.now()
   };
 
   await StorageLocal.saveSettings(appSettings);
   broadcastSettingsToTabs(appSettings);
+
+  // Se o usuário for PRO, sincroniza as preferências com a nuvem em background
+  if (typeof SyncService !== 'undefined' && SyncService.syncSettings) {
+    SyncService.syncSettings().catch(() => {});
+  }
 
   let activeTab = null;
   try {
@@ -2433,13 +2439,14 @@ btnSyncNow.addEventListener('click', () => requireProTermsAccepted(async () => {
   showToast('Iniciando sincronização…');
   try {
     if (chrome.runtime && chrome.runtime.sendMessage) {
-      chrome.runtime.sendMessage({ action: 'syncNow' }, response => {
+      chrome.runtime.sendMessage({ action: 'syncNow' }, async response => {
         if (response && response.ok) {
           showToast('✓ Sincronizado com sucesso!');
-          StorageLocal.getWorks().then(works => {
-            allWorks = works;
-            renderCurrentView();
-          });
+          allWorks = await StorageLocal.getWorks();
+          renderCurrentView();
+          const freshSettings = await StorageLocal.getSettings();
+          appSettings = freshSettings;
+          loadSettingsToUI(appSettings);
         } else {
           showToast(response && response.error ? response.error : 'Sincronização concluída');
         }
@@ -2527,11 +2534,14 @@ if (inputTotpLoginCode) {
 async function triggerAutoSyncOnConnect(email) {
   if (typeof SyncService === 'undefined' || !SyncService.syncAll) return;
   try {
-    showToast('Sincronizando obras da nuvem…');
+    showToast('Sincronizando obras e preferências da nuvem…');
     const res = await SyncService.syncAll();
     if (res && res.ok) {
       allWorks = await StorageLocal.getWorks();
       renderCurrentView();
+      const freshSettings = await StorageLocal.getSettings();
+      appSettings = freshSettings;
+      loadSettingsToUI(appSettings);
       const count = res.pulled || 0;
       showToast(count > 0 ? `✓ Sincronizado! ${count} obras carregadas da nuvem.` : '✓ Sincronização concluída!');
     }
@@ -4720,15 +4730,25 @@ function initFeedback() {
     updateNotificationUnreadDot();
     loadSettingsToUI(appSettings, { deferSecondary: true });
 
-    // Se o usuário possui conta PRO ativa e a lista local de obras estiver vazia, realiza pull da nuvem automaticamente
-    if (allWorks.length === 0 && typeof SyncService !== 'undefined' && SyncService.pullRemote) {
+    // Se o usuário possui conta PRO ativa, realiza pull da nuvem se obras estiverem vazias e sincroniza preferências
+    if (typeof SyncService !== 'undefined') {
       SyncService.getClientConfig().then(async conf => {
         if (conf && conf.isPro && conf.syncKey) {
-          const pullRes = await SyncService.pullRemote();
-          if (pullRes && pullRes.pulled > 0) {
-            allWorks = await StorageLocal.getWorks();
-            renderCurrentView();
-            showToast(`✓ ${pullRes.pulled} obras sincronizadas da nuvem!`);
+          if (allWorks.length === 0 && SyncService.pullRemote) {
+            const pullRes = await SyncService.pullRemote();
+            if (pullRes && pullRes.pulled > 0) {
+              allWorks = await StorageLocal.getWorks();
+              renderCurrentView();
+              showToast(`✓ ${pullRes.pulled} obras sincronizadas da nuvem!`);
+            }
+          }
+          if (SyncService.syncSettings) {
+            const setRes = await SyncService.syncSettings();
+            if (setRes && setRes.action === 'pulled') {
+              const freshSettings = await StorageLocal.getSettings();
+              appSettings = freshSettings;
+              loadSettingsToUI(appSettings);
+            }
           }
         }
       }).catch(() => {});

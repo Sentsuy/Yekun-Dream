@@ -69,7 +69,12 @@ const SyncService = {
         updated_at: w.updatedAt,
         deleted: !!w.deleted,
         sources: JSON.stringify(w.sources || []),
-        history: JSON.stringify(w.history || [])
+        history: JSON.stringify(w.history || []),
+        release_days: Array.isArray(w.releaseDays) ? w.releaseDays : [],
+        reading_status: w.readingStatus || 'lendo',
+        publication_status: w.publicationStatus || 'lancamento',
+        aliases: Array.isArray(w.aliases) ? w.aliases : [],
+        last_read_source_id: w.lastReadSourceId || ''
       };
     });
 
@@ -174,11 +179,31 @@ const SyncService = {
         }];
       }
 
+      let releaseDays = [];
+      try {
+        if (rem.release_days) {
+          releaseDays = typeof rem.release_days === 'string' ? JSON.parse(rem.release_days) : rem.release_days;
+        }
+      } catch (_) { releaseDays = []; }
+      if (!Array.isArray(releaseDays)) releaseDays = [];
+
+      let aliases = [];
+      try {
+        if (rem.aliases) {
+          aliases = typeof rem.aliases === 'string' ? JSON.parse(rem.aliases) : rem.aliases;
+        }
+      } catch (_) { aliases = []; }
+      if (!Array.isArray(aliases)) aliases = [];
+
       const remoteWorkData = {
         name: rem.name,
         mainChapter: rem.chapter || (sources[0] && sources[0].chapter) || 'Cap. 1',
         tag: rem.tag || 'manga',
-        lastReadSourceId: sources[0] ? sources[0].id : '',
+        readingStatus: rem.reading_status || 'lendo',
+        publicationStatus: rem.publication_status || 'lancamento',
+        releaseDays,
+        aliases,
+        lastReadSourceId: rem.last_read_source_id || (sources[0] ? sources[0].id : ''),
         updatedAt: remoteUpdatedAt,
         deleted: !!rem.deleted,
         sources,
@@ -200,7 +225,11 @@ const SyncService = {
           name: rem.name,
           mainChapter: rem.chapter || (sources[0] && sources[0].chapter) || 'Cap. 1',
           tag: rem.tag || 'manga',
-          lastReadSourceId: sources[0] ? sources[0].id : '',
+          readingStatus: rem.reading_status || 'lendo',
+          publicationStatus: rem.publication_status || 'lancamento',
+          releaseDays,
+          aliases,
+          lastReadSourceId: rem.last_read_source_id || (sources[0] ? sources[0].id : ''),
           createdAt: Number(rem.created_at) || remoteUpdatedAt,
           updatedAt: remoteUpdatedAt,
           deleted: !!rem.deleted,
@@ -216,6 +245,108 @@ const SyncService = {
     await new Promise(resolve => chrome.storage.local.set({ [STORAGE_KEY_ENTRIES_V3]: merged }, resolve));
 
     return { pulled: updatedCount };
+  },
+
+  async syncSettings() {
+    const config = await this.getClientConfig();
+    if (!config.isPro || !config.syncKey || !config.supabaseUrl || !config.supabaseKey) {
+      return { synced: false, reason: 'offline_or_free_mode' };
+    }
+
+    try {
+      const currentSettings = await StorageLocal.getSettings();
+      const localUpdated = Number(currentSettings.settingsUpdatedAt) || 0;
+
+      // 1. Consulta configurações remotas do usuário
+      const url = `${config.supabaseUrl}/rest/v1/user_settings?sync_key=eq.${encodeURIComponent(config.syncKey)}`;
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'apikey': config.supabaseKey,
+          'Authorization': `Bearer ${config.supabaseKey}`
+        }
+      });
+
+      if (!res.ok) {
+        return { synced: false, error: `Falha ao buscar configurações: ${res.status}` };
+      }
+
+      const rows = await res.json();
+      const remote = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+
+      // Chaves de preferência que devem ser sincronizadas entre computadores
+      const SYNCABLE_KEYS = [
+        'enableReleaseNotifications',
+        'enableMorningNotification',
+        'enableEveningNotification',
+        'autoTrackAnime',
+        'enableFloatingButton',
+        'enableBadgeCount',
+        'enableQuickIncrement',
+        'enableAutoTitleDetection',
+        'enableAutoSync',
+        'theme',
+        'allowedDomains',
+        'blockedDomains'
+      ];
+
+      if (remote && remote.settings) {
+        const remoteUpdated = Number(remote.updated_at) || 0;
+        const remoteSettings = typeof remote.settings === 'string' ? JSON.parse(remote.settings) : remote.settings;
+
+        // Se as configurações da nuvem forem mais recentes que as locais, puxa para o computador atual
+        if (remoteUpdated > localUpdated) {
+          let hasChanges = false;
+          for (const k of SYNCABLE_KEYS) {
+            if (remoteSettings[k] !== undefined && JSON.stringify(remoteSettings[k]) !== JSON.stringify(currentSettings[k])) {
+              currentSettings[k] = remoteSettings[k];
+              hasChanges = true;
+            }
+          }
+          if (hasChanges) {
+            currentSettings.settingsUpdatedAt = remoteUpdated;
+            await StorageLocal.saveSettings(currentSettings);
+            return { synced: true, action: 'pulled', remoteUpdated };
+          }
+          return { synced: true, action: 'unchanged' };
+        }
+      }
+
+      // Caso contrário, se as configurações locais são mais recentes (ou nuvem está vazia), envia para a nuvem
+      const payloadSettings = {};
+      for (const k of SYNCABLE_KEYS) {
+        if (currentSettings[k] !== undefined) {
+          payloadSettings[k] = currentSettings[k];
+        }
+      }
+
+      const now = Date.now();
+      const pushRes = await fetch(`${config.supabaseUrl}/rest/v1/user_settings?on_conflict=sync_key`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': config.supabaseKey,
+          'Authorization': `Bearer ${config.supabaseKey}`,
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify([{
+          sync_key: config.syncKey,
+          settings: payloadSettings,
+          updated_at: localUpdated > 0 ? localUpdated : now
+        }])
+      });
+
+      if (pushRes.ok) {
+        if (!currentSettings.settingsUpdatedAt) {
+          currentSettings.settingsUpdatedAt = now;
+          await StorageLocal.saveSettings(currentSettings);
+        }
+        return { synced: true, action: 'pushed' };
+      }
+    } catch (e) {
+      console.debug('[SyncService] Erro ao sincronizar configurações:', e);
+    }
+    return { synced: false };
   },
 
   async syncAll() {
@@ -242,11 +373,13 @@ const SyncService = {
 
       const pushRes = await this.pushPending();
       const pullRes = await this.pullRemote();
+      const settingsRes = await this.syncSettings();
 
       return {
         ok: true,
         pushed: pushRes.pushed,
         pulled: pullRes.pulled,
+        settingsSynced: !!(settingsRes && settingsRes.synced),
         timestamp: Date.now()
       };
     } catch (err) {

@@ -600,3 +600,42 @@ GRANT EXECUTE ON FUNCTION check_pro_status(TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION redeem_activation_pin(TEXT, TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION set_totp_security(TEXT, TEXT, BOOLEAN) TO anon;
 GRANT EXECUTE ON FUNCTION verify_totp_login(TEXT, TEXT) TO anon;
+
+-- ── 12. Sincronização Completa de Metadados de Obras & Configurações de Usuário ─────
+
+-- Metadados de obras (dias de alerta, status de leitura e publicação, apelidos)
+ALTER TABLE entries ADD COLUMN IF NOT EXISTS release_days JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE entries ADD COLUMN IF NOT EXISTS reading_status TEXT DEFAULT 'lendo';
+ALTER TABLE entries ADD COLUMN IF NOT EXISTS publication_status TEXT DEFAULT 'lancamento';
+ALTER TABLE entries ADD COLUMN IF NOT EXISTS aliases JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE entries ADD COLUMN IF NOT EXISTS last_read_source_id TEXT DEFAULT '';
+
+-- Tabela de sincronização de preferências do usuário (alertas, temas, botões)
+CREATE TABLE IF NOT EXISTS user_settings (
+    sync_key TEXT PRIMARY KEY,
+    settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+    updated_at BIGINT NOT NULL DEFAULT (extract(epoch from now()) * 1000)::bigint
+);
+
+ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Permitir leitura user_settings" ON user_settings;
+CREATE POLICY "Permitir leitura user_settings" ON user_settings
+    FOR SELECT TO anon, authenticated
+    USING (true);
+
+DROP POLICY IF EXISTS "Permitir gravacao user_settings assinantes" ON user_settings;
+CREATE POLICY "Permitir gravacao user_settings assinantes" ON user_settings
+    FOR ALL TO anon, authenticated
+    USING (EXISTS (
+        SELECT 1 FROM subscriptions s
+        WHERE s.email = user_settings.sync_key
+          AND s.status = 'active'
+          AND s.valid_until::numeric > (extract(epoch from now()) * 1000)::numeric
+    ))
+    WITH CHECK (EXISTS (
+        SELECT 1 FROM subscriptions s
+        WHERE s.email = user_settings.sync_key
+          AND s.status = 'active'
+          AND s.valid_until::numeric > (extract(epoch from now()) * 1000)::numeric
+    ));
