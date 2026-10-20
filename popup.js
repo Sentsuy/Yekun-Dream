@@ -4069,18 +4069,33 @@ function buildWorkCard(work) {
       // Eleva o card atual para garantir que o menu fique acima dos outros cards
       card.style.zIndex = '100';
 
-      // Posicionamento inteligente: por padrao ACIMA (evita cortar no fim do card/tela)
-      if (typeof statusWrap.getBoundingClientRect === 'function') {
-        const rect = statusWrap.getBoundingClientRect();
-        if (rect.top < 140) {
-          popover.classList.remove('open-above');
-          popover.classList.add('open-below');
-        } else {
-          popover.classList.remove('open-below');
-          popover.classList.add('open-above');
+      // Abre para baixo por padrão, e para cima na última obra exibida na tela (ou se não houver espaço abaixo)
+      let shouldOpenAbove = false;
+      const allCards = entriesList ? Array.from(entriesList.querySelectorAll('.entry-card')) : [];
+      const isLastCard = allCards.length > 0 && allCards[allCards.length - 1] === card;
+
+      if (isLastCard) {
+        shouldOpenAbove = true;
+      } else if (typeof statusWrap.getBoundingClientRect === 'function') {
+        const wrapRect = statusWrap.getBoundingClientRect();
+        const viewportHeight = (typeof window !== 'undefined' && window.innerHeight)
+          ? window.innerHeight
+          : (document && document.documentElement ? document.documentElement.clientHeight : 600);
+        const containerBottom = (entriesList && typeof entriesList.getBoundingClientRect === 'function')
+          ? entriesList.getBoundingClientRect().bottom
+          : viewportHeight;
+        const spaceBelow = Math.min(viewportHeight, containerBottom) - wrapRect.bottom;
+        if (spaceBelow < 145) {
+          shouldOpenAbove = true;
         }
-      } else {
+      }
+
+      if (shouldOpenAbove) {
+        popover.classList.remove('open-below');
         popover.classList.add('open-above');
+      } else {
+        popover.classList.remove('open-above');
+        popover.classList.add('open-below');
       }
 
       popover.style.display = 'flex';

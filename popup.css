@@ -1909,9 +1909,9 @@ input:checked + .slider::before {
 
 .status-popover {
   position: absolute;
-  bottom: calc(100% + 5px);
+  top: calc(100% + 4px);
+  bottom: auto;
   left: 0;
-  top: auto;
   z-index: 120;
   min-width: 124px;
   background: var(--surface);
@@ -1923,23 +1923,26 @@ input:checked + .slider::before {
   gap: 2px;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
   opacity: 0;
-  transform: translateY(4px) scale(0.97);
-  transform-origin: bottom left;
+  transform: translateY(-4px) scale(0.97);
+  transform-origin: top left;
   transition: opacity 0.15s ease, transform 0.15s ease;
   pointer-events: none;
 }
 
-.status-popover.open-above {
-  bottom: calc(100% + 5px);
-  top: auto;
-  transform-origin: bottom left;
-}
-
+/* Aberto para baixo por padrão */
 .status-popover.open-below {
-  top: calc(100% + 5px);
+  top: calc(100% + 4px);
   bottom: auto;
   transform-origin: top left;
   transform: translateY(-4px) scale(0.97);
+}
+
+/* Aberto para cima na última obra exibida na tela */
+.status-popover.open-above {
+  bottom: calc(100% + 4px);
+  top: auto;
+  transform-origin: bottom left;
+  transform: translateY(4px) scale(0.97);
 }
 
 .status-popover.open {

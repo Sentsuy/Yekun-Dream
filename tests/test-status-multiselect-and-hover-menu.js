@@ -113,7 +113,7 @@ async function runTests() {
   assert.ok(popupCss.includes('.entry-status-wrap'), 'popup.css must style .entry-status-wrap');
   assert.ok(popupCss.includes('.status-popover'), 'popup.css must style .status-popover');
   assert.ok(popupCss.includes('.status-popover-opt'), 'popup.css must style .status-popover-opt');
-  assert.ok(popupCss.includes('bottom: calc(100% + 5px)'), 'status-popover must be positioned above the badge');
+  assert.ok(popupCss.includes('.status-popover.open-below'), 'status-popover must support open-below');
   assert.ok(popupCss.includes('.status-popover.open-above'), 'status-popover must support open-above');
 
   // Step 5: Verify popup.js declarations
@@ -121,6 +121,7 @@ async function runTests() {
   assert.ok(popupJs.includes('statusFilterBar'), 'popup.js must reference statusFilterBar');
   assert.ok(popupJs.includes('activeStatusFilters'), 'popup.js must declare activeStatusFilters');
   assert.ok(popupJs.includes('status-popover'), 'popup.js must generate status-popover');
+  assert.ok(popupJs.includes('isLastCard'), 'popup.js must detect last card to open above');
   assert.ok(popupJs.includes('2000'), 'popup.js must use 2000ms hover delay for status options');
   assert.ok(popupJs.includes('touchUpdatedAt: false'), 'popup.js must update status with touchUpdatedAt: false');
   assert.ok(!/[📖🌐↗✎✕＋▼⚙]/.test(popupJs), 'popup.js must not contain legacy icon emojis/glyphs');
