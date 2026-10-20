@@ -889,7 +889,8 @@ const IdentityService = {
           body: JSON.stringify({
             p_email: cleanEmail,
             p_secret: secret,
-            p_enabled: true
+            p_enabled: true,
+            p_code: code
           })
         });
         if (!res.ok) {
@@ -915,7 +916,7 @@ const IdentityService = {
     return { success: true, message: 'Google Authenticator ativado com sucesso!' };
   },
 
-  async disableTotp(config, email) {
+  async disableTotp(config, email, codeOrSecret = '') {
     let cleanEmail = '';
     if (typeof config === 'string') {
       cleanEmail = this.normalizeEmail(config);
@@ -944,7 +945,8 @@ const IdentityService = {
           body: JSON.stringify({
             p_email: cleanEmail,
             p_secret: '',
-            p_enabled: false
+            p_enabled: false,
+            p_code: codeOrSecret
           })
         });
       } catch (err) {
