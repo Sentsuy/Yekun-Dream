@@ -38,6 +38,8 @@ const searchBar          = document.getElementById('searchBar');
 const searchInput        = document.getElementById('searchInput');
 const categoryFilter     = document.getElementById('categoryFilter');
 const statusFilter       = document.getElementById('statusFilter');
+const statusFilterBar    = document.getElementById('statusFilterBar');
+const activeStatusFilters = new Set(['lendo']);
 const sortFilter         = document.getElementById('sortFilter');
 const btnClearSearch     = document.getElementById('btnClearSearch');
 const entriesList        = document.getElementById('entriesList');
@@ -3687,7 +3689,7 @@ function filterWorks(
   query,
   category = 'all',
   sortBy = (sortFilter ? sortFilter.value : 'recent'),
-  status = (statusFilter ? statusFilter.value : 'all')
+  status = activeStatusFilters
 ) {
   let list = works || [];
   if (category && category !== 'all') {
@@ -3696,8 +3698,15 @@ function filterWorks(
   }
 
   if (status && status !== 'all') {
-    const statusLower = status.toLowerCase();
-    list = list.filter(w => (w.readingStatus || 'lendo').toLowerCase() === statusLower);
+    if (status instanceof Set || Array.isArray(status)) {
+      const set = status instanceof Set ? status : new Set(status);
+      if (!set.has('all') && set.size < 5) {
+        list = list.filter(w => set.has((w.readingStatus || 'lendo').toLowerCase()));
+      }
+    } else {
+      const statusLower = status.toLowerCase();
+      list = list.filter(w => (w.readingStatus || 'lendo').toLowerCase() === statusLower);
+    }
   }
 
   const q = (query || '').toLowerCase().trim();
@@ -3751,7 +3760,7 @@ function renderList(
   filter = (searchInput ? searchInput.value.trim() : ''),
   category = (categoryFilter ? categoryFilter.value : 'all'),
   sortBy = (sortFilter ? sortFilter.value : 'recent'),
-  status = (statusFilter ? statusFilter.value : 'all')
+  status = activeStatusFilters
 ) {
   updateNavBadges();
   const list = filterWorks(allWorks, filter, category, sortBy, status);
@@ -3925,7 +3934,33 @@ function buildWorkCard(work) {
   };
 
   const statusDisplay = statusLabels[readingStatus] || readingStatus;
-  const statusBadgeHtml = `<button type="button" class="entry-status-badge status-${readingStatus} btn-status-cycle" title="Alterar status (${statusDisplay})">${statusDisplay}</button>`;
+  const statusBadgeHtml = `
+    <div class="entry-status-wrap" data-workid="${work.id}">
+      <button type="button" class="entry-status-badge status-${readingStatus} btn-status-cycle" title="Passe o mouse por 2s ou clique para alterar status (${statusDisplay})">${statusDisplay}</button>
+      <div class="status-popover" role="menu" style="display: none;">
+        <div class="status-popover-header">Alterar Status</div>
+        <button type="button" class="status-popover-opt ${readingStatus === 'lendo' ? 'active' : ''}" data-status="lendo">
+          <span class="status-popover-dot dot-lendo"></span>
+          <span>${isVideo ? 'Assistindo' : 'Lendo'}</span>
+        </button>
+        <button type="button" class="status-popover-opt ${readingStatus === 'pausado' ? 'active' : ''}" data-status="pausado">
+          <span class="status-popover-dot dot-pausado"></span>
+          <span>Pausado</span>
+        </button>
+        <button type="button" class="status-popover-opt ${readingStatus === 'dropado' ? 'active' : ''}" data-status="dropado">
+          <span class="status-popover-dot dot-dropado"></span>
+          <span>Dropado</span>
+        </button>
+        <button type="button" class="status-popover-opt ${readingStatus === 'concluido' ? 'active' : ''}" data-status="concluido">
+          <span class="status-popover-dot dot-concluido"></span>
+          <span>Concluído</span>
+        </button>
+        <button type="button" class="status-popover-opt ${readingStatus === 'planejo' ? 'active' : ''}" data-status="planejo">
+          <span class="status-popover-dot dot-planejo"></span>
+          <span>Planejo</span>
+        </button>
+      </div>
+    </div>`;
   const pubBadgeHtml = pubLabels[pubStatus] ? `<button type="button" class="entry-pub-badge pub-${pubStatus} btn-pub-cycle" title="Status da obra: ${pubLabels[pubStatus]} (clique para alternar)">${pubLabels[pubStatus]}</button>` : '';
 
   const DAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -4013,30 +4048,117 @@ function buildWorkCard(work) {
     });
   });
 
-  // Quick cycle reading status on badge click
-  const statusCycleBtn = card.querySelector('.btn-status-cycle');
-  if (statusCycleBtn) {
-    statusCycleBtn.addEventListener('click', async e => {
-      e.stopPropagation();
-      e.preventDefault();
+  // Quick change reading status via 2-second hover or click
+  const statusWrap = card.querySelector('.entry-status-wrap');
+  if (statusWrap) {
+    const badgeBtn = statusWrap.querySelector('.btn-status-cycle');
+    const popover = statusWrap.querySelector('.status-popover');
+    let hoverTimer = null;
+    let closeTimer = null;
 
-      const NEXT_STATUS = {
-        'lendo': 'concluido',
-        'concluido': 'pausado',
-        'pausado': 'dropado',
-        'dropado': 'planejo',
-        'planejo': 'lendo'
-      };
+    function openStatusMenu() {
+      document.querySelectorAll('.status-popover.open').forEach(p => {
+        if (p !== popover) {
+          p.classList.remove('open');
+          p.style.display = 'none';
+        }
+      });
+      popover.style.display = 'flex';
+      requestAnimationFrame(() => popover.classList.add('open'));
+    }
 
-      const current = work.readingStatus || 'lendo';
-      const next = NEXT_STATUS[current] || 'lendo';
+    function closeStatusMenu() {
+      popover.classList.remove('open');
+      setTimeout(() => {
+        if (!popover.classList.contains('open')) {
+          popover.style.display = 'none';
+        }
+      }, 150);
+    }
 
-      const updated = await StorageLocal.updateWorkStatus(work.id, { readingStatus: next });
-      if (updated) {
-        allWorks = await StorageLocal.getWorks();
-        renderCurrentView();
-        showToast(`✓ Status: ${statusLabels[next] || next}`);
-      }
+    // 2 segundos com o mouse sobre o status para abrir opções
+    statusWrap.addEventListener('mouseenter', () => {
+      clearTimeout(closeTimer);
+      clearTimeout(hoverTimer);
+      hoverTimer = setTimeout(() => {
+        openStatusMenu();
+      }, 2000);
+    });
+
+    statusWrap.addEventListener('mouseleave', () => {
+      clearTimeout(hoverTimer);
+      closeTimer = setTimeout(() => {
+        closeStatusMenu();
+      }, 250);
+    });
+
+    // Clique direto no badge abre/fecha imediatamente
+    if (badgeBtn) {
+      badgeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        clearTimeout(hoverTimer);
+        if (popover.classList.contains('open')) {
+          closeStatusMenu();
+        } else {
+          openStatusMenu();
+        }
+      });
+    }
+
+    // Seleção de status no popover
+    popover.querySelectorAll('.status-popover-opt').forEach(opt => {
+      opt.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const next = opt.dataset.status;
+        closeStatusMenu();
+
+        if (next === (work.readingStatus || 'lendo')) {
+          return;
+        }
+
+        // touchUpdatedAt: false para não alterar a posição cronológica da obra
+        const updated = await StorageLocal.updateWorkStatus(work.id, {
+          readingStatus: next,
+          touchUpdatedAt: false
+        });
+
+        if (updated) {
+          work.readingStatus = next;
+          const target = allWorks.find(w => w.id === work.id);
+          if (target) target.readingStatus = next;
+
+          const isVid = isVideoWorkTag(work.tag);
+          const nextLabel = (next === 'lendo') ? (isVid ? 'Assistindo' : 'Lendo') : (statusLabels[next] || next);
+
+          // Atualização direta e in-place no card sem re-renderizar a lista inteira
+          badgeBtn.className = `entry-status-badge status-${next} btn-status-cycle`;
+          badgeBtn.textContent = nextLabel;
+          badgeBtn.title = `Passe o mouse por 2s ou clique para alterar status (${nextLabel})`;
+
+          popover.querySelectorAll('.status-popover-opt').forEach(b => {
+            b.classList.toggle('active', b.dataset.status === next);
+          });
+
+          showToast(`✓ Status alterado para: ${nextLabel}`);
+
+          // Se o novo status não estiver entre os filtros selecionados, remove suavemente
+          if (!activeStatusFilters.has(next) && !activeStatusFilters.has('all')) {
+            setTimeout(() => {
+              card.style.transition = 'opacity 0.35s ease, transform 0.35s ease';
+              card.style.opacity = '0';
+              card.style.transform = 'scale(0.96)';
+              setTimeout(() => {
+                card.remove();
+                if (entriesList.querySelectorAll('.entry-card').length === 0) {
+                  emptyState.style.display = 'flex';
+                }
+              }, 350);
+            }, 600);
+          }
+        }
+      });
     });
   }
 
@@ -4395,7 +4517,8 @@ function switchView(viewName) {
     if (entriesList) entriesList.style.display = '';
     if (sitesListView) sitesListView.style.display = 'none';
     if (categoryFilter) categoryFilter.style.display = '';
-    if (statusFilter) statusFilter.style.display = '';
+    if (statusFilter) statusFilter.style.display = 'none';
+    if (statusFilterBar) statusFilterBar.style.display = 'flex';
     if (sortFilter) sortFilter.style.display = '';
     if (searchInput) searchInput.placeholder = 'Buscar por título, tag, site...';
     renderList();
@@ -4406,6 +4529,7 @@ function switchView(viewName) {
     if (sitesListView) sitesListView.style.display = 'flex';
     if (categoryFilter) categoryFilter.style.display = 'none';
     if (statusFilter) statusFilter.style.display = 'none';
+    if (statusFilterBar) statusFilterBar.style.display = 'none';
     if (sortFilter) sortFilter.style.display = 'none';
     if (searchInput) searchInput.placeholder = 'Buscar site ou obra...';
     renderSitesView();
@@ -4460,6 +4584,79 @@ function updateStatusFilterOptionLabel() {
   }
 }
 
+function updateStatusFilterBarUI() {
+  if (!statusFilterBar) return;
+  const isAll = activeStatusFilters.size >= 5 || activeStatusFilters.has('all');
+  statusFilterBar.querySelectorAll('.status-chip').forEach(chip => {
+    const st = chip.dataset.status;
+    if (st === 'all') {
+      chip.classList.toggle('active', isAll);
+    } else {
+      chip.classList.toggle('active', isAll || activeStatusFilters.has(st));
+    }
+  });
+
+  if (statusFilter) {
+    if (isAll) {
+      statusFilter.value = 'all';
+    } else if (activeStatusFilters.size === 1) {
+      statusFilter.value = Array.from(activeStatusFilters)[0];
+    } else {
+      statusFilter.value = 'all';
+    }
+  }
+}
+
+if (statusFilterBar) {
+  statusFilterBar.querySelectorAll('.status-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const st = chip.dataset.status;
+      if (st === 'all') {
+        if (activeStatusFilters.size >= 5 || activeStatusFilters.has('all')) {
+          activeStatusFilters.clear();
+          activeStatusFilters.add('lendo');
+        } else {
+          activeStatusFilters.clear();
+          ['lendo', 'pausado', 'dropado', 'concluido', 'planejo'].forEach(s => activeStatusFilters.add(s));
+        }
+      } else {
+        if (activeStatusFilters.has(st)) {
+          if (activeStatusFilters.size > 1) {
+            activeStatusFilters.delete(st);
+            activeStatusFilters.delete('all');
+          } else {
+            showToast('Pelo menos um status deve estar selecionado');
+            return;
+          }
+        } else {
+          activeStatusFilters.delete('all');
+          activeStatusFilters.add(st);
+        }
+      }
+      updateStatusFilterBarUI();
+      renderCurrentView();
+    });
+  });
+  updateStatusFilterBarUI();
+}
+
+// Fechar qualquer popover de status ao clicar fora
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+  document.addEventListener('click', (e) => {
+    if (!e.target || typeof e.target.closest !== 'function') return;
+    if (!e.target.closest('.entry-status-wrap')) {
+      document.querySelectorAll('.status-popover.open').forEach(p => {
+        p.classList.remove('open');
+        setTimeout(() => {
+          if (!p.classList.contains('open')) {
+            p.style.display = 'none';
+          }
+        }, 150);
+      });
+    }
+  });
+}
+
 if (categoryFilter) {
   categoryFilter.addEventListener('change', () => {
     updateStatusFilterOptionLabel();
@@ -4470,6 +4667,14 @@ if (categoryFilter) {
 
 if (statusFilter) {
   statusFilter.addEventListener('change', () => {
+    const val = statusFilter.value;
+    activeStatusFilters.clear();
+    if (val === 'all') {
+      ['lendo', 'pausado', 'dropado', 'concluido', 'planejo'].forEach(s => activeStatusFilters.add(s));
+    } else {
+      activeStatusFilters.add(val);
+    }
+    updateStatusFilterBarUI();
     renderList();
   });
 }

@@ -894,7 +894,7 @@
         <option value="outro">Outro</option>
       </select>
 
-      <select class="status-select" id="statusFilter" title="Filtrar por Status de Leitura">
+      <select class="status-select" id="statusFilter" title="Filtrar por Status de Leitura" style="display: none;">
         <option value="all">Status: Todos</option>
         <option value="lendo">Lendo / Assistindo</option>
         <option value="concluido">Concluídos</option>
@@ -902,6 +902,33 @@
         <option value="dropado">Dropados</option>
         <option value="planejo">Planejo Ler</option>
       </select>
+    </div>
+
+    <!-- Status Filter Bar (Selecao Multipla de Status) -->
+    <div class="status-filter-bar" id="statusFilterBar">
+      <button type="button" class="status-chip active" data-status="lendo" title="Filtrar por Lendo / Assistindo">
+        <span class="status-chip-dot dot-lendo"></span>
+        <span class="status-chip-label">Lendo / Assistindo</span>
+      </button>
+      <button type="button" class="status-chip" data-status="pausado" title="Filtrar por Pausados">
+        <span class="status-chip-dot dot-pausado"></span>
+        <span class="status-chip-label">Pausados</span>
+      </button>
+      <button type="button" class="status-chip" data-status="dropado" title="Filtrar por Dropados">
+        <span class="status-chip-dot dot-dropado"></span>
+        <span class="status-chip-label">Dropados</span>
+      </button>
+      <button type="button" class="status-chip" data-status="concluido" title="Filtrar por Concluidos">
+        <span class="status-chip-dot dot-concluido"></span>
+        <span class="status-chip-label">Concluídos</span>
+      </button>
+      <button type="button" class="status-chip" data-status="planejo" title="Filtrar por Planejo">
+        <span class="status-chip-dot dot-planejo"></span>
+        <span class="status-chip-label">Planejo</span>
+      </button>
+      <button type="button" class="status-chip chip-todos" data-status="all" title="Ver todos os status">
+        <span class="status-chip-label">Todos</span>
+      </button>
     </div>
 
     <!-- Entries List (Obras View) -->

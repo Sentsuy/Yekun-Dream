@@ -1545,6 +1545,107 @@ input:checked + .slider::before {
   color: var(--text);
 }
 
+/* ─── Status Filter Bar (Seleção Múltipla) ───────────────────── */
+.status-filter-bar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+.status-filter-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: var(--surface2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  font-family: var(--font-readable);
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: all var(--transition);
+}
+
+.status-chip:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.status-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot-lendo { background: #38bdf8; }
+.dot-pausado { background: #f59e0b; }
+.dot-dropado { background: #ef4444; }
+.dot-concluido { background: #10b981; }
+.dot-planejo { background: #a855f7; }
+
+/* Chips Ativos com cor de fundo destacada */
+.status-chip.active[data-status="lendo"] {
+  background: var(--status-reading-bg);
+  color: var(--status-reading-text);
+  border-color: var(--status-reading-border);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(56, 189, 248, 0.2);
+}
+
+.status-chip.active[data-status="pausado"] {
+  background: var(--status-paused-bg);
+  color: var(--status-paused-text);
+  border-color: var(--status-paused-border);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(245, 158, 11, 0.2);
+}
+
+.status-chip.active[data-status="dropado"] {
+  background: var(--status-dropped-bg);
+  color: var(--status-dropped-text);
+  border-color: var(--status-dropped-border);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(239, 68, 68, 0.2);
+}
+
+.status-chip.active[data-status="concluido"] {
+  background: var(--status-done-bg);
+  color: var(--status-done-text);
+  border-color: var(--status-done-border);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(16, 185, 129, 0.2);
+}
+
+.status-chip.active[data-status="planejo"] {
+  background: var(--status-plan-bg);
+  color: var(--status-plan-text);
+  border-color: var(--status-plan-border);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(168, 85, 247, 0.2);
+}
+
+.status-chip.active.chip-todos {
+  background: var(--accent-glow);
+  color: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
 /* ─── Entries List (Contêiner com Separação de Cards) ────────── */
 .entries-list {
   flex: 1;
@@ -1793,6 +1894,86 @@ input:checked + .slider::before {
   background: var(--status-plan-bg);
   color: var(--status-plan-text);
   border: 1px solid var(--status-plan-border);
+}
+
+/* ─── Status Hover Popover no Card ───────────────────────────── */
+.entry-status-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.status-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 120;
+  min-width: 124px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transform: translateY(-4px) scale(0.97);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  pointer-events: none;
+}
+
+.status-popover.open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.status-popover-header {
+  font-size: 8.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--muted);
+  padding: 2px 6px 4px 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2px;
+}
+
+.status-popover-opt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 7px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-readable);
+  font-size: 10px;
+  font-weight: 500;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition), color var(--transition);
+  width: 100%;
+}
+
+.status-popover-opt:hover {
+  background: var(--surface2);
+  color: var(--accent);
+}
+
+.status-popover-opt.active {
+  background: var(--surface2);
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.status-popover-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .entry-pub-badge {

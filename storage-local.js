@@ -1190,14 +1190,16 @@ const StorageLocal = {
     return work;
   },
 
-  async updateWorkStatus(id, { readingStatus, publicationStatus } = {}) {
+  async updateWorkStatus(id, { readingStatus, publicationStatus, touchUpdatedAt = false } = {}) {
     const list = await this.getAllRawWorks();
     const work = list.find(w => w.id === id);
     if (!work) return null;
 
     if (readingStatus) work.readingStatus = readingStatus;
     if (publicationStatus) work.publicationStatus = publicationStatus;
-    work.updatedAt  = Date.now();
+    if (touchUpdatedAt) {
+      work.updatedAt  = Date.now();
+    }
     work.syncStatus = 'pending';
 
     await safeStorageSet({ [STORAGE_KEY_ENTRIES_V3]: list });
