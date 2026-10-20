@@ -4061,14 +4061,35 @@ function buildWorkCard(work) {
         if (p !== popover) {
           p.classList.remove('open');
           p.style.display = 'none';
+          const otherCard = p.closest('.entry-card');
+          if (otherCard) otherCard.style.zIndex = '';
         }
       });
+
+      // Eleva o card atual para garantir que o menu fique acima dos outros cards
+      card.style.zIndex = '100';
+
+      // Posicionamento inteligente: por padrao ACIMA (evita cortar no fim do card/tela)
+      if (typeof statusWrap.getBoundingClientRect === 'function') {
+        const rect = statusWrap.getBoundingClientRect();
+        if (rect.top < 140) {
+          popover.classList.remove('open-above');
+          popover.classList.add('open-below');
+        } else {
+          popover.classList.remove('open-below');
+          popover.classList.add('open-above');
+        }
+      } else {
+        popover.classList.add('open-above');
+      }
+
       popover.style.display = 'flex';
       requestAnimationFrame(() => popover.classList.add('open'));
     }
 
     function closeStatusMenu() {
       popover.classList.remove('open');
+      card.style.zIndex = '';
       setTimeout(() => {
         if (!popover.classList.contains('open')) {
           popover.style.display = 'none';
@@ -4647,6 +4668,8 @@ if (typeof document !== 'undefined' && typeof document.addEventListener === 'fun
     if (!e.target.closest('.entry-status-wrap')) {
       document.querySelectorAll('.status-popover.open').forEach(p => {
         p.classList.remove('open');
+        const parentCard = p.closest('.entry-card');
+        if (parentCard) parentCard.style.zIndex = '';
         setTimeout(() => {
           if (!p.classList.contains('open')) {
             p.style.display = 'none';

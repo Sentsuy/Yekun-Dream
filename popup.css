@@ -1897,6 +1897,10 @@ input:checked + .slider::before {
 }
 
 /* ─── Status Hover Popover no Card ───────────────────────────── */
+.entry-card:has(.status-popover.open) {
+  z-index: 100;
+}
+
 .entry-status-wrap {
   position: relative;
   display: inline-flex;
@@ -1905,8 +1909,9 @@ input:checked + .slider::before {
 
 .status-popover {
   position: absolute;
-  top: calc(100% + 4px);
+  bottom: calc(100% + 5px);
   left: 0;
+  top: auto;
   z-index: 120;
   min-width: 124px;
   background: var(--surface);
@@ -1916,11 +1921,25 @@ input:checked + .slider::before {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
   opacity: 0;
-  transform: translateY(-4px) scale(0.97);
+  transform: translateY(4px) scale(0.97);
+  transform-origin: bottom left;
   transition: opacity 0.15s ease, transform 0.15s ease;
   pointer-events: none;
+}
+
+.status-popover.open-above {
+  bottom: calc(100% + 5px);
+  top: auto;
+  transform-origin: bottom left;
+}
+
+.status-popover.open-below {
+  top: calc(100% + 5px);
+  bottom: auto;
+  transform-origin: top left;
+  transform: translateY(-4px) scale(0.97);
 }
 
 .status-popover.open {

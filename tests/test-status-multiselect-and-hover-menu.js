@@ -113,6 +113,8 @@ async function runTests() {
   assert.ok(popupCss.includes('.entry-status-wrap'), 'popup.css must style .entry-status-wrap');
   assert.ok(popupCss.includes('.status-popover'), 'popup.css must style .status-popover');
   assert.ok(popupCss.includes('.status-popover-opt'), 'popup.css must style .status-popover-opt');
+  assert.ok(popupCss.includes('bottom: calc(100% + 5px)'), 'status-popover must be positioned above the badge');
+  assert.ok(popupCss.includes('.status-popover.open-above'), 'status-popover must support open-above');
 
   // Step 5: Verify popup.js declarations
   const popupJs = fs.readFileSync(path.join(__dirname, '..', 'popup.js'), 'utf8');
