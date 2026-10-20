@@ -122,7 +122,7 @@ async function runTests() {
   assert.ok(popupJs.includes('activeStatusFilters'), 'popup.js must declare activeStatusFilters');
   assert.ok(popupJs.includes('status-popover'), 'popup.js must generate status-popover');
   assert.ok(popupJs.includes('isLastCard'), 'popup.js must detect last card to open above');
-  assert.ok(popupJs.includes('2000'), 'popup.js must use 2000ms hover delay for status options');
+  assert.ok(popupJs.includes('500'), 'popup.js must use 500ms hover delay for status options');
   assert.ok(popupJs.includes('touchUpdatedAt: false'), 'popup.js must update status with touchUpdatedAt: false');
   assert.ok(!/[📖🌐↗✎✕＋▼⚙]/.test(popupJs), 'popup.js must not contain legacy icon emojis/glyphs');
 

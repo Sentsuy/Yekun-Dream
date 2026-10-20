@@ -3936,7 +3936,7 @@ function buildWorkCard(work) {
   const statusDisplay = statusLabels[readingStatus] || readingStatus;
   const statusBadgeHtml = `
     <div class="entry-status-wrap" data-workid="${work.id}">
-      <button type="button" class="entry-status-badge status-${readingStatus} btn-status-cycle" title="Passe o mouse por 2s ou clique para alterar status (${statusDisplay})">${statusDisplay}</button>
+      <button type="button" class="entry-status-badge status-${readingStatus} btn-status-cycle" title="Status: ${statusDisplay}">${statusDisplay}</button>
       <div class="status-popover" role="menu" style="display: none;">
         <div class="status-popover-header">Alterar Status</div>
         <button type="button" class="status-popover-opt ${readingStatus === 'lendo' ? 'active' : ''}" data-status="lendo">
@@ -4112,13 +4112,13 @@ function buildWorkCard(work) {
       }, 150);
     }
 
-    // 2 segundos com o mouse sobre o status para abrir opções
+    // 0.5s com o mouse sobre o status para abrir opções
     statusWrap.addEventListener('mouseenter', () => {
       clearTimeout(closeTimer);
       clearTimeout(hoverTimer);
       hoverTimer = setTimeout(() => {
         openStatusMenu();
-      }, 2000);
+      }, 500);
     });
 
     statusWrap.addEventListener('mouseleave', () => {
@@ -4171,7 +4171,7 @@ function buildWorkCard(work) {
           // Atualização direta e in-place no card sem re-renderizar a lista inteira
           badgeBtn.className = `entry-status-badge status-${next} btn-status-cycle`;
           badgeBtn.textContent = nextLabel;
-          badgeBtn.title = `Passe o mouse por 2s ou clique para alterar status (${nextLabel})`;
+          badgeBtn.title = `Status: ${nextLabel}`;
 
           popover.querySelectorAll('.status-popover-opt').forEach(b => {
             b.classList.toggle('active', b.dataset.status === next);
