@@ -1241,6 +1241,21 @@ const StorageLocal = {
     return work;
   },
 
+  async updateWorkCategory(id, tag, { touchUpdatedAt = false } = {}) {
+    const list = await this.getAllRawWorks();
+    const work = list.find(w => w.id === id);
+    if (!work) return null;
+
+    if (tag) work.tag = tag;
+    if (touchUpdatedAt) {
+      work.updatedAt = Date.now();
+    }
+    work.syncStatus = 'pending';
+
+    await safeStorageSet({ [STORAGE_KEY_ENTRIES_V3]: list });
+    return work;
+  },
+
   async deleteWork(id) {
     const list = await this.getAllRawWorks();
     const work = list.find(w => w.id === id);

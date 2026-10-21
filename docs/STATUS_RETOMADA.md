@@ -1,9 +1,9 @@
 # 📌 Guia de Retomada do Projeto — Yekun Dream
 
-- **Data da Última Atualização:** 20 de Outubro de 2026
-- **Estado Geral:** ✅ 66/66 Suítes de Testes Automatizados Aprovadas (100% Verdes)
-- **Versão:** 1.2.0 (Yekun Cloud PRO + Device Session Security + Filtro Multi-Status + Turbo Startup)
-- **Pacote de Produção:** `dist/yekun-dream-v1.2.0.zip` (165.5 KB) pronto para o Chrome Web Store Developer Dashboard.
+- **Data da Última Atualização:** 21 de Outubro de 2026
+- **Estado Geral:** ✅ 67/67 Suítes de Testes Automatizados Aprovadas (100% Verdes)
+- **Versão:** 1.2.0 (Yekun Cloud PRO + Device Session Security + Filtro Multi-Status + Popovers Status/Categoria + Turbo Startup)
+- **Pacote de Produção:** `dist/yekun-dream-v1.2.0.zip` (166.9 KB) pronto para o Chrome Web Store Developer Dashboard.
 
 ---
 
@@ -57,7 +57,20 @@
 
 ---
 
-### 5. 📬 Central de Feed, Sugestões & Mapeamento de Sites (In-App)
+### 5. 🎨 Menu Suspenso (Popover) de Categoria/Tipo de Obra com Hover de 0.5s
+- **Popover Interativo no Badge de Categoria (`.entry-cat-badge`)**:
+  - Pousar o cursor por **0.5s** (ou clicar diretamente) abre o menu popover de tipos: `Mangá`, `Manhwa`, `Manhua`, `Anime`, `Webtoon`, `Série`, `Filme`, `Livro`, `Outro`.
+  - **Mesmas Regras Direcionais**: Abre para baixo por default, e para cima no último card ou espaço livre inferior $< 145\text{px}$.
+  - **Sincronização Semântica Dinâmica (Texto ↔ Vídeo)**:
+    - Alternar para formato audiovisual (`anime`, `serie`, `filme`) converte automaticamente o rótulo de leitura ativa de `Lendo` para `Assistindo` e atualiza o botão principal de ação (`Continuar assistindo`).
+    - Alternar de volta para leitura gráfica/textual (`manga`, `manhwa`, etc.) restaura para `Lendo` e `Continuar lendo`.
+  - **Atualização In-Place sem Re-renderização Total**: Atualiza os badges e atributos diretamente no DOM, evitando qualquer reordenação ou flickering de tela.
+  - **Zero Emojis / Tipografia Clean**: Uso exclusivo de labels textuais limpos com pontos cromáticos do CSS (`.dot-manga`, `.dot-anime`, etc.), atendendo à diretriz de design da comunidade.
+  - **Storage Atômico**: Método `StorageLocal.updateWorkCategory(id, tag, { touchUpdatedAt: false })`.
+
+---
+
+### 6. 📬 Central de Feed, Sugestões & Mapeamento de Sites (In-App)
 - **Limite Rígido de 300 Caracteres**: Validado no front (`popup.html`/`popup.js`), serviço (`feedback-service.js`) e no Postgres (`feedback_reports.message VARCHAR(300)`).
 - **3 Categorias**: `site_mapping` (sugerir site/scan), `bug_report` (falha de captura) e `suggestion` (melhoria geral).
 - **Atalho Rápido na Barra de Site**: Botão discreto ao lado do botão flutuante para relatar a página ativa com contexto pré-preenchido.
@@ -66,7 +79,7 @@
 
 ---
 
-### 6. 💳 Pagamento Pix & Entrega de Credenciais Híbridas (PIN + 2FA)
+### 7. 💳 Pagamento Pix & Entrega de Credenciais Híbridas (PIN + 2FA)
 - **Gateway AbacatePay v2**: Webhook seguro autenticado com segredo (`x-abacatepay-secret`).
 - **Resgate Automático de Credenciais**: Imediatamente após a confirmação do Pix, a RPC `claim_charge_credentials` entrega ao popup o PIN de 6 dígitos e a Chave de Recuperação (`YK-XXXX-XXXX-XXXX`).
 - **Google Authenticator (2FA TOTP)**: Chaves manuais Base32 e QR Code gerados no front, validados via RFC 6238 antes da ativação.
@@ -96,7 +109,7 @@ Execute o arquivo:
 
 ## 🧪 Verificação da Suíte de Testes
 
-Para validar a integridade completa da extensão (66 suítes cobrindo storage, segurança, RLS, TOTP, UI, performance e sintaxe):
+Para validar a integridade completa da extensão (67 suítes cobrindo storage, segurança, RLS, TOTP, UI, performance e sintaxe):
 
 ```bash
 npm test
@@ -109,7 +122,7 @@ npm test
 ═══════════════════════════════════════════════════════
 ...
 ───────────────────────────────────────────────────────
-Results: 66 passed, 0 failed (66 total)
+Results: 67 passed, 0 failed (67 total)
 ───────────────────────────────────────────────────────
 ✓ All test suites passed successfully!
 ```
@@ -133,10 +146,10 @@ Arquivo gerado em:
 
 | Arquivo | Função Principal |
 | :--- | :--- |
-| [`popup.js`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/popup.js) | Controle de interface, renderização em lotes, filtro multi-status, hover de status, gavetas e binding de eventos. |
+| [`popup.js`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/popup.js) | Controle de interface, renderização em lotes, filtro multi-status, popovers hover (status e categoria), gavetas e binding de eventos. |
 | [`popup.html`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/popup.html) | Estrutura semântica, chips de filtro multi-status, modais de 2FA, PIN, termos de uso e gaveta de feed. |
-| [`popup.css`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/popup.css) | Estilização completa, popovers direcionais (`open-below`, `open-above`), temas escuro/claro/rosa/neon. |
-| [`storage-local.js`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/storage-local.js) | CRUD local v3, método `getInitialData()` com agregação em 1 IPC e método `updateWorkStatus` com `touchUpdatedAt: false`. |
+| [`popup.css`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/popup.css) | Estilização completa, popovers direcionais (`status-popover`, `category-popover`), temas escuro/claro/rosa/neon. |
+| [`storage-local.js`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/storage-local.js) | CRUD local v3, método `getInitialData()` com agregação em 1 IPC e métodos `updateWorkStatus`/`updateWorkCategory` com `touchUpdatedAt: false`. |
 | [`identity-service.js`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/identity-service.js) | Gestão de identidade, `primeCache()`, verificação de PIN, TOTP RFC 6238, sessions tokens e status PRO. |
 | [`sync-service.js`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/sync-service.js) | Sincronização em nuvem bidirecional com anexação do header `x-sync-token` e resolução de conflitos. |
 | [`feedback-service.js`](file:///mnt/c/Users/Sentsuy/OneDrive/Projetos/Pessoal/Yekun%20Dreaw%20-%20Exten%C3%A7%C3%A3o/feedback-service.js) | Validação e envio de sugestões/bugs para o Supabase com rate limit. |

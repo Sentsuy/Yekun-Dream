@@ -3974,6 +3974,62 @@ function buildWorkCard(work) {
   const pubStatus = work.publicationStatus || 'lancamento';
 
   const isVideo = isVideoWorkTag(tag);
+  const CATEGORY_LABELS = {
+    manga: 'Mangá',
+    manhwa: 'Manhwa',
+    manhua: 'Manhua',
+    anime: 'Anime',
+    webtoon: 'Webtoon',
+    serie: 'Série',
+    filme: 'Filme',
+    livro: 'Livro',
+    outro: 'Outro'
+  };
+  const categoryDisplay = CATEGORY_LABELS[tag] || tag;
+  const categoryBadgeHtml = `
+    <div class="entry-category-wrap" data-workid="${work.id}">
+      <button type="button" class="entry-cat-badge cat-${tag} btn-cat-cycle" title="Categoria: ${categoryDisplay}">${categoryDisplay}</button>
+      <div class="category-popover" role="menu" style="display: none;">
+        <div class="category-popover-header">Alterar Categoria</div>
+        <button type="button" class="category-popover-opt ${tag === 'manga' ? 'active' : ''}" data-tag="manga">
+          <span class="category-popover-dot dot-manga"></span>
+          <span>Mangá</span>
+        </button>
+        <button type="button" class="category-popover-opt ${tag === 'manhwa' ? 'active' : ''}" data-tag="manhwa">
+          <span class="category-popover-dot dot-manhwa"></span>
+          <span>Manhwa</span>
+        </button>
+        <button type="button" class="category-popover-opt ${tag === 'manhua' ? 'active' : ''}" data-tag="manhua">
+          <span class="category-popover-dot dot-manhua"></span>
+          <span>Manhua</span>
+        </button>
+        <button type="button" class="category-popover-opt ${tag === 'anime' ? 'active' : ''}" data-tag="anime">
+          <span class="category-popover-dot dot-anime"></span>
+          <span>Anime</span>
+        </button>
+        <button type="button" class="category-popover-opt ${tag === 'webtoon' ? 'active' : ''}" data-tag="webtoon">
+          <span class="category-popover-dot dot-webtoon"></span>
+          <span>Webtoon</span>
+        </button>
+        <button type="button" class="category-popover-opt ${tag === 'serie' ? 'active' : ''}" data-tag="serie">
+          <span class="category-popover-dot dot-serie"></span>
+          <span>Série</span>
+        </button>
+        <button type="button" class="category-popover-opt ${tag === 'filme' ? 'active' : ''}" data-tag="filme">
+          <span class="category-popover-dot dot-filme"></span>
+          <span>Filme</span>
+        </button>
+        <button type="button" class="category-popover-opt ${tag === 'livro' ? 'active' : ''}" data-tag="livro">
+          <span class="category-popover-dot dot-livro"></span>
+          <span>Livro</span>
+        </button>
+        <button type="button" class="category-popover-opt ${tag === 'outro' ? 'active' : ''}" data-tag="outro">
+          <span class="category-popover-dot dot-outro"></span>
+          <span>Outro</span>
+        </button>
+      </div>
+    </div>`;
+
   const statusLabels = {
     lendo: isVideo ? 'Assistindo' : 'Lendo',
     concluido: 'Concluído',
@@ -4057,7 +4113,8 @@ function buildWorkCard(work) {
 
       <div class="entry-meta-row">
         ${activeSrc.url ? `<button class="btn-continue btn-main-open" title="Continuar ${isVideo ? 'assistindo' : 'lendo'} em ${esc(activeSrc.siteName || 'site')}">Continuar ${ICONS.external}</button>` : ''}
-        <span class="entry-cat-badge cat-${tag}">${tag}</span>
+        <!-- entry-cat-badge wrap -->
+        ${categoryBadgeHtml}
         ${statusBadgeHtml}
         ${pubBadgeHtml}
         ${releaseDaysBadge}
@@ -4112,12 +4169,12 @@ function buildWorkCard(work) {
     let closeTimer = null;
 
     function openStatusMenu() {
-      document.querySelectorAll('.status-popover.open').forEach(p => {
+      document.querySelectorAll('.status-popover.open, .category-popover.open').forEach(p => {
         if (p !== popover) {
           p.classList.remove('open');
           p.style.display = 'none';
           const otherCard = p.closest('.entry-card');
-          if (otherCard) otherCard.style.zIndex = '';
+          if (otherCard && otherCard !== card) otherCard.style.zIndex = '';
         }
       });
 
@@ -4236,6 +4293,167 @@ function buildWorkCard(work) {
 
           // Se o novo status não estiver entre os filtros selecionados, remove suavemente
           if (!activeStatusFilters.has(next) && !activeStatusFilters.has('all')) {
+            setTimeout(() => {
+              card.style.transition = 'opacity 0.35s ease, transform 0.35s ease';
+              card.style.opacity = '0';
+              card.style.transform = 'scale(0.96)';
+              setTimeout(() => {
+                card.remove();
+                if (entriesList.querySelectorAll('.entry-card').length === 0) {
+                  emptyState.style.display = 'flex';
+                }
+              }, 350);
+            }, 600);
+          }
+        }
+      });
+    });
+  }
+
+  // Quick change category/type via 0.5s hover or click
+  const catWrap = card.querySelector('.entry-category-wrap');
+  if (catWrap) {
+    const catBadgeBtn = catWrap.querySelector('.btn-cat-cycle');
+    const catPopover = catWrap.querySelector('.category-popover');
+    let catHoverTimer = null;
+    let catCloseTimer = null;
+
+    function openCategoryMenu() {
+      document.querySelectorAll('.status-popover.open, .category-popover.open').forEach(p => {
+        if (p !== catPopover) {
+          p.classList.remove('open');
+          p.style.display = 'none';
+          const otherCard = p.closest('.entry-card');
+          if (otherCard && otherCard !== card) otherCard.style.zIndex = '';
+        }
+      });
+
+      card.style.zIndex = '100';
+
+      let shouldOpenAbove = false;
+      const allCards = entriesList ? Array.from(entriesList.querySelectorAll('.entry-card')) : [];
+      const isLastCard = allCards.length > 0 && allCards[allCards.length - 1] === card;
+
+      if (isLastCard) {
+        shouldOpenAbove = true;
+      } else if (typeof catWrap.getBoundingClientRect === 'function') {
+        const wrapRect = catWrap.getBoundingClientRect();
+        const viewportHeight = (typeof window !== 'undefined' && window.innerHeight)
+          ? window.innerHeight
+          : (document && document.documentElement ? document.documentElement.clientHeight : 600);
+        const containerBottom = (entriesList && typeof entriesList.getBoundingClientRect === 'function')
+          ? entriesList.getBoundingClientRect().bottom
+          : viewportHeight;
+        const spaceBelow = Math.min(viewportHeight, containerBottom) - wrapRect.bottom;
+        if (spaceBelow < 145) {
+          shouldOpenAbove = true;
+        }
+      }
+
+      if (shouldOpenAbove) {
+        catPopover.classList.remove('open-below');
+        catPopover.classList.add('open-above');
+      } else {
+        catPopover.classList.remove('open-above');
+        catPopover.classList.add('open-below');
+      }
+
+      catPopover.style.display = 'flex';
+      requestAnimationFrame(() => catPopover.classList.add('open'));
+    }
+
+    function closeCategoryMenu() {
+      catPopover.classList.remove('open');
+      card.style.zIndex = '';
+      setTimeout(() => {
+        if (!catPopover.classList.contains('open')) {
+          catPopover.style.display = 'none';
+        }
+      }, 150);
+    }
+
+    // 0.5s com o mouse sobre a categoria para abrir opções
+    catWrap.addEventListener('mouseenter', () => {
+      clearTimeout(catCloseTimer);
+      clearTimeout(catHoverTimer);
+      catHoverTimer = setTimeout(() => {
+        openCategoryMenu();
+      }, 500);
+    });
+
+    catWrap.addEventListener('mouseleave', () => {
+      clearTimeout(catHoverTimer);
+      catCloseTimer = setTimeout(() => {
+        closeCategoryMenu();
+      }, 250);
+    });
+
+    // Clique direto no badge abre/fecha imediatamente
+    if (catBadgeBtn) {
+      catBadgeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        clearTimeout(catHoverTimer);
+        if (catPopover.classList.contains('open')) {
+          closeCategoryMenu();
+        } else {
+          openCategoryMenu();
+        }
+      });
+    }
+
+    // Seleção de categoria no popover
+    catPopover.querySelectorAll('.category-popover-opt').forEach(opt => {
+      opt.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const nextTag = opt.dataset.tag;
+        closeCategoryMenu();
+
+        if (nextTag === (work.tag || 'outro')) {
+          return;
+        }
+
+        const updated = await StorageLocal.updateWorkCategory(work.id, nextTag, { touchUpdatedAt: false });
+        if (updated) {
+          work.tag = nextTag;
+          const target = allWorks.find(w => w.id === work.id);
+          if (target) target.tag = nextTag;
+
+          const nextLabel = CATEGORY_LABELS[nextTag] || nextTag;
+          catBadgeBtn.className = `entry-cat-badge cat-${nextTag} btn-cat-cycle`;
+          catBadgeBtn.textContent = nextLabel;
+          catBadgeBtn.title = `Categoria: ${nextLabel}`;
+
+          catPopover.querySelectorAll('.category-popover-opt').forEach(b => {
+            b.classList.toggle('active', b.dataset.tag === nextTag);
+          });
+
+          // Atualiza semântica de vídeo vs texto no status e no botão continuar
+          const isNowVideo = isVideoWorkTag(nextTag);
+          const currentReadingStatus = work.readingStatus || 'lendo';
+          if (currentReadingStatus === 'lendo') {
+            const statusBadgeBtn = card.querySelector('.btn-status-cycle');
+            if (statusBadgeBtn) {
+              const statusText = isNowVideo ? 'Assistindo' : 'Lendo';
+              statusBadgeBtn.textContent = statusText;
+              statusBadgeBtn.title = `Status: ${statusText}`;
+            }
+            const lendoOptSpan = card.querySelector('.status-popover-opt[data-status="lendo"] span:last-child');
+            if (lendoOptSpan) {
+              lendoOptSpan.textContent = isNowVideo ? 'Assistindo' : 'Lendo';
+            }
+          }
+
+          const contBtn = card.querySelector('.btn-continue');
+          if (contBtn && activeSrc.siteName) {
+            contBtn.title = `Continuar ${isNowVideo ? 'assistindo' : 'lendo'} em ${esc(activeSrc.siteName || 'site')}`;
+          }
+
+          showToast(`✓ Categoria alterada para: ${nextLabel}`);
+
+          // Se a categoria alterada divergir do filtro de categoria ativo, remove suavemente
+          if (categoryFilter && categoryFilter.value !== 'all' && categoryFilter.value !== nextTag) {
             setTimeout(() => {
               card.style.transition = 'opacity 0.35s ease, transform 0.35s ease';
               card.style.opacity = '0';
@@ -4731,12 +4949,24 @@ if (statusFilterBar) {
   updateStatusFilterBarUI();
 }
 
-// Fechar qualquer popover de status ao clicar fora
+// Fechar qualquer popover de status ou categoria ao clicar fora
 if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
   document.addEventListener('click', (e) => {
     if (!e.target || typeof e.target.closest !== 'function') return;
     if (!e.target.closest('.entry-status-wrap')) {
       document.querySelectorAll('.status-popover.open').forEach(p => {
+        p.classList.remove('open');
+        const parentCard = p.closest('.entry-card');
+        if (parentCard) parentCard.style.zIndex = '';
+        setTimeout(() => {
+          if (!p.classList.contains('open')) {
+            p.style.display = 'none';
+          }
+        }, 150);
+      });
+    }
+    if (!e.target.closest('.entry-category-wrap')) {
+      document.querySelectorAll('.category-popover.open').forEach(p => {
         p.classList.remove('open');
         const parentCard = p.closest('.entry-card');
         if (parentCard) parentCard.style.zIndex = '';

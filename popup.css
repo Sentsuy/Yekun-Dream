@@ -1831,6 +1831,21 @@ input:checked + .slider::before {
   border-radius: 4px;
   white-space: nowrap;
   flex-shrink: 0;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all var(--transition);
+  user-select: none;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+}
+.entry-cat-badge:hover {
+  transform: translateY(-1px);
+  filter: contrast(1.08);
+  box-shadow: 0 1px 4px var(--shadow-color);
+}
+.entry-cat-badge:active {
+  transform: translateY(0);
 }
 .cat-manga   { background: rgba(167, 139, 250, 0.12); color: var(--tag-manga); }
 .cat-manhwa  { background: rgba(56, 189, 248, 0.12); color: var(--tag-manhwa); }
@@ -1841,6 +1856,102 @@ input:checked + .slider::before {
 .cat-filme   { background: rgba(251, 191, 36, 0.12); color: var(--tag-filme); }
 .cat-livro   { background: rgba(129, 140, 248, 0.12); color: var(--tag-livro); }
 .cat-outro   { background: rgba(251, 146, 60, 0.12); color: var(--tag-outro); }
+
+/* Popover de Categoria / Tipo de Obra */
+.entry-category-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.category-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  bottom: auto;
+  left: 0;
+  z-index: 120;
+  min-width: 124px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transform: translateY(-4px) scale(0.97);
+  transform-origin: top left;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  pointer-events: none;
+}
+
+.category-popover.open-below {
+  top: calc(100% + 4px);
+  bottom: auto;
+  transform-origin: top left;
+  transform: translateY(-4px) scale(0.97);
+}
+
+.category-popover.open-above {
+  bottom: calc(100% + 4px);
+  top: auto;
+  transform-origin: bottom left;
+  transform: translateY(4px) scale(0.97);
+}
+
+.category-popover.open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.category-popover-header {
+  font-size: 8.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--muted);
+  padding: 2px 6px 4px 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2px;
+}
+
+.category-popover-opt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 7px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-readable);
+  font-size: 10px;
+  font-weight: 500;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition), color var(--transition);
+  width: 100%;
+}
+
+.category-popover-opt:hover {
+  background: var(--surface2);
+  color: var(--accent);
+}
+
+.category-popover-opt.active {
+  background: var(--surface2);
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.category-popover-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
  
 /* Status de Leitura & Publicação (Clicáveis com 1-toque) */
 .entry-status-badge {
@@ -1896,8 +2007,9 @@ input:checked + .slider::before {
   border: 1px solid var(--status-plan-border);
 }
 
-/* ─── Status Hover Popover no Card ───────────────────────────── */
-.entry-card:has(.status-popover.open) {
+/* ─── Status & Category Hover Popover no Card ─────────────────── */
+.entry-card:has(.status-popover.open),
+.entry-card:has(.category-popover.open) {
   z-index: 100;
 }
 
