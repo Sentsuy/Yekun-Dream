@@ -95,6 +95,12 @@ async function runTests() {
   assert.strictEqual(dropadoList.length, 1, 'Only dropado works should be returned');
   assert.strictEqual(dropadoList[0].id, '3');
 
+  // Single select: pausado
+  const pausadoList = filterWorksMulti(works, new Set(['pausado']));
+  assert.strictEqual(pausadoList.length, 1, 'Only pausado works should be returned when clicking pausado');
+  assert.strictEqual(pausadoList[0].id, '2');
+  assert.strictEqual(pausadoList[0].readingStatus, 'pausado');
+
   // Step 3: Verify popup.html declarations
   const popupHtml = fs.readFileSync(path.join(__dirname, '..', 'popup.html'), 'utf8');
   assert.ok(popupHtml.includes('id="statusFilterBar"'), 'popup.html must declare statusFilterBar');
@@ -120,6 +126,7 @@ async function runTests() {
   const popupJs = fs.readFileSync(path.join(__dirname, '..', 'popup.js'), 'utf8');
   assert.ok(popupJs.includes('statusFilterBar'), 'popup.js must reference statusFilterBar');
   assert.ok(popupJs.includes('activeStatusFilters'), 'popup.js must declare activeStatusFilters');
+  assert.ok(popupJs.includes('activeStatusFilters.clear()'), 'popup.js must support clearing for exclusive status selection');
   assert.ok(popupJs.includes('status-popover'), 'popup.js must generate status-popover');
   assert.ok(popupJs.includes('isLastCard'), 'popup.js must detect last card to open above');
   assert.ok(popupJs.includes('500'), 'popup.js must use 500ms hover delay for status options');

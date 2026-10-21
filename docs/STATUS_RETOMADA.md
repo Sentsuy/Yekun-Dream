@@ -1,9 +1,9 @@
 # 📌 Guia de Retomada do Projeto — Yekun Dream
 
 - **Data da Última Atualização:** 21 de Outubro de 2026
-- **Estado Geral:** ✅ 67/67 Suítes de Testes Automatizados Aprovadas (100% Verdes)
-- **Versão:** 1.2.0 (Yekun Cloud PRO + Device Session Security + Filtro Multi-Status + Popovers Status/Categoria + Turbo Startup)
-- **Pacote de Produção:** `dist/yekun-dream-v1.2.0.zip` (166.9 KB) pronto para o Chrome Web Store Developer Dashboard.
+- **Estado Geral:** ✅ 68/68 Suítes de Testes Automatizados Aprovadas (100% Verdes)
+- **Versão:** 1.2.0 (Yekun Cloud PRO + Device Session Security + Filtro Multi-Status Fluido + Popovers Status/Categoria + Turbo Startup)
+- **Pacote de Produção:** `dist/yekun-dream-v1.2.0.zip` (167.6 KB) pronto para o Chrome Web Store Developer Dashboard.
 
 ---
 
@@ -109,7 +109,7 @@ Execute o arquivo:
 
 ## 🧪 Verificação da Suíte de Testes
 
-Para validar a integridade completa da extensão (67 suítes cobrindo storage, segurança, RLS, TOTP, UI, performance e sintaxe):
+Para validar a integridade completa da extensão (68 suítes cobrindo storage, segurança, RLS, TOTP, UI, performance e sintaxe):
 
 ```bash
 npm test
@@ -122,7 +122,7 @@ npm test
 ═══════════════════════════════════════════════════════
 ...
 ───────────────────────────────────────────────────────
-Results: 67 passed, 0 failed (67 total)
+Results: 68 passed, 0 failed (68 total)
 ───────────────────────────────────────────────────────
 ✓ All test suites passed successfully!
 ```

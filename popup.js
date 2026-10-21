@@ -3711,7 +3711,7 @@ function filterWorks(
   if (status && status !== 'all') {
     if (status instanceof Set || Array.isArray(status)) {
       const set = status instanceof Set ? status : new Set(status);
-      if (!set.has('all') && set.size < 5) {
+      if (!set.has('all') && set.size > 0 && set.size < 5) {
         list = list.filter(w => set.has((w.readingStatus || 'lendo').toLowerCase()));
       }
     } else {
@@ -3785,6 +3785,37 @@ function renderList(
 
   if (list.length === 0) {
     emptyState.style.display = 'flex';
+    if (allWorks && allWorks.length > 0) {
+      emptyState.innerHTML = `
+        <div class="empty-icon">
+          <svg class="svg-icon svg-xl" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </div>
+        <p>Nenhuma obra encontrada com os filtros atuais.<br>
+          <button type="button" class="btn-reset-filters" id="btnResetFilters" style="margin-top:10px;padding:6px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;">Redefinir filtros e busca</button>
+        </p>
+      `;
+      const btnReset = emptyState.querySelector('#btnResetFilters');
+      if (btnReset) {
+        btnReset.addEventListener('click', () => {
+          if (searchInput) {
+            searchInput.value = '';
+            if (btnClearSearch) btnClearSearch.style.display = 'none';
+          }
+          if (categoryFilter) categoryFilter.value = 'all';
+          activeStatusFilters.clear();
+          activeStatusFilters.add('lendo');
+          updateStatusFilterBarUI();
+          renderCurrentView();
+        });
+      }
+    } else {
+      emptyState.innerHTML = `
+        <div class="empty-icon">
+          <svg class="svg-icon svg-xl" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+        </div>
+        <p>Nenhuma obra encontrada.<br>Clique em <strong>+ Nova Obra</strong> para começar.</p>
+      `;
+    }
     return;
   }
   emptyState.style.display = 'none';
@@ -4292,7 +4323,8 @@ function buildWorkCard(work) {
           showToast(`✓ Status alterado para: ${nextLabel}`);
 
           // Se o novo status não estiver entre os filtros selecionados, remove suavemente
-          if (!activeStatusFilters.has(next) && !activeStatusFilters.has('all')) {
+          const isFilterAll = activeStatusFilters.has('all') || activeStatusFilters.size === 0 || activeStatusFilters.size >= 5;
+          if (!isFilterAll && !activeStatusFilters.has(next)) {
             setTimeout(() => {
               card.style.transition = 'opacity 0.35s ease, transform 0.35s ease';
               card.style.opacity = '0';
@@ -4446,7 +4478,7 @@ function buildWorkCard(work) {
           }
 
           const contBtn = card.querySelector('.btn-continue');
-          if (contBtn && activeSrc.siteName) {
+          if (contBtn) {
             contBtn.title = `Continuar ${isNowVideo ? 'assistindo' : 'lendo'} em ${esc(activeSrc.siteName || 'site')}`;
           }
 
@@ -4865,6 +4897,14 @@ if (searchInput) {
       renderCurrentView();
     }, 120);
   });
+
+  searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && searchInput.value) {
+      searchInput.value = '';
+      if (btnClearSearch) btnClearSearch.style.display = 'none';
+      renderCurrentView();
+    }
+  });
 }
 
 if (btnClearSearch) {
@@ -4880,28 +4920,29 @@ if (btnClearSearch) {
 }
 
 function updateStatusFilterOptionLabel() {
-  if (!statusFilter) return;
-  const lendoOpt = statusFilter.querySelector('option[value="lendo"]');
-  if (!lendoOpt) return;
   const cat = categoryFilter ? categoryFilter.value : 'all';
-  if (isVideoWorkTag(cat)) {
-    lendoOpt.textContent = 'Assistindo';
-  } else if (cat !== 'all') {
-    lendoOpt.textContent = 'Lendo';
-  } else {
-    lendoOpt.textContent = 'Lendo / Assistindo';
+  const label = isVideoWorkTag(cat) ? 'Assistindo' : (cat !== 'all' ? 'Lendo' : 'Lendo / Assistindo');
+
+  if (statusFilter) {
+    const lendoOpt = statusFilter.querySelector('option[value="lendo"]');
+    if (lendoOpt) lendoOpt.textContent = label;
+  }
+
+  if (statusFilterBar) {
+    const lendoChipLabel = statusFilterBar.querySelector('.status-chip[data-status="lendo"] .status-chip-label');
+    if (lendoChipLabel) lendoChipLabel.textContent = label;
   }
 }
 
 function updateStatusFilterBarUI() {
   if (!statusFilterBar) return;
-  const isAll = activeStatusFilters.size >= 5 || activeStatusFilters.has('all');
+  const isAll = activeStatusFilters.size === 0 || activeStatusFilters.size >= 5 || activeStatusFilters.has('all');
   statusFilterBar.querySelectorAll('.status-chip').forEach(chip => {
     const st = chip.dataset.status;
     if (st === 'all') {
       chip.classList.toggle('active', isAll);
     } else {
-      chip.classList.toggle('active', isAll || activeStatusFilters.has(st));
+      chip.classList.toggle('active', !isAll && activeStatusFilters.has(st));
     }
   });
 
@@ -4918,29 +4959,34 @@ function updateStatusFilterBarUI() {
 
 if (statusFilterBar) {
   statusFilterBar.querySelectorAll('.status-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
+    chip.addEventListener('click', (e) => {
       const st = chip.dataset.status;
+      const isSolo = e && (e.altKey || (e.ctrlKey && activeStatusFilters.size > 1));
+
       if (st === 'all') {
-        if (activeStatusFilters.size >= 5 || activeStatusFilters.has('all')) {
-          activeStatusFilters.clear();
-          activeStatusFilters.add('lendo');
+        activeStatusFilters.clear();
+        activeStatusFilters.add('all');
+      } else if (isSolo) {
+        // Seleção exclusiva via Alt+clique ou Ctrl+clique
+        activeStatusFilters.clear();
+        activeStatusFilters.add(st);
+      } else if (activeStatusFilters.has('all') || activeStatusFilters.size === 0) {
+        // Se estava em "Todos", seleciona apenas o status clicado
+        activeStatusFilters.clear();
+        activeStatusFilters.add(st);
+      } else if (activeStatusFilters.has(st)) {
+        // Desmarca o status clicado
+        if (activeStatusFilters.size > 1) {
+          activeStatusFilters.delete(st);
         } else {
+          // Se era o único ativo, ao desmarcar retorna para "Todos"
           activeStatusFilters.clear();
-          ['lendo', 'pausado', 'dropado', 'concluido', 'planejo'].forEach(s => activeStatusFilters.add(s));
+          activeStatusFilters.add('all');
         }
       } else {
-        if (activeStatusFilters.has(st)) {
-          if (activeStatusFilters.size > 1) {
-            activeStatusFilters.delete(st);
-            activeStatusFilters.delete('all');
-          } else {
-            showToast('Pelo menos um status deve estar selecionado');
-            return;
-          }
-        } else {
-          activeStatusFilters.delete('all');
-          activeStatusFilters.add(st);
-        }
+        // Adiciona à seleção múltipla de forma natural
+        activeStatusFilters.delete('all');
+        activeStatusFilters.add(st);
       }
       updateStatusFilterBarUI();
       renderCurrentView();
@@ -4993,7 +5039,7 @@ if (statusFilter) {
     const val = statusFilter.value;
     activeStatusFilters.clear();
     if (val === 'all') {
-      ['lendo', 'pausado', 'dropado', 'concluido', 'planejo'].forEach(s => activeStatusFilters.add(s));
+      activeStatusFilters.add('all');
     } else {
       activeStatusFilters.add(val);
     }

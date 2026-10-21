@@ -3547,12 +3547,6 @@ input:checked + .slider::before {
   gap: 8px;
 }
 
-.pro-custom-email-row {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
 .pro-desc {
   font-size: 11px;
   line-height: 1.4;
@@ -4206,22 +4200,6 @@ input:checked + .slider::before {
   text-align: center;
   padding: 8px 12px;
 }
-
-/* Fallback PIN */
-.pro-pin-fallback {
-  background: var(--surface2);
-  border: 1px dashed var(--border);
-  border-radius: var(--radius);
-  padding: 8px 10px;
-}
-.pro-pin-fallback summary {
-  font-size: 10.5px;
-  color: var(--muted);
-  cursor: pointer;
-  font-weight: 600;
-}
-.pro-pin-fallback summary:hover { color: var(--accent); }
-.pro-pin-fallback[open] summary { color: var(--accent); margin-bottom: 6px; }
 
 .pro-sync-controls.is-locked {
   opacity: 0.6;

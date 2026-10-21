@@ -58,6 +58,7 @@ const testSuites = [
   { name: 'Device Session Security & Anti-Scraping', cmd: 'node tests/test-device-session-security.js' },
   { name: 'Multi-select Status Filter & 2-Second Hover Menu', cmd: 'node tests/test-status-multiselect-and-hover-menu.js' },
   { name: 'Category Hover Popover & In-Place Update', cmd: 'node tests/test-category-hover-menu.js' },
+  { name: 'Dead Code Cleanup & Usability Audit', cmd: 'node tests/test-dead-code-and-usability-audit.js' },
   { name: 'Supabase Feedback SQL Schema & RPC', cmd: 'node tests/test-supabase-feedback-sql.js' },
   { name: 'Feedback Service & Limits Validation', cmd: 'node tests/test-feedback-service.js' },
   { name: 'Popup Feedback UI & Context Flow', cmd: 'node tests/test-popup-feedback-ui.js' },
